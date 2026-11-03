@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "generated_at": "2026-11-03T14:10:00+09:00",
+  "notes": "Directed edges. Alice's view of Emily and Emily's view of Alice are separate rows. Values are 0..1. shared_secret_count increments when a belief is recorded with source_kind=character.",
+  "edges": [
+    { "from": "alice",  "to": "emily",  "trust": 0.82, "closeness": 0.78, "tension": 0.12, "shared_secret_count": 0, "last_interaction": "2026-11-01T19:20:00+09:00" },
+    { "from": "alice",  "to": "sophia", "trust": 0.65, "closeness": 0.50, "tension": 0.20, "shared_secret_count": 0, "last_interaction": "2026-10-28T12:10:00+09:00" },
+    { "from": "alice",  "to": "mia",    "trust": 0.55, "closeness": 0.45, "tension": 0.30, "shared_secret_count": 0, "last_interaction": "2026-10-30T20:05:00+09:00" },
+    { "from": "alice",  "to": "user",   "trust": 0.40, "closeness": 0.35, "tension": 0.00, "shared_secret_count": 0, "last_interaction": "2026-11-02T18:40:00+09:00" },
+
+    { "from": "emily",  "to": "alice",  "trust": 0.85, "closeness": 0.80, "tension": 0.10, "shared_secret_count": 0, "last_interaction": "2026-11-01T19:20:00+09:00" },
+    { "from": "emily",  "to": "sophia", "trust": 0.45, "closeness": 0.35, "tension": 0.45, "shared_secret_count": 0, "last_interaction": "2026-10-28T12:10:00+09:00" },
+    { "from": "emily",  "to": "mia",    "trust": 0.60, "closeness": 0.50, "tension": 0.20, "shared_secret_count": 0, "last_interaction": "2026-10-30T20:05:00+09:00" },
+    { "from": "emily",  "to": "user",   "trust": 0.45, "closeness": 0.40, "tension": 0.00, "shared_secret_count": 0, "last_interaction": "2026-11-02T18:40:00+09:00" },
+
+    { "from": "sophia", "to": "alice",  "trust": 0.70, "closeness": 0.55, "tension": 0.15, "shared_secret_count": 0, "last_interaction": "2026-10-28T12:10:00+09:00" },
+    { "from": "sophia", "to": "emily",  "trust": 0.40, "closeness": 0.30, "tension": 0.50, "shared_secret_count": 0, "last_interaction": "2026-10-28T12:10:00+09:00" },
+    { "from": "sophia", "to": "mia",    "trust": 0.50, "closeness": 0.40, "tension": 0.20, "shared_secret_count": 0, "last_interaction": "2026-10-30T20:05:00+09:00" },
+    { "from": "sophia", "to": "user",   "trust": 0.35, "closeness": 0.30, "tension": 0.00, "shared_secret_count": 0, "last_interaction": "2026-11-02T18:40:00+09:00" },
+
+    { "from": "mia",    "to": "alice",  "trust": 0.60, "closeness": 0.55, "tension": 0.15, "shared_secret_count": 0, "last_interaction": "2026-10-30T20:05:00+09:00" },
+    { "from": "mia",    "to": "emily",  "trust": 0.55, "closeness": 0.50, "tension": 0.25, "shared_secret_count": 0, "last_interaction": "2026-10-30T20:05:00+09:00" },
+    { "from": "mia",    "to": "sophia", "trust": 0.60, "closeness": 0.45, "tension": 0.20, "shared_secret_count": 0, "last_interaction": "2026-10-30T20:05:00+09:00" },
+    { "from": "mia",    "to": "user",   "trust": 0.50, "closeness": 0.45, "tension": 0.00, "shared_secret_count": 0, "last_interaction": "2026-11-02T18:40:00+09:00" }
+  ]
+}

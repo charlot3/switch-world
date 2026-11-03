@@ -1,2 +1,367 @@
 # switch-world
-Switch-native AI social world: a small cast that gossips, remembers, and changes its mind in chat rooms
+
+A **Switch-native AI social world**. Four characters share a group chat, keep private
+memories, and live in a public feed. You can DM any of them, watch them meet, and follow a
+secret as it travels — with provenance for every belief.
+
+> **Demo video:** _to be recorded during the window_ · **Repo:** <https://github.com/charlot3/switch-world>
+
+> **Hackathon entry:** [Flip the Switch](https://www.wemakedevs.org/hackathons/switch)
+> (WeMakeDevs × DevTools Academy × Switch), **Track 2 — Best Personal or Creative Workflow**.
+> **Build window:** 2026-11-04 03:31 JST → 2026-11-08 03:29 JST.
+> **Status:** pre-window scaffold. The Switch integration and world engine are built during
+> the window; the "planned" commands below are the target, not shipped behavior yet.
+
+## Why Switch is core
+
+Switch is not a chat client bolted on. It is the only transport, and the only place the
+world runs:
+
+- each character is a separate **Switch agent** with its own name, working directory,
+  model session and permissions;
+- every surface is a **Switch room** mapped to a Mattermost channel or DM;
+- the director advances the world by posting addressed messages into those rooms;
+- the user talks to a character by opening a Mattermost DM with that character's bot;
+- **stop Switch and the world cannot advance** — no rooms, no sessions, no delivery, and
+  the director's posts fail. The dashboard still renders the last state, which proves it is
+  a read-only projection, not the world.
+
+`docker compose down` is the "remove Switch" test, and the demo shows it.
+
+**Base connector:** character sessions run on **OpenCode** (`opencode`), chosen for
+roleplay quality. Claude Code is the fallback; the switch is a provider change in Console
+and a config-file change in the agent directory.
+
+## The idea
+
+Not a single companion. A small social world: **Alice, Emily, Sophia and Mia** know each
+other, have their own goals, and keep their own memories. The user is a fifth person, not
+the centre of the world.
+
+The core mechanic is the **secret ledger**. Every belief a character holds carries
+provenance: who told them, when, and how confident they are. When two characters meet, each
+decides whether to share what they know. A retelling can gain confidence, lose confidence,
+or drift slightly. The **world feed** shows the public event; the **who-knows-what** panel
+shows the private divergence.
+
+## The task the human and agents get done together
+
+The hackathon asks for a team-chat workflow where at least one agent and one person get a
+real task done together. Here the task is a **collaborative scene with a deliverable**: the
+user acts as showrunner, gives Alice a secret ("I've decided to leave the city at the end of
+the month. I haven't told the others yet."), and the four agents carry it through a day of
+encounters without scripted dialogue. The user can intervene at any point.
+
+The artifact is a **scene card** exported at the end of the beat: the scene summary, who
+knew what and from whom, the confidence divergence, the relationship deltas, and the
+transcript links. The dashboard offers it for download; the director writes it to
+`data/exports/`. That is the "real task" — a scene and its provenance, not just a chat log.
+
+## MCP model
+
+### World engine MCP surface
+
+The world engine is an MCP server because the characters are agents. Each character gets a
+scoped token, and the server decides what it may see — a character cannot read another
+character's private beliefs through the API, even if it asks.
+
+| MCP primitive | In this project |
+| --- | --- |
+| **Server** | `switch-world` — the local world engine |
+| **Transport** | Streamable HTTP at `http://127.0.0.1:8890/mcp` |
+| **Resources** | `world://characters/<id>` · `world://beliefs/<holder>` · `world://relationships/<from>/<to>` · `world://events` |
+| **Tools** | `world__recall` · `world__remember` · `world__relationship` · `world__update_relationship` · `world__record_event` · `world__who_knows` · `world__advance_time` |
+
+Tool surface (intended; built during the window):
+
+| Tool | Caller | What it does |
+| --- | --- | --- |
+| `world__recall(query, limit=8)` | character | the beliefs and relationship facts this character may see, ranked |
+| `world__remember(proposition, source, confidence, visibility, proposition_key?)` | character | write a belief owned by the calling character; source is `user`, `event:<id>`, `character:<id>` or `observation` |
+| `world__relationship(other)` | character | the calling character's view of another character |
+| `world__update_relationship(other, trust_delta, closeness_delta, tension_delta, reason)` | character | adjust the calling character's outgoing edge, clamped to 0..1; appends an event |
+| `world__record_event(kind, summary, participants, visibility)` | character / director | append-only event; returns the event id |
+| `world__who_knows(proposition_key)` | director | the full matrix with provenance; the dashboard reads `GET /api/who-knows/<key>` instead |
+| `world__advance_time(minutes)` | director | moves the world clock and enqueues the next beat |
+
+### Switch usage
+
+| Switch primitive | In this project |
+| --- | --- |
+| **Rooms** | `#world` public channel; a Mattermost DM with each character |
+| **Agents** | `alice`, `emily`, `sophia`, `mia` (OpenCode sessions) + `director` (script) |
+| **Addressing** | channels require `@name`; a one-to-one Mattermost DM reaches the agent without `@` |
+| **Director** | registers with `POST /agents` using a registration key owned by the user; posts via `POST /agents/{id}/message`; reads room history to chain turns |
+| **Remove test** | `docker compose down` → no rooms, sessions, delivery, or beats |
+
+## Cast
+
+| Character | Role | Knows | Wants |
+| --- | --- | --- | --- |
+| **Alice** | bookshop owner, the confidante | everyone's secrets, mostly | to keep the group together |
+| **Emily** | designer, direct and analytical | Alice's recent worry | to be told the truth first |
+| **Sophia** | sociology PhD, the observer | more than she admits | to finish her book without becoming its subject |
+| **Mia** | food-truck owner, the wildcard | the gossip | to be taken seriously |
+
+Full sheets live in [`world/characters/`](world/characters/).
+
+## Rooms
+
+| Surface | Purpose | Membership |
+| --- | --- | --- |
+| `#world` | shared feed and character-to-character scenes; the public surface | user + four characters + director |
+| Mattermost DM with `alice` | private conversation | user + Alice |
+| Mattermost DM with `emily` | private conversation | user + Emily |
+| Mattermost DM with `sophia` | private conversation | user + Sophia |
+| Mattermost DM with `mia` | private conversation | user + Mia |
+
+The collaboration bridge does not create DM channels itself, but a **person can open a
+one-to-one Mattermost DM with the agent's bot account**; Switch then creates a room for it,
+and every message in that DM reaches the agent without `@`. In a public or private
+**channel**, a message must be addressed with `@name`.
+
+The director is a member of `#world` only. It never reads a private DM.
+
+## Architecture
+
+```
+user ── Mattermost channel/DM ── Switch room ── Switch agent (Alice) ── OpenCode session
+                          │                                  │
+                          │                                  ├─ world MCP (scoped token)
+                          │                                  └─ AGENTS.md + IDENTITY.md
+                          ├── Switch agent (Emily) …
+                          │
+                     director (script, Switch agent protocol)
+                          │  posts @alice / @emily scene turns
+                          └─ world engine ── SQLite
+                                   │
+                               dashboard (read-only /api/*)
+```
+
+1. **Switch** — rooms, agents, sessions, message delivery, the Mattermost bridge.
+2. **World engine** — FastAPI + MCP; beliefs, relationships, events and provenance;
+   per-character tokens; the read-only dashboard.
+3. **Director** — a deterministic beat runner; posts scene turns into Switch and reads room
+   history to chain them. The LLM is used for dialogue and social decisions, not scheduling.
+4. **Characters** — four Switch agents on **OpenCode**, each with `AGENTS.md`,
+   `IDENTITY.md`, a generated `opencode.json` pointing at the world engine, and a scoped
+   token.
+5. **Dashboard** — polls the world engine's read-only `/api/*`; never opens SQLite itself.
+
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and [`docs/SWITCH.md`](docs/SWITCH.md).
+
+## Quickstart
+
+> Target commands. They are filled in and tested during the build window. The primary path
+> is a **manually deployed Compose stack**; Console connects to it as an existing server.
+
+### 1. Fetch and start Switch (bundled Mattermost)
+
+```sh
+# list published versions, pick one
+oras repo tags ghcr.io/sandbox-quantum/standalone-compose
+
+# pull the pinned compose artifact into deploy/switch/<tag>
+scripts/fetch-switch.sh <tag>
+
+# copy this repo's env sample, then merge any extra variables from the artifact's sample
+cp .env.example .env
+$EDITOR .env
+
+# --env-file points Compose at the repo .env; -f points it at the fetched artifact
+docker compose --env-file .env -f deploy/switch/<tag>/docker-compose.yml \
+  --profile collab --profile gateway up -d
+```
+
+Required before the first start (the official sample lists the DB variables too):
+
+| Variable | Notes |
+| --- | --- |
+| `SWITCH_VERSION` | pinned tag; standalone compose has no fallback |
+| `ID_SERVER_NAME` | permanent; **cannot be changed later** without orphaning rooms/users |
+| `AGENT_REGISTRATION_TOKEN` | deployment bootstrap key; do **not** use it for the director |
+| `SWITCH_REGISTRATION_KEY` | a registration key created in the Gateway under **your** account; use this for the director |
+| `SECRET_KEYS` | `<id>:<secret>` pairs, current key first, each ≥ 32 chars |
+| `GATEWAY_ADMIN_EMAIL`, `GATEWAY_ADMIN_PASSWORD` | first admin |
+| `DB_USER`, `DB_PASSWORD`, `DB_OWNER_USER`, `DB_OWNER_PASSWORD`, `DB_NAME` | Postgres; the official sample/generator fills these |
+| `MATTERMOST_ADMIN_USER`, `MATTERMOST_ADMIN_PASSWORD`, `MATTERMOST_USER`, `MATTERMOST_USER_PASSWORD` | bundled Mattermost |
+| `GATEWAY_PUBLIC_URL` | public address of the Switch **API** (scheme + host, no path); optional for a local demo |
+
+Defaults bind to `127.0.0.1`. Ports: API `8000`, Gateway `3000`, Mattermost `8065`,
+Postgres `5432`. After changing env, `docker compose restart` is not enough — use `up -d`.
+
+If the artifact does not ship a `.env.example`, start from the official standalone sample
+and run `deploy/local/generate-env-secrets.sh .env <label>` (or `just init-env`) to generate
+the secrets.
+
+### 2. Connect Switch Console to that server
+
+Install Switch Console for macOS, then:
+
+1. **Settings → Agent providers → OpenCode** → run `opencode auth login` → **Recheck**.
+   The status must say **Backend connected**. (Claude Code is the fallback provider.)
+2. **Add a server → Connect to an existing server**:
+   - Gateway URL `http://localhost:3000`
+   - API URL `http://localhost:8000`
+   - the admin email/password from `.env`
+3. When asked to **link your messaging accounts**, choose Mattermost, search for your
+   handle, and select **This is me**. Do not skip this: until it is linked, the agents
+   cannot recognize you and will refuse your messages.
+
+The bundled Mattermost is at `http://localhost:8065`; sign in with `MATTERMOST_USER` /
+`MATTERMOST_USER_PASSWORD`. If bot account creation is disabled, enable it in Mattermost
+(System Console → Integrations → Bot Accounts) before registering agents.
+
+### 3. Create the surfaces
+
+- Create a public Mattermost channel **`world`**; add the user and all four character bot
+  accounts.
+- Open a one-to-one Mattermost DM with each character's bot account (`alice`, `emily`,
+  `sophia`, `mia`). A DM reaches the agent without `@`.
+
+### 4. Register the cast on OpenCode
+
+For each character: **Your Agents → +**, name (`alice`, `emily`, `sophia`, `mia`), run
+location **This computer**, directory `agents/<name>`, provider **OpenCode**, who can talk
+**Only me and my agents**. Invite the agent to `#world`.
+
+Console writes its own files under `.switch/` in the working directory. Generate each
+character's OpenCode config with the world MCP server and that character's literal token:
+
+```sh
+scripts/render-agent-configs.sh
+```
+
+It writes `agents/<name>/opencode.json` (gitignored) from `.env`:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": ["IDENTITY.md"],
+  "mcp": {
+    "world": {
+      "type": "remote",
+      "url": "http://127.0.0.1:8890/mcp",
+      "enabled": true,
+      "headers": { "Authorization": "Bearer <literal character token>" }
+    }
+  }
+}
+```
+
+The token is literal because Switch does not pass the whole shell environment to the
+session. Do not commit `opencode.json`; commit `opencode.json.example`.
+
+**Claude Code fallback:** use `.mcp.json` with the same server and token. See
+[`agents/README.md`](agents/README.md).
+
+### 5. World engine + dashboard
+
+```sh
+cp .env.example .env
+uv run world-engine        # MCP at http://127.0.0.1:8890/mcp, dashboard at /
+```
+
+### 6. Register and invite the director
+
+The director is a script, not a Console agent. Create a **registration key** in the Gateway
+under your account (API Keys → Create registration key), then:
+
+```sh
+curl -sS -X POST "$SWITCH_API/agents" \
+  -H "Authorization: Bearer $SWITCH_REGISTRATION_KEY" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "director",
+    "description": "world clock and scene runner",
+    "connector_type": "custom",
+    "integration_profile": {
+      "connection_model": "session_passive",
+      "message_exchange": true,
+      "pre_invocation_mediation": [],
+      "post_invocation_mediation": [],
+      "event_reporting": []
+    }
+  }'
+# -> {"id":"<director id>","api_key":"<shown once>"}
+```
+
+Store the id and key in `DIRECTOR_AGENT_ID` / `DIRECTOR_API_KEY`. Invite the director to
+`#world` (Console or `!invite-agent @director`). The director must be owned by the same user
+as the characters, or they will refuse its messages.
+
+### 7. Run a beat
+
+```sh
+uv run director --tick     # one beat
+uv run director --loop 60  # a beat every 60s (demo mode)
+```
+
+The director posts addressed scene turns into `#world`, reads the room history to chain
+Alice's reply into Emily's turn, and writes state through the world engine. It never reads a
+private DM.
+
+## Demo
+
+[`docs/DEMO.md`](docs/DEMO.md) has the shot list. The five-minute version:
+
+1. Open **Switch Console**: server status, the four character agent cards, `#world` and the
+   four DMs (the director appears among `#world` participants).
+2. Switch to Mattermost. The director's `--loop` has already fired a beat with no user
+   input; a character is replying.
+3. The user DM's Alice: "I've decided to leave the city at the end of the month. I haven't
+   told the others yet." Alice records it.
+4. The director runs the café scene: Alice and Emily talk; Alice decides whether to share;
+   Emily records what she heard with source and confidence.
+5. The dashboard shows the belief matrix, the provenance chain `user → Alice → Emily`, and
+   the relationship delta.
+6. The director exports the **scene card**; the demo closes on the artifact.
+7. `docker compose down`: the dashboard still renders, but no agent answers and the world
+   cannot advance. `up -d` restores it; refresh the dashboard to show the belief persists.
+
+## Hackathon
+
+| | |
+| --- | --- |
+| Event | Flip the Switch — WeMakeDevs × DevTools Academy × Switch |
+| Track | 2 — Best Personal or Creative Workflow ($2,000) |
+| Deadline | **2026-11-08 03:29 JST** (2026-11-07 23:59 IST) |
+| Internal target | submit the evening of Nov 7 |
+| Deliverables | GitHub repo, demo video, README explaining Switch usage |
+| Demo video | _to be recorded_ |
+| Judging | use of Switch · technical execution · creativity/impact · presentation |
+
+The official brief also requires **one human + at least one AI agent + a real task**. That is
+the scene card above: the user and the cast co-produce a scene and its provenance artifact.
+
+[`docs/SUBMISSION.md`](docs/SUBMISSION.md) is the checklist.
+
+## Repo layout
+
+| Path | Purpose |
+| --- | --- |
+| `world/characters/` | the four character sheets |
+| `world/state/` | seed relationship graph and beliefs |
+| `world/rooms.json` | surface ↔ character ↔ channel/DM mapping |
+| `agents/<name>/` | per-character working directories: `AGENTS.md`, `IDENTITY.md`, generated `opencode.json` |
+| `mcp/` | the world engine's MCP tool surface |
+| `director/` | the beat runner |
+| `scripts/fetch-switch.sh` | pull the pinned Switch compose artifact |
+| `scripts/render-agent-configs.sh` | write each agent's OpenCode config with its token |
+| `docs/` | proposal, requirements, architecture, Switch setup, demo, decisions, submission |
+
+## Honest scope
+
+The demo proves **one mechanic**: a secret moves through a small cast, and the UI can point
+at the belief and its provenance that caused the change. The world is text-first. No 3D,
+no image generation, no voice, no endless autonomous loop. Four characters, one simulated
+day, on-demand beats.
+
+## Sources
+
+- Inbox proposal: `hackathon-idea-ai-social-life-simulator-20261103.md`
+- Inbox requirements: `flip-the-switch-requirements-20261103.md`
+- Switch docs: <https://docs.switchagents.ai/>
+- Switch repo: <https://github.com/sandbox-quantum/switch>
+- OpenCode MCP: <https://opencode.ai/docs/mcp-servers/>
+- OpenCode config: <https://opencode.ai/docs/config/>

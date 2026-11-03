@@ -1,0 +1,35 @@
+.env
+.env.*
+!.env.example
+
+# Switch Console writes credentials/settings here
+.switch/
+
+# Generated per-agent configs contain literal tokens
+agents/*/opencode.json
+agents/*/.mcp.json
+
+# Fetched Switch compose artifact
+deploy/switch/
+
+# world engine state, exports and logs
+data/
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+logs/
+
+# python
+.venv/
+__pycache__/
+*.pyc
+
+# node (dashboard build, if any)
+node_modules/
+
+# recordings and local scratch
+recordings/
+scratch/
+
+# macOS
+.DS_Store

@@ -1,0 +1,119 @@
+# Decisions
+
+Append-only. Newest last. A decision record is for *why*, not for a changelog.
+
+## 2026-11-03 — Switch is the core, not an integration
+
+The hackathon's first judging criterion is "Use of Switch: would the project stop without
+it?" A chat UI with a Switch adapter would fail that test and would also be the most
+crowded version of the idea. We invert it: every character is a Switch agent, every surface
+is a Switch room, and the director advances the world by addressing characters in chat. The
+`docker compose down` test is now a product property, not a claim.
+
+**Ruled out:** a web app with a Switch notification bridge; a single agent with multiple
+personas; a Discord bot with a custom transport.
+
+## 2026-11-03 — OpenCode is the base connector for character sessions
+
+OpenCode's roleplay behavior is better than the alternatives for a four-character scene, and
+it reads a project `opencode.json` from the agent's working directory. Character sessions
+therefore run on **OpenCode** (`opencode auth login`, provider **Backend connected**).
+Claude Code remains the fallback: same world MCP server, `.mcp.json` instead of
+`opencode.json`, and `mcp__world` added to the allow list if auto mode prompts.
+
+**Ruled out:** using Claude Code as the default and OpenCode as the experiment; a mixed
+provider cast (the prompt and memory behavior would diverge).
+
+## 2026-11-03 — Original, SFW cast; no reuse of the existing character cards
+
+The machine has nine character cards and voice presets, but most are adult-oriented and
+bound to a single-user romantic frame. A public hackathon demo needs a cast that is
+original, unambiguous and safe to show. We write four new characters — Alice, Emily,
+Sophia, Mia — with non-romantic stakes and relationships that exclude the user. This also
+keeps the submission's IP clean.
+
+**Ruled out:** reusing `~/.agents/skills/characters/*`; voice cloning; generated portraits.
+
+## 2026-11-03 — Text-first; cut image, voice and 3D
+
+Image and voice generation are the expensive, commoditized half of the idea, and this box
+serialises GPU work (~100–150 s per render) through one worker. The differentiator is
+information flow, not media. The demo is text and a dashboard. This keeps the build inside
+four days and the demo reproducible on a judge's laptop.
+
+**Ruled out:** Z-Image portraits, GPT-SoVITS lines, sprite-map worlds, a 3D world.
+
+## 2026-11-03 — One mechanic: the secret ledger
+
+"AI characters with lives and a feed" is table stakes. The one thing the demo can prove
+that a chat app cannot is **provenance**: who knows what, who told them, how confident they
+are, and which belief changed a relationship. Every other feature is subordinate to that.
+
+**Cut:** free-roaming schedules, a large cast, a real-time clock, open-ended emergence.
+
+## 2026-11-03 — Deterministic director, LLM only for dialogue
+
+The world clock, beat order, room choice and turn-taking are a Python script. The model
+decides what a character says and whether to disclose. This gives deterministic demos,
+bounded cost and no double-fired scenes. Authored beats, model performance.
+
+**Ruled out:** an LLM scheduler; a fully autonomous agent loop; background ticks with no
+budget.
+
+## 2026-11-03 — Real Mattermost DMs for private conversations
+
+The collaboration bridge does not create DM channels itself, but a person can open a
+one-to-one Mattermost DM with an agent's bot account; Switch creates a room and every message
+reaches the agent without `@`. That is a better demo than a private channel with an `@` on
+every line. `#world` is a public channel and still requires `@name`. The director is a member
+of `#world` only and never reads a DM.
+
+**Ruled out:** private channels as DMs; adding the director to every DM.
+
+## 2026-11-03 — The world engine is a scoped MCP server
+
+Characters are agents; a tool surface is how they read and write state. A per-character
+bearer token maps to a character id on the server, and the server ignores any character id
+in the arguments. This makes "Alice knows something Emily does not" an API property, not a
+prompt promise. It also gives the project an MCP-shaped README, consistent with the hub.
+
+**Also:** the token is written **literally** into the generated `opencode.json`, because
+Switch passes only a fixed set of environment variables to the session; an environment
+reference would be empty and every world call would 401.
+
+## 2026-11-03 — The director registers with a user-owned registration key
+
+`POST /agents/register-known` is for Console-run agent types only; a script must use
+`POST /agents` with `name`, `description`, `connector_type` and `integration_profile`. The
+bearer credential is a **registration key created in the Gateway under the user's account**,
+not the deployment bootstrap token: an agent registered with the bootstrap token belongs to a
+separate account, and the characters will refuse its messages. The director is invited to
+`#world` and never to a DM.
+
+## 2026-11-03 — A relationship write tool, and a scene-card artifact
+
+The demo needs a visible relationship delta and a deliverable for the "one human + one agent
++ a real task" requirement. Two additions follow:
+
+- `world__update_relationship` writes the calling character's outgoing edge, clamps to
+  0..1, and appends an event with the delta and the reason.
+- The director exports a **scene card** after the café beat: summary, who knew what, source,
+  confidence, relationship deltas, transcript links. That is the artifact the user and the
+  agents produced together.
+
+## 2026-11-03 — Repo is private during the build, public before submission
+
+`scripts/subs new` defaults to private, and the build is not finished. The hackathon needs a
+GitHub repo the judges can open. Before submitting:
+
+```sh
+gh repo edit charlot3/switch-world --visibility public --accept-visibility-change-consequences
+```
+
+Do this only after the demo video and README are ready, and after checking for secrets.
+
+## 2026-11-03 — The scaffold is pre-window design, not the build
+
+The hackathon requires the Switch setup and the workflow to be built during the window. The
+Nov 3 commit is docs, schemas and seed data. The first code/Switch-integration commit comes
+after **2026-11-04 03:31 JST**. Keep the build log; never present the scaffold as the build.

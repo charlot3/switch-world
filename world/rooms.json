@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "notes": "One surface per Switch room. 'world' is a public Mattermost channel and requires @name. 'dm-*' are one-to-one Mattermost DMs opened by the user with the agent's bot account; every message reaches the agent without @. The director belongs to #world only and never to a DM. room_id is filled in after Switch creates the room.",
+  "rooms": {
+    "world": {
+      "kind": "channel",
+      "channel": "world",
+      "room_id": null,
+      "members": ["user", "alice", "emily", "sophia", "mia", "director"],
+      "purpose": "shared feed and character-to-character scenes"
+    },
+    "dm-alice": {
+      "kind": "dm",
+      "channel": null,
+      "room_id": null,
+      "members": ["user", "alice"],
+      "purpose": "one-to-one Mattermost DM; no @ needed"
+    },
+    "dm-emily": {
+      "kind": "dm",
+      "channel": null,
+      "room_id": null,
+      "members": ["user", "emily"],
+      "purpose": "one-to-one Mattermost DM; no @ needed"
+    },
+    "dm-sophia": {
+      "kind": "dm",
+      "channel": null,
+      "room_id": null,
+      "members": ["user", "sophia"],
+      "purpose": "one-to-one Mattermost DM; no @ needed"
+    },
+    "dm-mia": {
+      "kind": "dm",
+      "channel": null,
+      "room_id": null,
+      "members": ["user", "mia"],
+      "purpose": "one-to-one Mattermost DM; no @ needed"
+    }
+  }
+}

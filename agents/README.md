@@ -1,15 +1,19 @@
 # Agents
 
-One working directory per Switch agent. **OpenCode is the base connector** for character
-sessions; Claude Code is the fallback. Switch Console creates and manages the `.switch/`
-subdirectory; the rest is ours.
+One working directory per Switch agent. **OpenCode is the preferred connector** for
+character sessions; Claude Code is the fallback. The live local integration currently runs
+Claude Code because Console 0.40.1's OpenCode readiness check is blocked (see
+`docs/DECISIONS.md`). Switch Console creates and manages the `.switch/` subdirectory; the
+rest is ours.
 
 ```
 agents/
   alice/
-    AGENTS.md       operating rules; OpenCode loads it automatically
+    AGENTS.md       operating rules
     IDENTITY.md     the persona (Alice)
-    opencode.json   generated: world MCP server + Alice's literal token (gitignored)
+    CLAUDE.md       generated fallback: persona + rules for Claude Code
+    opencode.json   generated preferred: world MCP server + model + token (gitignored)
+    .mcp.json       generated fallback: world MCP server + token (gitignored)
     .switch/        Console-managed credentials/settings (gitignored)
   emily/
   sophia/
@@ -56,6 +60,10 @@ shared [`opencode.json.example`](opencode.json.example) is committed.
 
 OpenCode loads `AGENTS.md` automatically and the `instructions` field adds `IDENTITY.md`.
 Use `AGENTS.md` for the operating rules and `IDENTITY.md` for the persona.
+
+**Live fallback:** `scripts/render-claude-configs.sh` writes `CLAUDE.md` (rules + persona)
+and `.mcp.json` (world MCP + literal token) for Claude Code. This is the path the live
+local integration currently uses.
 
 Pin the roleplay model you use in `opencode.json` (`"model": "<provider>/<model>"`) and keep
 it identical across the four characters. A mixed cast drifts: the same confidence language

@@ -12,7 +12,8 @@ human + at least one AI agent + a real task; the scene card is that task's deliv
 
 - [ ] Switch up: `docker compose --profile collab --profile gateway ps` shows API, gateway,
       Mattermost healthy.
-- [ ] Switch Console connected; **OpenCode** provider shows **Backend connected**.
+- [ ] Switch Console connected; **Claude Code** provider shows **Signed in** (OpenCode is
+the preferred connector; Console 0.40.1's check is blocked, so the live cast uses Claude Code).
 - [ ] Five agents registered: `alice`, `emily`, `sophia`, `mia`, `director`.
 - [ ] `#world` public channel with the user and the four character bots; four one-to-one
       Mattermost DMs opened.
@@ -34,7 +35,7 @@ Open **Switch Console**, not Mattermost first. Show:
 
 - the server status;
 - the four character agent cards (`alice`, `emily`, `sophia`, `mia`) with their working
-  directories and **OpenCode** provider, and the `director` among `#world` participants;
+  directories and the live provider, and the `director` among `#world` participants;
 - `#world` and the four DM rooms.
 
 Cut to Mattermost. A beat has already fired with no user input; a character is replying.
@@ -132,7 +133,8 @@ Refresh the dashboard: Emily's 0.80 belief and the relationship delta are still 
 
 Show the README's **Why Switch is core** and **MCP model** sections, and the repo URL.
 
-> "Four characters, one secret, provenance all the way down, built on Switch and OpenCode."
+> "Four characters, one secret, provenance all the way down — built on Switch, with the
+> world engine and MCP layer provider-agnostic."
 
 ## Recording notes
 

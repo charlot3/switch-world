@@ -130,3 +130,17 @@ The local beat uses **authored dialogue**, not OpenCode sessions. It exercises t
 state writes the Switch-driven director will make, so swapping the transport is the only
 remaining variable. Do not describe the local harness as the Switch demo; the submission
 video still needs Switch rooms and real agent sessions.
+
+## 2026-11-03 — Live local integration uses Claude Code while Console's OpenCode check is broken
+
+Docker Desktop 29.9.2 + self-hosted Switch 0.31.0 + Switch Console 0.40.1. The four
+characters are registered with the **Claude Code** provider, which Console verifies as
+signed in. They are in the bridged `#world` Mattermost channel; a message there reaches
+Alice, who calls `world__recall` and answers in character (13 s, 3 tool calls).
+
+OpenCode remains the preferred connector. Console's `checkOpencodeSignIn` starts a temporary
+OpenCode server with a temporary `XDG_CONFIG_HOME` and requires `/provider` to report a
+connected backend. In this environment it returns "Could not verify authentication", and a
+session against the stale shared SDK host (`127.0.0.1:51055`) failed with "server did not
+start within 60000ms". The world engine and MCP tools are provider-agnostic; switching back
+is the provider card plus `scripts/render-agent-configs.sh`.

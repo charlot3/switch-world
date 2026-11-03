@@ -9,11 +9,38 @@ secret as it travels — with provenance for every belief.
 > **Hackathon entry:** [Flip the Switch](https://www.wemakedevs.org/hackathons/switch)
 > (WeMakeDevs × DevTools Academy × Switch), **Track 2 — Best Personal or Creative Workflow**.
 > **Build window:** 2026-11-04 03:31 JST → 2026-11-08 03:29 JST.
-> **Status:** local prototype. The world engine, dashboard and deterministic café beat are
-> runnable now; the Switch/OpenCode transport is the next step. The submission path still
-> centers Switch.
+> **Status:** live local integration. Docker Desktop runs Switch 0.31.0; Switch Console
+> 0.40.1 is signed in; four agents are in the bridged `#world` Mattermost channel and answer
+> through the world MCP server. OpenCode configs are ready; the live cast uses the Claude
+> Code fallback while Console's OpenCode check is broken (see `docs/DECISIONS.md`).
 
 ![The dashboard in the local prototype: the secret has reached Emily at 0.80 confidence.](docs/dashboard.png)
+
+## Live local setup (2026-11-03)
+
+| Service | URL |
+| --- | --- |
+| Mattermost | <http://localhost:8065> |
+| Switch Gateway | <http://localhost:3000> |
+| Switch API | <http://localhost:8000> |
+| World engine | <http://127.0.0.1:8890> |
+
+The four characters (`alice`, `emily`, `sophia`, `mia`) are in the `#world` Mattermost
+channel, which is bridged to the Switch room `world`. Send `@alice …` in `#world` and she
+answers in character. The admin account is `admin@switch.local`; the generated passwords are
+in `.env`.
+
+```sh
+# Switch stack (Docker Desktop must be running)
+docker compose --env-file .env -f deploy/switch/0.31.0/standalone-docker-compose.yml \
+  --profile collab --profile gateway up -d
+
+# World engine (MCP + dashboard)
+uv run --env-file .env world-engine
+```
+
+The live agents use `agents/<name>/CLAUDE.md` and `.mcp.json` (the Claude Code fallback).
+The OpenCode configs remain at `agents/<name>/opencode.json` for the preferred path.
 
 ## Why Switch is core
 
@@ -61,9 +88,11 @@ The same tools are on the MCP endpoint, scoped per character:
 # Tokens are dev-alice / dev-emily / ... until .env overrides them.
 ```
 
-**Base connector:** character sessions run on **OpenCode** (`opencode`), chosen for
-roleplay quality. Claude Code is the fallback; the switch is a provider change in Console
-and a config-file change in the agent directory.
+**Base connector:** **OpenCode** is the preferred connector, chosen for roleplay quality,
+and its configs are generated for every character. In the live local setup, Switch Console
+0.40.1's OpenCode readiness check fails against its shared SDK host, so the cast runs on the
+documented **Claude Code** fallback. The world engine and MCP surface are provider-agnostic;
+switching back is a provider card plus a config change.
 
 ## The idea
 
@@ -234,6 +263,8 @@ Install Switch Console for macOS, then:
 
 1. **Settings → Agent providers → OpenCode** → run `opencode auth login` → **Recheck**.
    The status must say **Backend connected**. (Claude Code is the fallback provider.)
+   **In this environment, choose Claude Code (Signed in)**: Console 0.40.1's OpenCode
+   check currently fails against its shared SDK host; see `docs/DECISIONS.md`.
 2. **Add a server → Connect to an existing server**:
    - Gateway URL `http://localhost:3000`
    - API URL `http://localhost:8000`
@@ -380,11 +411,12 @@ the scene card above: the user and the cast co-produce a scene and its provenanc
 | `world_engine/` | FastAPI + SQLite + MCP world engine, token scoping, scene card |
 | `web/` | the vanilla dashboard (belief matrix, relationships, feed, dev harness) |
 | `tests/` | pytest for the service, API and café beat |
-| `agents/<name>/` | per-character working directories: `AGENTS.md`, `IDENTITY.md`, generated `opencode.json` |
+| `agents/<name>/` | per-character working directories: `AGENTS.md`, `IDENTITY.md`, `CLAUDE.md`, generated `opencode.json` / `.mcp.json` |
 | `mcp/` | the world engine's MCP tool surface (design notes) |
 | `director/` | the beat runner and the local café simulation |
 | `scripts/fetch-switch.sh` | pull the pinned Switch compose artifact |
 | `scripts/render-agent-configs.sh` | write each agent's OpenCode config with its token |
+| `scripts/render-claude-configs.sh` | write each agent's Claude Code `CLAUDE.md` and `.mcp.json` |
 | `docs/` | proposal, requirements, architecture, Switch setup, demo, decisions, submission |
 | `pyproject.toml` / `uv.lock` | dependencies and the pinned environment |
 

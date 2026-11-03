@@ -97,9 +97,11 @@ code {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  flex-wrap: wrap;
 }
 
-.brand { display: flex; align-items: center; gap: 12px; }
+.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.brand > div { min-width: 0; }
 
 .brand-mark {
   width: 34px; height: 34px;
@@ -124,7 +126,7 @@ h1 {
   color: var(--muted);
 }
 
-.top-actions { display: flex; align-items: center; gap: 8px; }
+.top-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
 main {
   max-width: 1280px;
@@ -349,6 +351,7 @@ h2 {
 
 .table-scroll {
   overflow-x: auto;
+  max-width: 100%;
   padding-bottom: 4px;
 }
 
@@ -453,6 +456,8 @@ h2 {
   color: var(--muted);
   max-width: 80ch;
 }
+
+.mobile-hint { display: none; }
 
 /* ---- relationships ---------------------------------------------------- */
 
@@ -801,17 +806,21 @@ a:focus-visible {
 
 @media (max-width: 980px) {
   .hero { grid-template-columns: 1fr; }
-  .grid, .grid-bottom { grid-template-columns: 1fr; }
+  .grid, .grid-bottom { grid-template-columns: minmax(0, 1fr); }
   .matrix th:first-child { width: 40%; }
 }
 
 @media (max-width: 620px) {
   .topbar, main { padding-left: 14px; padding-right: 14px; }
+  .topbar { align-items: flex-start; }
+  .brand-sub { max-width: 42ch; }
   .card { padding: 16px; border-radius: 12px; }
   .hero { padding: 18px; }
   .hero-figure { font-size: 52px; }
   .kpis { grid-template-columns: 1fr 1fr; }
+  .matrix { min-width: 560px; }
   .matrix td { min-width: 78px; }
+  .mobile-hint { display: block; margin-top: 4px; }
   .footer { flex-direction: column; gap: 4px; }
 }
 

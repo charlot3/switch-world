@@ -13,6 +13,8 @@ secret as it travels — with provenance for every belief.
 > runnable now; the Switch/OpenCode transport is the next step. The submission path still
 > centers Switch.
 
+![The dashboard in the local prototype: the secret has reached Emily at 0.80 confidence.](docs/dashboard.png)
+
 ## Why Switch is core
 
 Switch is not a chat client bolted on. It is the only transport, and the only place the

@@ -7,8 +7,14 @@ const SEQ_STEPS = 5;
 
 const state = {
   data: null,
-  theme: readTheme(),
+  theme: initialTheme(),
 };
+
+function initialTheme() {
+  const param = new URLSearchParams(location.search).get("theme");
+  if (param === "light" || param === "dark") return param;
+  return readTheme();
+}
 
 function readTheme() {
   try {

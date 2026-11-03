@@ -1,5 +1,9 @@
 # Demo — 5 minutes
 
+> This is the **submission demo** and requires Switch. For the local prototype, run
+> `uv run world-engine` and use the dashboard's **Dev harness** (Tell Alice → Run café
+> beat); it exercises the same state writes but not Switch.
+
 The demo must prove four things in this order: **Switch is the world**, **a secret moves**,
 **the UI shows why**, and **the artifact persists**. The official brief also requires one
 human + at least one AI agent + a real task; the scene card is that task's deliverable.

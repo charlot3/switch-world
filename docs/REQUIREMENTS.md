@@ -71,8 +71,9 @@ Academy and WeMakeDevs.
   and the agents made together.
 - **Why it fits:** the product *is* a group chat; Switch is the rooms, the agents and the
   delivery, not an add-on.
-- **Build rhythm:** Nov 4 — Switch + Mattermost + OpenCode + first agent + director
-  ownership spike; Nov 5 — four characters + world engine + secret ledger; Nov 6 — director
-  beats + dashboard + scene card + demo; Nov 7 — record, README, submit.
+- **Build rhythm:** Nov 3 (owner-authorized prototype) — world engine, dashboard, local café
+  beat; Nov 4 — Switch + Mattermost + OpenCode + first agent + director ownership spike;
+  Nov 5 — four characters + world engine integration; Nov 6 — director beats + dashboard +
+  scene card + demo; Nov 7 — record, README, submit.
 
 Source for the official rules: <https://www.wemakedevs.org/hackathons/switch>.

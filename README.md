@@ -9,8 +9,9 @@ secret as it travels — with provenance for every belief.
 > **Hackathon entry:** [Flip the Switch](https://www.wemakedevs.org/hackathons/switch)
 > (WeMakeDevs × DevTools Academy × Switch), **Track 2 — Best Personal or Creative Workflow**.
 > **Build window:** 2026-11-04 03:31 JST → 2026-11-08 03:29 JST.
-> **Status:** pre-window scaffold. The Switch integration and world engine are built during
-> the window; the "planned" commands below are the target, not shipped behavior yet.
+> **Status:** local prototype. The world engine, dashboard and deterministic café beat are
+> runnable now; the Switch/OpenCode transport is the next step. The submission path still
+> centers Switch.
 
 ## Why Switch is core
 
@@ -27,6 +28,36 @@ world runs:
   a read-only projection, not the world.
 
 `docker compose down` is the "remove Switch" test, and the demo shows it.
+
+## Run the local prototype
+
+The world engine, dashboard and café beat work without Switch. This is the dev harness;
+the Switch rooms below are the submission path.
+
+```sh
+uv sync
+uv run world-engine        # dashboard http://127.0.0.1:8890 · MCP http://127.0.0.1:8890/mcp
+```
+
+In a second terminal, or from the dashboard's **Dev harness**:
+
+```sh
+uv run director --reset
+uv run director --tell-alice   # the user's DM to Alice
+uv run director --simulate     # the café beat + scene card
+uv run director --status       # the belief matrix
+```
+
+The dashboard has **Tell Alice**, **Run café beat** and **Reset world** buttons. After the
+beat, the hero reads `2 of 4 know`, the matrix shows Alice 1.00 (user) and Emily 0.80
+(alice), and the scene card is downloadable.
+
+The same tools are on the MCP endpoint, scoped per character:
+
+```sh
+# Alice's token can recall her own private belief; Emily's cannot.
+# Tokens are dev-alice / dev-emily / ... until .env overrides them.
+```
 
 **Base connector:** character sessions run on **OpenCode** (`opencode`), chosen for
 roleplay quality. Claude Code is the fallback; the switch is a provider change in Console
@@ -72,7 +103,7 @@ character's private beliefs through the API, even if it asks.
 | **Resources** | `world://characters/<id>` · `world://beliefs/<holder>` · `world://relationships/<from>/<to>` · `world://events` |
 | **Tools** | `world__recall` · `world__remember` · `world__relationship` · `world__update_relationship` · `world__record_event` · `world__who_knows` · `world__advance_time` |
 
-Tool surface (intended; built during the window):
+Tool surface (implemented in [`world_engine/mcp_server.py`](world_engine/mcp_server.py)):
 
 | Tool | Caller | What it does |
 | --- | --- | --- |
@@ -152,8 +183,9 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and [`docs/SWITCH.md`](docs/S
 
 ## Quickstart
 
-> Target commands. They are filled in and tested during the build window. The primary path
-> is a **manually deployed Compose stack**; Console connects to it as an existing server.
+> The local prototype above runs without Switch. The Switch path below is the submission
+> path and the next build step. The primary deployment is a **manually deployed Compose
+> stack**; Console connects to it as an existing server.
 
 ### 1. Fetch and start Switch (bundled Mattermost)
 
@@ -341,14 +373,18 @@ the scene card above: the user and the cast co-produce a scene and its provenanc
 | Path | Purpose |
 | --- | --- |
 | `world/characters/` | the four character sheets |
-| `world/state/` | seed relationship graph and beliefs |
+| `world/state/` | seed characters, relationship graph and beliefs |
 | `world/rooms.json` | surface ↔ character ↔ channel/DM mapping |
+| `world_engine/` | FastAPI + SQLite + MCP world engine, token scoping, scene card |
+| `web/` | the vanilla dashboard (belief matrix, relationships, feed, dev harness) |
+| `tests/` | pytest for the service, API and café beat |
 | `agents/<name>/` | per-character working directories: `AGENTS.md`, `IDENTITY.md`, generated `opencode.json` |
-| `mcp/` | the world engine's MCP tool surface |
-| `director/` | the beat runner |
+| `mcp/` | the world engine's MCP tool surface (design notes) |
+| `director/` | the beat runner and the local café simulation |
 | `scripts/fetch-switch.sh` | pull the pinned Switch compose artifact |
 | `scripts/render-agent-configs.sh` | write each agent's OpenCode config with its token |
 | `docs/` | proposal, requirements, architecture, Switch setup, demo, decisions, submission |
+| `pyproject.toml` / `uv.lock` | dependencies and the pinned environment |
 
 ## Honest scope
 
@@ -356,6 +392,9 @@ The demo proves **one mechanic**: a secret moves through a small cast, and the U
 at the belief and its provenance that caused the change. The world is text-first. No 3D,
 no image generation, no voice, no endless autonomous loop. Four characters, one simulated
 day, on-demand beats.
+
+The local café beat uses authored dialogue. The production beat uses OpenCode sessions in
+Switch rooms; swapping the transport is the next step, and the state writes are the same.
 
 ## Sources
 

@@ -202,6 +202,26 @@ Emily ──world__recall() includes the belief and the changed relationship─�
 - A general agent framework.
 - Public multi-user signup.
 
+## Prototype status (2026-11-03)
+
+Runnable now, no Switch required:
+
+- **World engine** (`world_engine/`): SQLite schema, seed loader, the seven MCP tools with
+  token scoping, the REST/dashboard API, and the scene-card export.
+- **Dashboard** (`web/`): the belief matrix with provenance tooltips, directed relationship
+  bars with a table view, the event feed, and the dev harness (Tell Alice / Run café beat /
+  Reset).
+- **Local café beat** (`director/simulate.py`): authored dialogue that exercises the same
+  state writes as the Switch-driven director.
+- **Tests** (`tests/`): `uv run pytest` covers the service, the API and the beat.
+
+Next (the Switch path):
+
+1. Switch up + Mattermost + one OpenCode agent replies in a room (the hard requirement).
+2. Register the other three characters; invite all four to `#world`; open DMs.
+3. Swap the local transport for the director's Switch message/history calls.
+4. Record the demo; polish the README.
+
 ## Build order
 
 1. Switch up + Mattermost + one OpenCode agent replies in a room (the hard requirement).

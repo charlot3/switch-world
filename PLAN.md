@@ -1,8 +1,10 @@
 # Build plan
 
-**Current state (2026-11-03 14:10 JST):** pre-window scaffold. The hackathon build window
-opens **2026-11-04 03:31 JST**; the Switch integration and the world engine are built inside
-it.
+**Current state (2026-11-03 15:50 JST):** local prototype. The world engine, dashboard and
+deterministic café beat are implemented and tested; the Switch/OpenCode transport is next.
+The owner explicitly authorized pre-window prototyping ("just do whatever you want
+regardless the build time"); the Switch integration and the submission build remain
+scheduled for the window.
 
 ## Rule we are respecting
 
@@ -10,11 +12,9 @@ it.
 > 2026-11-07 23:59 IST. Existing agents, libraries and templates may be used, but the
 > Switch integration and the workflow itself must be built during the event."
 
-Nov 3 is for planning, repo setup, reading the Switch docs, and fixing the scaffold. No
-Switch wiring, no world-engine code, no agent sessions until the window opens. The scaffold
-includes schemas and pseudocode; commit it as **"docs: pre-window design and seed
-templates"**, not as the build. The first code/Switch-integration commit comes after the
-window opens.
+The owner's authorization covers the non-Switch prototype: world engine, dashboard and
+local director. The Switch setup and agent sessions are still the in-window work. Keep a
+build log so the submission can distinguish the prototype from the Switch integration.
 
 ## Day 0 — Nov 3
 
@@ -26,9 +26,13 @@ window opens.
 - [x] Apply the adversarial review fixes: `POST /agents`, user-owned registration key,
       OpenCode config with literal tokens, one deployment path, DB secrets, relationship
       write tool, `proposition_key`, real DMs, scene card.
-- [ ] Commit the scaffold as a pre-window design snapshot; do not call it the build.
-- [ ] Pre-read the Switch quickstart, self-host and agent-protocol pages; install Docker,
-      Console, OpenCode, `oras`.
+- [x] World engine: SQLite schema, seed loader, seven MCP tools, token scoping, REST API,
+      scene-card export (`world_engine/`).
+- [x] Dashboard: belief matrix with provenance tooltips, relationship bars, event feed,
+      dev harness (`web/`).
+- [x] Local café beat and tests (`director/simulate.py`, `tests/`); `uv run pytest` green.
+- [ ] Switch integration (Day 1).
+- [ ] Commit the prototype.
 
 **Acceptance:** a reviewer can read the README and explain the product and why Switch is
 core, without any code running.

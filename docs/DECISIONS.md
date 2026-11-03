@@ -115,5 +115,18 @@ Do this only after the demo video and README are ready, and after checking for s
 ## 2026-11-03 — The scaffold is pre-window design, not the build
 
 The hackathon requires the Switch setup and the workflow to be built during the window. The
-Nov 3 commit is docs, schemas and seed data. The first code/Switch-integration commit comes
-after **2026-11-04 03:31 JST**. Keep the build log; never present the scaffold as the build.
+Nov 3 scaffold commit is docs, schemas and seed data. The first **Switch-integration** commit
+comes after **2026-11-04 03:31 JST**. Keep the build log; never present the scaffold as the
+build.
+
+## 2026-11-03 — Owner authorized a pre-window prototype
+
+The owner said to start prototypes regardless of the build window. The prototype covers the
+non-Switch parts: the world engine (SQLite + MCP + REST + token scoping), the dashboard, the
+local café beat, and the tests. The Switch integration and the submission build remain
+scheduled for the window; the build log distinguishes the prototype from the in-window work.
+
+The local beat uses **authored dialogue**, not OpenCode sessions. It exercises the same
+state writes the Switch-driven director will make, so swapping the transport is the only
+remaining variable. Do not describe the local harness as the Switch demo; the submission
+video still needs Switch rooms and real agent sessions.

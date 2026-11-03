@@ -1,0 +1,32 @@
+{
+  "characters": [
+    {
+      "id": "alice",
+      "name": "Alice Moreau",
+      "role": "bookshop owner; the confidante",
+      "goals": "keep the group together; save the bookshop",
+      "voice": "warm, unhurried, asks a second question before answering the first"
+    },
+    {
+      "id": "emily",
+      "name": "Emily Park",
+      "role": "product designer; direct, analytical",
+      "goals": "be told the truth first; get the promotion",
+      "voice": "short sentences, precise, asks the question everyone is avoiding"
+    },
+    {
+      "id": "sophia",
+      "name": "Sophia Adeyemi",
+      "role": "sociology PhD; the observer",
+      "goals": "finish the book; stay outside the story",
+      "voice": "dry, measured, asks the question that makes the room go quiet"
+    },
+    {
+      "id": "mia",
+      "name": "Mia Rossi",
+      "role": "food-truck owner; the wildcard",
+      "goals": "be taken seriously; keep the truck afloat",
+      "voice": "fast, funny, says the thing everyone is thinking"
+    }
+  ]
+}

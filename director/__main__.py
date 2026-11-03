@@ -36,7 +36,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--key", default=DEMO_KEY, help="the proposition_key for the secret")
     parser.add_argument("--reset", action="store_true", help="re-seed the world")
     parser.add_argument("--status", action="store_true", help="print the clock and matrix")
-    parser.add_argument("--switch", action="store_true", help="real Switch transport (not wired yet)")
+    parser.add_argument("--switch", action="store_true", help="run the live Switch café beat")
+    parser.add_argument("--room", default="world", help="Switch room name for the live beat")
+    parser.add_argument("--timeout", type=float, default=90.0, help="seconds to wait for each reply")
     args = parser.parse_args(argv)
 
     service = WorldService()
@@ -50,13 +52,18 @@ def main(argv: list[str] | None = None) -> int:
     if args.status:
         _status(service)
     if args.switch:
-        print(
-            "The Switch transport is documented in docs/SWITCH.md. It posts through "
-            "POST /agents/{director_id}/message and reads GET /agents/{id}/rooms/{room}/history. "
-            "This prototype runs the same state machine locally with --simulate.",
-            file=sys.stderr,
-        )
-        return 2
+        from .run_switch import run_cafe_switch
+
+        try:
+            result = run_cafe_switch(room_name=args.room, timeout=args.timeout)
+        except Exception as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        print("Alice:", result["alice"])
+        print("Emily:", result["emily"])
+        print("room:", result["room"]["room_id"])
+        print("scene card:", result["card"]["path"])
+        return 0
 
     if args.simulate or not any(
         [args.reset, args.tell_alice, args.status, args.switch]

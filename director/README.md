@@ -13,12 +13,28 @@ it does not run an OpenCode or Claude session.
 
 This is "authored beats, model performance."
 
-## Registration and ownership
+## Live path (Console-managed)
 
-The director registers once with `POST /agents` using a **registration key created in the
-Gateway under the user's account** — not the deployment bootstrap token. An agent registered
-with the bootstrap token belongs to a separate account, and the characters will refuse its
-messages.
+The live director is a Console-managed Switch agent named `director`, owned by the user and
+added to `#world`. It does not run a model session. `SwitchClient` reads
+`director/.switch/agents/director.json`, discovers the `world` room with `list_rooms`, posts
+with `POST /agents/{id}/message`, and reads
+`GET /agents/{id}/rooms/{room_id}/history`.
+
+```sh
+uv run director --tell-alice   # seed the user's secret in the world state
+uv run director --switch       # live café beat: @alice, wait, @emily, wait
+```
+
+`run_switch.py` decides whether Emily learned the secret from the world state
+(`source: character:alice`), not from the fact that she replied.
+
+## Manual alternative: register with `POST /agents`
+
+The script can also register once with `POST /agents` using a **registration key created in
+the Gateway under the user's account** — not the deployment bootstrap token. An agent
+registered with the bootstrap token belongs to a separate account, and the characters will
+refuse its messages.
 
 ```sh
 curl -sS -X POST "$SWITCH_API/agents" \
@@ -44,10 +60,10 @@ director to `#world`; it is never a member of a private DM.
 ## Interface
 
 ```sh
-uv run director --tick              # run the next pending beat
-uv run director --tick --beat cafe  # run a named beat
-uv run director --loop 60           # a tick every 60s (demo mode)
-uv run director --status            # show the beat queue and world clock
+uv run director --simulate          # local authored café beat (no Switch)
+uv run director --switch            # live Switch beat in #world
+uv run director --tell-alice        # seed the user's secret
+uv run director --status            # clock and belief matrix
 ```
 
 Environment: `SWITCH_API`, `DIRECTOR_AGENT_ID`, `DIRECTOR_API_KEY`, `WORLD_ROOM_ID`,

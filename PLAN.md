@@ -3,8 +3,10 @@
 **Current state (2026-11-03 16:30 JST):** live local integration. Docker Desktop 29.9.2
 runs Switch 0.31.0; Switch Console 0.40.1 is signed in; four Claude Code agents are in the
 bridged `#world` Mattermost channel; the world engine is on 8890. Alice answers `@alice`
-and calls `world__recall`. Console 0.40.1's OpenCode check is blocked, so Claude Code is the
-live fallback; OpenCode remains the preferred connector.
+and calls `world__recall`. The director agent is in `#world`; `uv run director --switch`
+runs the live café beat, and the example scene card is `docs/scene-card-example.md`.
+Console 0.40.1's OpenCode check is blocked, so Claude Code is the live fallback; OpenCode
+remains the preferred connector.
 
 ## Rule we are respecting
 

@@ -42,6 +42,18 @@ uv run --env-file .env world-engine
 The live agents use `agents/<name>/CLAUDE.md` and `.mcp.json` (the Claude Code fallback).
 The OpenCode configs remain at `agents/<name>/opencode.json` for the preferred path.
 
+The **director** is a Console-managed Switch agent (`director`) in `#world`; it owns no
+model session. The live café beat is:
+
+```sh
+uv run director --tell-alice   # seed the user's secret in the world state
+uv run director --switch       # post @alice and @emily into #world, wait for replies
+```
+
+The generated [`docs/scene-card-example.md`](docs/scene-card-example.md) is a real live
+take: Alice shared, Emily recorded the belief from Alice, and Emily's trust in the user
+moved.
+
 ## Why Switch is core
 
 Switch is not a chat client bolted on. It is the only transport, and the only place the
@@ -73,7 +85,8 @@ In a second terminal, or from the dashboard's **Dev harness**:
 ```sh
 uv run director --reset
 uv run director --tell-alice   # the user's DM to Alice
-uv run director --simulate     # the café beat + scene card
+uv run director --simulate     # the authored café beat + scene card (no Switch)
+uv run director --switch       # the live Switch beat (director agent in #world)
 uv run director --status       # the belief matrix
 ```
 
@@ -329,8 +342,13 @@ uv run world-engine        # MCP at http://127.0.0.1:8890/mcp, dashboard at /
 
 ### 6. Register and invite the director
 
-The director is a script, not a Console agent. Create a **registration key** in the Gateway
-under your account (API Keys → Create registration key), then:
+**Live local path:** register `director` in Console (provider **Claude Code**, directory
+`director/`), add it to `#world`, and run `uv run director --switch`. `SwitchClient` reads
+`director/.switch/agents/director.json`, discovers the `world` room with `list_rooms`, posts
+with `POST /agents/{id}/message`, and reads the room history.
+
+**Manual/script-only alternative:** create a **registration key** in the Gateway under your
+account (API Keys → Create registration key), then:
 
 ```sh
 curl -sS -X POST "$SWITCH_API/agents" \

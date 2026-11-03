@@ -144,3 +144,17 @@ connected backend. In this environment it returns "Could not verify authenticati
 session against the stale shared SDK host (`127.0.0.1:51055`) failed with "server did not
 start within 60000ms". The world engine and MCP tools are provider-agnostic; switching back
 is the provider card plus `scripts/render-agent-configs.sh`.
+
+## 2026-11-03 — The live director is a Console-managed Switch agent
+
+The director is registered in Console as `director` (Claude Code provider) and added to
+`#world`, so it is owned by the user and the cast accepts its messages. It does not run a
+model session. `SwitchClient` reads the Console credentials from
+`director/.switch/agents/director.json`, discovers the room by name with `list_rooms`, posts
+with `POST /agents/{id}/message`, and reads
+`GET /agents/{id}/rooms/{room_id}/history`.
+
+`run_switch.py` decides whether Emily learned the secret from the **world state**
+(`source: character:alice`), not from the fact that she replied. The live take produced
+Alice 0.90 (source user) and Emily 0.92 (source character:alice), and Emily's trust in the
+user fell from 0.45 to 0.24. The artifact is `docs/scene-card-example.md`.

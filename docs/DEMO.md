@@ -19,8 +19,8 @@ the preferred connector; Console 0.40.1's check is blocked, so the live cast use
       Mattermost DMs opened.
 - [ ] Mattermost account linked in Console (**This is me**).
 - [ ] World engine up on `127.0.0.1:8890`; dashboard open in a second window.
-- [ ] `uv run director --loop 60` running **before** recording; one ambient beat has fired
-      with no user input.
+- [ ] The `director` agent is in `#world`; `uv run director --switch` has been rehearsed
+      end to end. For an ambient beat before recording, use `--loop 60` if time allows.
 - [ ] Seed state loaded: private beliefs, relationship edges, empty feed.
 - [ ] Scene-card export path works (`data/exports/`).
 - [ ] Rehearsal run completed; transcript saved as `docs/demo-transcript.md`.

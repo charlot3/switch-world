@@ -1,146 +1,277 @@
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="dark" data-motion="on">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>switch-world — a living social world</title>
+  <title>switch-world — a small town, four hearts, one secret</title>
   <link rel="stylesheet" href="/static/styles.css">
+  <script src="/static/cast.js" defer></script>
   <script src="/static/app.js" defer></script>
 </head>
-<body class="viz-root">
-  <header class="topbar">
-    <div class="brand">
-      <span class="brand-mark" aria-hidden="true"></span>
-      <div>
-        <h1>switch-world</h1>
-        <p class="brand-sub">a living social world · read-only projection</p>
-      </div>
-    </div>
-    <div class="top-actions">
-      <span class="badge badge-dev">local prototype</span>
-      <button class="btn btn-ghost" id="theme-toggle" type="button" aria-label="Toggle theme">Light</button>
-    </div>
-  </header>
+<body>
+  <div class="petals" id="petals" aria-hidden="true"></div>
 
-  <main id="main">
-    <div id="error" class="error" role="alert" hidden></div>
-
-    <section class="hero card" aria-labelledby="hero-label">
-      <div class="hero-main">
-        <p class="eyebrow" id="hero-label">The user's secret</p>
-        <p class="hero-figure"><span id="hero-value">0</span><span class="hero-unit">of 4 know</span></p>
-        <p class="hero-sub" id="hero-sub">Tell Alice a secret to begin.</p>
-      </div>
-      <div class="kpis" id="kpis">
-        <div class="kpi"><span class="kpi-label">World time</span><span class="kpi-value" id="kpi-clock">—</span></div>
-        <div class="kpi"><span class="kpi-label">Beliefs</span><span class="kpi-value" id="kpi-beliefs">—</span></div>
-        <div class="kpi"><span class="kpi-label">Events</span><span class="kpi-value" id="kpi-events">—</span></div>
-        <div class="kpi"><span class="kpi-label">Relationships</span><span class="kpi-value" id="kpi-relationships">—</span></div>
-      </div>
-    </section>
-
-    <section class="grid">
-      <article class="card card-wide" aria-labelledby="matrix-title">
-        <header class="card-head">
-          <div>
-            <h2 id="matrix-title">Who knows what</h2>
-            <p class="card-sub">Color is confidence. Text is the source. Hover or focus a cell for the full proposition. <span class="mobile-hint">On a narrow screen, scroll the matrix sideways.</span></p>
-          </div>
-          <div class="legend legend-seq" aria-label="Confidence scale">
-            <span class="legend-title">confidence</span>
-            <span class="seq-ramp" aria-hidden="true"></span>
-            <span class="legend-ends">0.0 · 1.0</span>
-          </div>
-        </header>
-        <div class="table-scroll">
-          <table class="matrix" id="matrix">
-            <thead><tr id="matrix-head"></tr></thead>
-            <tbody id="matrix-body"></tbody>
-          </table>
+  <div class="app">
+    <aside class="rail">
+      <div class="rail-brand">
+        <span class="gem" aria-hidden="true"></span>
+        <div>
+          <strong>switch-world</strong>
+          <span>a small town, four hearts, one secret</span>
         </div>
-        <p class="footnote">A character can only read its own private beliefs through the world engine's scoped MCP token. This table is the god view.</p>
-      </article>
+      </div>
 
-      <article class="card" aria-labelledby="rel-title">
-        <header class="card-head">
-          <div>
-            <h2 id="rel-title">Relationships</h2>
-            <p class="card-sub">Directed view. Three measures, one 0–1 scale.</p>
-          </div>
-          <label class="view-control">view
-            <select id="rel-view" aria-label="Character whose outgoing relationships are shown">
-              <option value="alice">Alice</option>
-              <option value="emily" selected>Emily</option>
-              <option value="sophia">Sophia</option>
-              <option value="mia">Mia</option>
-            </select>
-          </label>
-        </header>
-        <div class="legend legend-series" aria-label="Relationship measures">
-          <span><i class="key key-trust"></i>trust</span>
-          <span><i class="key key-closeness"></i>closeness</span>
-          <span><i class="key key-tension"></i>tension</span>
+      <nav class="rail-nav" aria-label="Views">
+        <button class="rail-link is-active" data-view="story" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v17H6.5A2.5 2.5 0 0 0 4 22V5.5ZM20 5.5A2.5 2.5 0 0 0 17.5 3H13v17h4.5A2.5 2.5 0 0 1 20 22V5.5Z"/></svg>
+          <span>Story</span><em>01</em>
+        </button>
+        <button class="rail-link" data-view="tree" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21V10M12 10 6 4M12 10l6-6M6 4v4M18 4v4"/><circle cx="12" cy="21" r="1.6"/><circle cx="6" cy="8" r="1.6"/><circle cx="18" cy="8" r="1.6"/></svg>
+          <span>World Tree</span><em>02</em>
+        </button>
+        <button class="rail-link" data-view="ledger" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="8" r="4"/><path d="M11 11l9 9M16 16l3-3"/></svg>
+          <span>Secret Ledger</span><em>03</em>
+        </button>
+        <button class="rail-link" data-view="settings" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>
+          <span>Settings</span><em>04</em>
+        </button>
+      </nav>
+
+      <div class="rail-foot">
+        <div class="rail-clock"><i class="live-dot"></i><span id="rail-clock">--:--</span><span class="live-label">LIVE</span></div>
+        <div class="rail-badges">
+          <span class="pill">17+ · SFW</span>
+          <span class="pill ghost">Switch × Mattermost</span>
         </div>
-        <div id="relationships" class="rel-list"></div>
-        <details class="table-view">
-          <summary>Table view</summary>
-          <table class="rel-table" id="rel-table">
-            <thead><tr><th>to</th><th>trust</th><th>closeness</th><th>tension</th><th>secrets</th></tr></thead>
-            <tbody></tbody>
-          </table>
-        </details>
-      </article>
-    </section>
+        <button class="rail-theme" id="theme-toggle" type="button" aria-label="Toggle theme">
+          <span class="moon">☾</span><span id="theme-label">Twilight</span>
+        </button>
+      </div>
+    </aside>
 
-    <section class="grid grid-bottom">
-      <article class="card" aria-labelledby="feed-title">
-        <header class="card-head">
-          <div>
-            <h2 id="feed-title">World feed</h2>
-            <p class="card-sub">Immutable events, newest last. The scene card is built from this log.</p>
-          </div>
-          <span class="badge" id="feed-count">0 events</span>
-        </header>
-        <ol class="feed" id="feed"></ol>
-      </article>
-
-      <article class="card" aria-labelledby="control-title">
-        <header class="card-head">
-          <div>
-            <h2 id="control-title">Dev harness</h2>
-            <p class="card-sub">Local authored beat. <code>uv run director --switch</code> runs the live Switch beat.</p>
-          </div>
-          <span class="badge badge-dev">no Switch required</span>
-        </header>
-        <label class="field">
-          <span>The secret the user tells Alice</span>
-          <input id="secret" type="text" value="I've decided to leave the city at the end of the month. I haven't told the others yet." autocomplete="off">
-        </label>
-        <div class="button-row">
-          <button class="btn" id="tell-alice" type="button">Tell Alice</button>
-          <button class="btn btn-primary" id="run-cafe" type="button">Run café beat</button>
-          <button class="btn btn-ghost" id="reset" type="button">Reset world</button>
+    <main id="main">
+      <header class="top">
+        <div class="top-title">
+          <p class="eyebrow" id="view-eyebrow">Tonight at the café</p>
+          <h1 id="view-title">Story</h1>
         </div>
-        <p class="status" id="status" role="status"></p>
-        <div class="scene-card">
-          <div class="scene-head">
-            <span class="eyebrow">Scene card</span>
-            <div class="button-row button-row-tight">
-              <button class="btn btn-ghost" id="load-card" type="button">Load</button>
-              <a class="btn btn-ghost" id="download-card" href="/api/scene-card.md" download>Download .md</a>
+        <div class="top-actions">
+          <a class="btn ghost" href="http://localhost:8065/switch/channels/world" target="_blank" rel="noopener">Open #world ↗</a>
+          <a class="btn ghost" href="http://localhost:3000" target="_blank" rel="noopener">Switch Gateway ↗</a>
+          <span class="heart-badge" title="17+ romantic tension, SFW">♡ 17+</span>
+        </div>
+      </header>
+
+      <div id="error" class="error" role="alert" hidden></div>
+
+      <!-- STORY -->
+      <section id="view-story" class="view is-active" aria-label="Story view">
+        <div class="scene">
+          <div class="scene-art">
+            <div class="scene-wash" id="scene-wash"></div>
+            <img id="scene-portrait" class="scene-portrait" alt="">
+            <div class="scene-stamp" id="scene-stamp">SCENE 02 · THE CAFÉ</div>
+            <div class="scene-caption" id="scene-caption">18:30 · a Tuesday in late autumn</div>
+          </div>
+          <div class="scene-copy">
+            <div class="scene-top">
+              <div class="nameplate">
+                <span id="scene-name">Alice</span>
+                <span id="scene-jp" class="jp">アリス</span>
+              </div>
+              <span class="mood" id="scene-mood">warm · watchful</span>
+            </div>
+            <p class="scene-line" id="scene-line"></p>
+            <div class="scene-actions">
+              <button class="btn primary" id="scene-next" type="button">Next line <span class="kbd">→</span></button>
+              <a class="btn ghost" id="scene-dm" href="#" target="_blank" rel="noopener">DM this character</a>
+              <button class="btn ghost" id="scene-run" type="button">Copy live-beat command</button>
+            </div>
+            <div class="scene-rail" id="scene-rail" aria-label="Recent dialogue"></div>
+          </div>
+        </div>
+
+        <div class="secret-banner">
+          <div class="secret-main">
+            <span class="eyebrow">the secret ledger</span>
+            <p class="secret-figure"><span id="hero-value">0</span><span class="secret-of">of 4 know</span></p>
+            <p class="secret-sub" id="hero-sub">Tell Alice a secret to begin.</p>
+          </div>
+          <div class="secret-holders" id="hero-holders"></div>
+          <div class="secret-hearts" aria-hidden="true"><span>♡</span><span>♡</span><span>♡</span><span>♡</span></div>
+        </div>
+
+        <div class="section-head"><h2>the cast</h2><span>four people · one small town</span></div>
+        <div class="cast-grid" id="cast-grid"></div>
+      </section>
+
+      <!-- WORLD TREE -->
+      <section id="view-tree" class="view" aria-label="World Tree view">
+        <div class="section-head"><h2>world tree</h2><span>who is connected to whom — and who is holding the secret</span></div>
+        <div class="tree-layout">
+          <div class="tree-card">
+            <svg id="world-tree" viewBox="0 0 1000 640" role="img" aria-label="Relationship and secret graph"></svg>
+            <div class="tree-legend">
+              <span><i class="edge-key high"></i>high trust</span>
+              <span><i class="edge-key mid"></i>medium</span>
+              <span><i class="edge-key low"></i>low / tense</span>
+              <span><i class="edge-key secret"></i>secret flow</span>
             </div>
           </div>
-          <p class="status" id="card-path">No card loaded yet.</p>
-          <pre id="card-preview" class="card-preview" hidden></pre>
+          <aside class="tree-panel" id="tree-panel"></aside>
         </div>
-      </article>
-    </section>
+        <details class="table-view">
+          <summary>Table view</summary>
+          <div id="tree-table"></div>
+        </details>
+      </section>
 
-    <footer class="footer">
-      <span>switch-world · the dashboard polls <code>/api/*</code>; only the world engine opens SQLite.</span>
-      <span>Colors validated with the dataviz palette checks.</span>
-    </footer>
-  </main>
+      <!-- SECRET LEDGER -->
+      <section id="view-ledger" class="view" aria-label="Secret Ledger view">
+        <div class="section-head"><h2>secret ledger</h2><span>the god view: beliefs, relationships, events</span></div>
+        <div class="ledger-grid">
+          <article class="card ledger-matrix" aria-labelledby="matrix-title">
+            <header class="card-head">
+              <div>
+                <h3 id="matrix-title">Who knows what</h3>
+                <p class="card-sub">Color is confidence. Text is the source. Hover or focus a cell for the full proposition.</p>
+              </div>
+              <div class="legend legend-seq" aria-label="Confidence scale">
+                <span class="legend-title">confidence</span>
+                <span class="seq-ramp" aria-hidden="true"></span>
+                <span class="legend-ends">0.0 · 1.0</span>
+              </div>
+            </header>
+            <div class="table-scroll">
+              <table class="matrix" id="matrix">
+                <thead><tr id="matrix-head"></tr></thead>
+                <tbody id="matrix-body"></tbody>
+              </table>
+            </div>
+            <p class="footnote">A character can only read its own private beliefs through the world engine's scoped MCP token. This table is the god view.</p>
+          </article>
+
+          <article class="card ledger-rel" aria-labelledby="rel-title">
+            <header class="card-head">
+              <div>
+                <h3 id="rel-title">Relationships</h3>
+                <p class="card-sub">Directed view. Three measures, one 0–1 scale.</p>
+              </div>
+              <label class="view-control">view
+                <select id="rel-view" aria-label="Character whose outgoing relationships are shown">
+                  <option value="alice">Alice</option>
+                  <option value="emily" selected>Emily</option>
+                  <option value="sophia">Sophia</option>
+                  <option value="mia">Mia</option>
+                </select>
+              </label>
+            </header>
+            <div class="legend legend-series" aria-label="Relationship measures">
+              <span><i class="key key-trust"></i>trust</span>
+              <span><i class="key key-closeness"></i>closeness</span>
+              <span><i class="key key-tension"></i>tension</span>
+            </div>
+            <div id="relationships" class="rel-list"></div>
+            <details class="table-view">
+              <summary>Table view</summary>
+              <table class="rel-table" id="rel-table">
+                <thead><tr><th>to</th><th>trust</th><th>closeness</th><th>tension</th><th>secrets</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </details>
+          </article>
+        </div>
+
+        <article class="card ledger-feed" aria-labelledby="feed-title">
+          <header class="card-head">
+            <div>
+              <h3 id="feed-title">World feed</h3>
+              <p class="card-sub">Immutable events, newest last. The scene card is built from this log.</p>
+            </div>
+            <span class="badge" id="feed-count">0 events</span>
+          </header>
+          <ol class="feed" id="feed"></ol>
+        </article>
+      </section>
+
+      <!-- SETTINGS -->
+      <section id="view-settings" class="view" aria-label="Settings view">
+        <div class="section-head"><h2>settings</h2><span>the stage, the transport, the cast</span></div>
+        <div class="settings-grid">
+          <article class="card setting-card">
+            <h3>Appearance</h3>
+            <p class="card-sub">The room has two moods. The data colors are validated in both.</p>
+            <div class="setting-row"><span>Theme</span><button class="btn" id="theme-toggle-2" type="button">Twilight</button></div>
+            <div class="setting-row"><span>Petals &amp; motion</span><label class="switch"><input type="checkbox" id="motion-toggle" checked><i></i></label></div>
+            <p class="tiny">Reduced-motion preferences are respected automatically.</p>
+          </article>
+
+          <article class="card setting-card">
+            <h3>Chat &amp; Switch</h3>
+            <p class="card-sub">Switch is the transport. The dashboard is a read-only projection of the world state.</p>
+            <a class="link-row" href="http://localhost:8065/switch/channels/world" target="_blank" rel="noopener">Mattermost · #world <span>↗</span></a>
+            <a class="link-row" href="http://localhost:3000" target="_blank" rel="noopener">Switch Gateway <span>↗</span></a>
+            <a class="link-row" href="http://localhost:8000/health" target="_blank" rel="noopener">Switch API health <span>↗</span></a>
+            <p class="tiny">Five agents in the room: alice, emily, sophia, mia, director. Messages in <code>#world</code> must address <code>@name</code>.</p>
+          </article>
+
+          <article class="card setting-card">
+            <h3>Cast &amp; provider</h3>
+            <p class="card-sub">OpenCode is the preferred connector; the live cast uses Claude Code while Console's OpenCode check is blocked.</p>
+            <div id="provider-list"></div>
+            <p class="tiny">OpenCode configs: <code>agents/&lt;name&gt;/opencode.json</code> · Claude Code fallback: <code>agents/&lt;name&gt;/.mcp.json</code>.</p>
+          </article>
+
+          <article class="card setting-card">
+            <h3>Submission</h3>
+            <p class="card-sub">Flip the Switch · Track 2 — Best Personal or Creative Workflow.</p>
+            <div class="deadline"><span>Hard deadline</span><strong>2026-11-08 03:29 JST</strong><em>2026-11-07 23:59 IST</em></div>
+            <a class="link-row" href="https://github.com/charlot3/switch-world" target="_blank" rel="noopener">GitHub repo <span>↗</span></a>
+            <a class="link-row" href="https://www.wemakedevs.org/hackathons/switch" target="_blank" rel="noopener">Hackathon page <span>↗</span></a>
+            <p class="tiny">Deliverables: repo + demo video + README. The repo must be public before submitting.</p>
+          </article>
+
+          <article class="card setting-card wide">
+            <h3>World controls</h3>
+            <p class="card-sub">The live beat runs in the terminal against the Switch room. The local beat uses authored dialogue.</p>
+            <label class="field">
+              <span>The secret the user tells Alice</span>
+              <input id="secret" type="text" value="I've decided to leave the city at the end of the month. I haven't told the others yet." autocomplete="off">
+            </label>
+            <div class="button-row">
+              <button class="btn" id="tell-alice" type="button">Tell Alice</button>
+              <button class="btn primary" id="run-cafe" type="button">Run local beat</button>
+              <button class="btn ghost" id="reset" type="button">Reset world</button>
+            </div>
+            <div class="command-row">
+              <code>uv run director --switch</code>
+              <button class="btn ghost small" id="copy-command" type="button">Copy</button>
+            </div>
+            <p class="status" id="status" role="status"></p>
+            <div class="scene-card">
+              <div class="scene-head">
+                <span class="eyebrow">Scene card</span>
+                <div class="button-row button-row-tight">
+                  <button class="btn ghost small" id="load-card" type="button">Load</button>
+                  <a class="btn ghost small" id="download-card" href="/api/scene-card.md" download>Download .md</a>
+                </div>
+              </div>
+              <p class="status" id="card-path">No card loaded yet.</p>
+              <pre id="card-preview" class="card-preview" hidden></pre>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <footer class="footer">
+        <span>switch-world · a read-only projection of the Switch world state.</span>
+        <span>Switch is the transport; the dashboard never opens SQLite.</span>
+      </footer>
+    </main>
+  </div>
 
   <div id="tooltip" class="tooltip" role="tooltip" hidden></div>
 </body>

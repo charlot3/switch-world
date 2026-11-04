@@ -1,0 +1,71 @@
+/* Cast metadata for the dashboard. Portraits are the vector art in
+   web/assets/portraits; the backend owns the beliefs and relationships. */
+window.SWITCH_ORDER = ["alice", "emily", "sophia", "mia"];
+
+window.SWITCH_CAST = {
+  alice: {
+    id: "alice",
+    name: "Alice Moreau",
+    jp: "アリス",
+    role: "The Confidante",
+    tagline: "She keeps everyone's secrets — including the one about the bookshop.",
+    traits: ["second-hand books", "late-night tea", "quiet mischief"],
+    mood: "warm · watchful",
+    color: "#e0607e",
+    accent: "#f0b3a0",
+    portrait: "/static/assets/portraits/alice.svg",
+    avatar: "/static/assets/portraits/alice-avatar.svg",
+    dm: "http://localhost:8065/switch/messages/@alice",
+    quote: "Sit anywhere. The kettle's still warm, and I'm a very good listener.",
+  },
+  emily: {
+    id: "emily",
+    name: "Emily Park",
+    jp: "エミリー",
+    role: "The Straight Shooter",
+    tagline: "She'd rather hear a hard thing now than a soft thing later.",
+    traits: ["design", "black coffee", "brutal honesty"],
+    mood: "sharp · restless",
+    color: "#8b7bd8",
+    accent: "#c9b6f2",
+    portrait: "/static/assets/portraits/emily.svg",
+    avatar: "/static/assets/portraits/emily-avatar.svg",
+    dm: "http://localhost:8065/switch/messages/@emily",
+    quote: "Don't manage me. Tell me the thing you're actually thinking.",
+  },
+  sophia: {
+    id: "sophia",
+    name: "Sophia Adeyemi",
+    jp: "ソフィア",
+    role: "The Observer",
+    tagline: "She notices the thing you didn't say.",
+    traits: ["sociology", "red wine", "long silences"],
+    mood: "still · knowing",
+    color: "#bd7f24",
+    accent: "#f0d19a",
+    portrait: "/static/assets/portraits/sophia.svg",
+    avatar: "/static/assets/portraits/sophia-avatar.svg",
+    dm: "http://localhost:8065/switch/messages/@sophia",
+    quote: "People tell you who they are twice. The second time is the confession.",
+  },
+  mia: {
+    id: "mia",
+    name: "Mia Rossi",
+    jp: "ミア",
+    role: "The Wildcard",
+    tagline: "She says the thing everyone is thinking, then apologises with food.",
+    traits: ["street food", "loud music", "bad timing"],
+    mood: "bright · combustible",
+    color: "#e07a5f",
+    accent: "#f4b183",
+    portrait: "/static/assets/portraits/mia.svg",
+    avatar: "/static/assets/portraits/mia-avatar.svg",
+    dm: "http://localhost:8065/switch/messages/@mia",
+    quote: "Okay, hear me out — and then feed me, because I've had a day.",
+  },
+};
+
+window.SWITCH_PROVIDERS = [
+  { id: "claude", label: "Claude Code", status: "live", note: "verified by Console · the current cast" },
+  { id: "opencode", label: "OpenCode", status: "preferred", note: "configs ready · Console 0.40.1 check blocked" },
+];

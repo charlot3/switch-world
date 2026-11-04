@@ -158,3 +158,23 @@ with `POST /agents/{id}/message`, and reads
 (`source: character:alice`), not from the fact that she replied. The live take produced
 Alice 0.90 (source user) and Emily 0.92 (source character:alice), and Emily's trust in the
 user fell from 0.45 to 0.24. The artifact is `docs/scene-card-example.md`.
+
+## 2026-11-04 — Galgame presentation, original vector portraits, 17+ SFW
+
+The dashboard is now a four-view visual-novel UI: **Story** (typewriter scene, portrait,
+cast cards, chemistry hearts, DM links), **World Tree** (you at the root, the cast as
+branches, the secret as a dashed flow), **Secret Ledger** (matrix, relationships, feed), and
+**Settings** (theme/motion, links, providers, world controls, deadline).
+
+The cast portraits are **original vector art**, not the existing character cards. The image
+backend was not usable for this: the job needed ~22.8 GB plus a 6 GB reserve and only
+16.5 GB was available, so it sat in `admitting`. `scripts/make-portraits.py` is
+deterministic, has no GPU cost, and keeps the public submission safe.
+
+Tone: **17+ romantic tension, SFW**. All characters are adults, fully clothed, and no
+explicit content. The tone rules live in `agents/<name>/AGENTS.md`, flow into each
+`CLAUDE.md`, and the galgame profile is in `IDENTITY.md` and `world/characters/`.
+
+The Mattermost bot avatars are updated from the same vector art, and `#world` carries the
+line "A small town, four hearts, one secret." The dashboard stays a read-only projection;
+Switch remains the transport.

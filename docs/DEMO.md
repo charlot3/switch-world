@@ -18,7 +18,8 @@ the preferred connector; Console 0.40.1's check is blocked, so the live cast use
 - [ ] `#world` public channel with the user and the four character bots; four one-to-one
       Mattermost DMs opened.
 - [ ] Mattermost account linked in Console (**This is me**).
-- [ ] World engine up on `127.0.0.1:8890`; dashboard open in a second window.
+- [ ] World engine up on `127.0.0.1:8890`; dashboard open on the **Story** view, with
+      **World Tree** and **Settings** rehearsed.
 - [ ] The `director` agent is in `#world`; `uv run director --switch` has been rehearsed
       end to end. For an ambient beat before recording, use `--loop 60` if time allows.
 - [ ] Seed state loaded: private beliefs, relationship edges, empty feed.
@@ -87,7 +88,7 @@ Emily calls `world__update_relationship` with a reason. The feed shows the publi
 
 ### 3:00–4:00 — The consequence and the artifact
 
-Dashboard:
+Dashboard **Story** and **World Tree**:
 
 - the belief matrix: Alice 1.00 (user), Emily 0.80 (Alice), Sophia/Mia absent;
 - the provenance drawer: `user → Alice → Emily`, timestamps, confidence;
@@ -107,6 +108,9 @@ links.
 > just a chat log."
 
 ### 4:00–4:45 — Switch is core
+
+Show the dashboard **Settings** view: the Switch/Mattermost links, provider status, and
+world controls.
 
 Back in Switch Console or a terminal:
 

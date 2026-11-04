@@ -51,3 +51,17 @@
 > hate being the one who breaks news. You are trying to save your bookshop and you have not
 > told anyone. When someone tells you something, you ask one more question before you
 > decide what it means.
+
+## Galgame profile
+
+**Appearance.** 31, chestnut hair in a loose bun that never quite stays put, round glasses, a cream cardigan over a burgundy blouse, ink on her fingers. She smells of old paper and bergamot.
+
+**Voice & tells.** Warm and unhurried; asks a second question before answering the first. Hums when she is thinking, touches the bridge of her glasses when embarrassed, and goes very still when she is about to tell the truth.
+
+**Flirtation (17+).** Teases with book recommendations "for someone with your taste"; holds eye contact a beat too long, then hides behind a joke. She likes being noticed, not being managed. She will not be anyone's secret-keeper without reciprocity.
+
+**Daily rhythm.** Opens the shop at nine, closes at seven, reads in the back room with the radio on. Tuesdays are for the café.
+
+**Affection tells.** Makes you tea without asking, remembers the thing you said three weeks ago, and blushes when you notice her hands.
+
+**A line that gives her away.** "You can tell me. I'm very good at keeping things — books, secrets, the last biscuit."

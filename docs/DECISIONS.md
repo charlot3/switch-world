@@ -161,6 +161,8 @@ user fell from 0.45 to 0.24. The artifact is `docs/scene-card-example.md`.
 
 ## 2026-11-04 — Galgame presentation, original vector portraits, 17+ SFW
 
+> Superseded by the ComfyUI portrait decision below; the vector art remains the fallback.
+
 The dashboard is now a four-view visual-novel UI: **Story** (typewriter scene, portrait,
 cast cards, chemistry hearts, DM links), **World Tree** (you at the root, the cast as
 branches, the secret as a dashed flow), **Secret Ledger** (matrix, relationships, feed), and
@@ -178,3 +180,13 @@ explicit content. The tone rules live in `agents/<name>/AGENTS.md`, flow into ea
 The Mattermost bot avatars are updated from the same vector art, and `#world` carries the
 line "A small town, four hearts, one secret." The dashboard stays a read-only projection;
 Switch remains the transport.
+
+## 2026-11-04 — ComfyUI portraits after freeing the unused backends
+
+The admission failure was not the model. ComfyUI (19GB) and GPT-SoVITS (13GB) were resident
+with weights unloaded, leaving 16.7GB available; the image job needed 22.8GB plus a 6GB
+reserve. Stopping both through the studio freed 32GB (swap fell from 32.3GB to 1GB), and the
+cold image job passed admission. Alice rendered in 190s; Emily, Sophia and Mia followed warm
+at 143–150s. The 832×1216 PNGs are now the primary portraits; the SVG generator stays as the
+fallback. After the render, GPT-SoVITS is started again and ComfyUI is left up, so the studio
+returns to its original usable state.

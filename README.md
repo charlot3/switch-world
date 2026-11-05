@@ -97,9 +97,10 @@ DM, the time machine and the beat controls are the write surfaces:
   their own replies, and plays them back one line at a time with **Next line**. The phone
   posts to `/api/dm`, but it is **locked until you add that character as a friend**
   (`POST /api/friends/<id>`); the lock panel and the cast-card button both add them. The
-  thread loads up to **100** recent scene + DM messages, with **Load older** as a
-  database-backed cursor; the user's turn is written before the model call, so it stays
-  visible while the typing indicator runs. It mirrors the language of the last message: a
+  thread loads up to **100** private DMs, with **Load older** as a database-backed cursor;
+  public scene lines never appear in the phone, so a group conversation cannot leak into a
+  one-to-one thread. The user's turn is written before the model call, so it stays visible
+  while the typing indicator runs. It mirrors the language of the last message: a
   Chinese message gets natural spoken Chinese, using the per-character `中文口吻` sample as
   a register, not an English translation. On mobile it stacks below the scene. Cast cards
   with a two-line intro, affinity hearts, **Chat/Add friend** and **Profile** actions sit
@@ -176,7 +177,7 @@ Settings → **Time machine** card is the UI, and the rail clock shows `· MOCK`
 | Surface | Transport | What it records | Who sees it |
 | --- | --- | --- | --- |
 | Scene / `#world` | live Switch room | `dialogue` events | the whole room, all agents |
-| Phone DM | local model via Bifrost/OpenCode | private `dm` events | only that character's phone |
+| Phone DM | local model via Bifrost/OpenCode | private `dm` events only; public scene lines are excluded | only that character's phone |
 | Authored beat | director + Switch or local | `dialogue`, `beat`, `branch` | the world feed |
 
 Friend state is a small `friends` table in the world DB. It gates the phone endpoints

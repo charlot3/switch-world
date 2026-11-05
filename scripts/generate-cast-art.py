@@ -149,7 +149,12 @@ def generate(prompt: str, size: str, seed: int, studio: str = STUDIO) -> dict:
 
 
 def avatar(bust: Path) -> Path:
-    """Crop the head/shoulders from the bust, centred on the composition."""
+    """Crop the head/shoulders from the bust, centred on the composition.
+
+    The 512px PNG is the Mattermost avatar; the 256px JPEG is what the dashboard and
+    the SVG world tree load. Four 300 KB PNGs in one SVG could fail to decode in some
+    browsers; the JPEG is ~20 KB and loads everywhere.
+    """
     dest = bust.with_name(bust.stem.replace("-bust", "-avatar") + ".png")
     # 832x1216 → 640x640 at x=96, y=88 → 512x512.
     subprocess.run(
@@ -157,6 +162,14 @@ def avatar(bust: Path) -> Path:
             "ffmpeg", "-y", "-loglevel", "error", "-i", str(bust),
             "-vf", "crop=640:640:96:88,scale=512:512:flags=lanczos",
             str(dest),
+        ],
+        check=True,
+    )
+    web = dest.with_suffix(".jpg")
+    subprocess.run(
+        [
+            "ffmpeg", "-y", "-loglevel", "error", "-i", str(dest),
+            "-vf", "scale=256:256:flags=lanczos", "-q:v", "3", str(web),
         ],
         check=True,
     )
@@ -257,6 +270,7 @@ def main() -> int:
         if kind == "bust":
             crop = avatar(dest)
             print(f"  -> {crop.relative_to(ROOT)}")
+            print(f"  -> {crop.with_suffix('.jpg').relative_to(ROOT)}")
 
     for kind, paths in made.items():
         if len(paths) == len(ids) and paths:

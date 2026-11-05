@@ -320,7 +320,7 @@ function renderStory(data) {
   portrait.alt = `${cast.name} portrait`;
   portrait.style.setProperty("--sprite-scale", cast.fullScale || 1);
   $("#scene-name").textContent = line ? line.name : cast.name;
-  $("#scene-jp").textContent = line && line.name === "You" ? "" : cast.jp;
+  $("#scene-jp").textContent = line && line.name === "You" ? "" : cast.route;
   $("#scene-mood").textContent = line && line.name === "You" ? "in the room" : cast.mood;
   $("#scene-stamp").textContent = beat ? `SCENE · ${beat.title.toUpperCase()}` : "SCENE · THE CAFÉ";
   $("#scene-caption").textContent = beat
@@ -572,7 +572,7 @@ function renderCast(data) {
     info.appendChild(name);
     const jp = document.createElement("div");
     jp.className = "cast-jp";
-    jp.textContent = cast.jp;
+    jp.textContent = cast.route;
     info.appendChild(jp);
     const tagline = document.createElement("p");
     tagline.className = "cast-tagline";
@@ -1071,7 +1071,7 @@ function renderTree(data) {
     const halo = svgEl("circle", { cx: pos.x, cy: pos.y, r: 66, fill: cast.color, opacity: "0.14", filter: "url(#node-glow)" });
     group.appendChild(halo);
     group.appendChild(svgEl("circle", { cx: pos.x, cy: pos.y, r: 52, class: "node-ring" }));
-    group.appendChild(svgEl("image", {
+    const nodeImage = svgEl("image", {
       href: cast.avatar,
       x: pos.x - 52,
       y: pos.y - 52,
@@ -1080,7 +1080,17 @@ function renderTree(data) {
       "clip-path": `url(#clip-${id})`,
       preserveAspectRatio: "xMidYMid slice",
       class: "node-image",
-    }));
+    });
+    let avatarRetried = false;
+    nodeImage.addEventListener("error", () => {
+      if (!avatarRetried) {
+        avatarRetried = true;
+        nodeImage.setAttribute("href", `${cast.avatar}?retry=1`);
+        return;
+      }
+      nodeImage.setAttribute("href", `/static/assets/portraits/${id}-avatar.svg`);
+    });
+    group.appendChild(nodeImage);
     addText(group, pos.x, pos.y + 76, firstName(cast.name), "tree-label");
     addText(group, pos.x, pos.y + 91, cast.role, "tree-sub");
     group.addEventListener("click", () => {
@@ -1123,7 +1133,7 @@ function renderTreePanel(data) {
   header.appendChild(name);
   const jp = document.createElement("span");
   jp.className = "jp";
-  jp.textContent = cast.jp;
+  jp.textContent = cast.route;
   header.appendChild(jp);
   const sub = document.createElement("p");
   sub.className = "panel-sub";
@@ -1525,7 +1535,7 @@ function openProfile(id) {
   modal.style.setProperty("--scene-color", cast.color);
   $("#profile-route").textContent = cast.route || "";
   $("#profile-name").textContent = cast.name;
-  $("#profile-jp").textContent = cast.jp;
+  $("#profile-jp").textContent = cast.route;
   $("#profile-role").textContent = `${cast.role} · ${cast.mood}`;
   $("#profile-intro").textContent = cast.intro;
 

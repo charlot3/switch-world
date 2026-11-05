@@ -255,7 +255,10 @@ poses (leaning with tea, seated with chin on hand, at the window with a notebook
 in with a tray); the bookshop and food-truck beats get one location CG each, chosen by the
 current beat. The stage layers a blurred copy behind a contained copy, so the full figure
 is always in frame. The generator crops the model's occasional corner signature and ships
-a ~100–130 KB JPEG:
+a ~100–130 KB JPEG. The demo plates and outfit/prop renders are listed in
+`world/demo-assets.json` and `web/assets/portraits/DEMO_PROMPTS.md`; every render is
+downloaded into the repo, and the studio library entry is deleted and verified by
+`scripts/generate-demo-assets.py`:
 
 ```sh
 python3 scripts/generate-cast-art.py --kind both --force
@@ -814,6 +817,9 @@ the scene card above: the user and the cast co-produce a scene and its provenanc
 | `world_engine/` | FastAPI + SQLite + MCP world engine, token scoping, canon API, scene card, Studio summary |
 | `web/` | the vanilla dashboard (Story/arc/profile, World Tree, ledger, settings) |
 | `web/assets/portraits/` | bust, full-body 立绘, avatar crops, contact sheets, `PROMPTS.md` |
+| `web/assets/scenes/` | demo scene plates (first meeting, day café, solo date, trio, endings) |
+| `web/assets/portraits/outfits/` | date outfit full/bust and the memory-chain outfit plate |
+| `web/assets/portraits/props/` | the wrapped-book prop and other demo objects |
 | `tests/` | pytest for the service, API, canon and café beat |
 | `agents/<name>/` | per-character working directories: `AGENTS.md`, `IDENTITY.md`, `CLAUDE.md`, generated `opencode.json` / `.mcp.json` |
 | `mcp/` | the world engine's MCP tool surface (design notes) |

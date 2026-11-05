@@ -1354,7 +1354,11 @@ function render(data) {
 
 let initialProfileOpened = false;
 
+let refreshInFlight = false;
+
 async function refresh() {
+  if (refreshInFlight) return;
+  refreshInFlight = true;
   const main = $("#main");
   main.classList.add("refreshing");
   try {
@@ -1371,6 +1375,7 @@ async function refresh() {
     showError(`Cannot reach the world engine: ${error.message}`);
   } finally {
     main.classList.remove("refreshing");
+    refreshInFlight = false;
   }
 }
 
@@ -1584,4 +1589,8 @@ if (state.data == null) {
   setInterval(() => {
     if (!document.hidden) refresh();
   }, 2500);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) refresh();
+  });
+  window.addEventListener("focus", refresh);
 }

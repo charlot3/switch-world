@@ -103,6 +103,10 @@ birthday, specialty, likes and dislikes, a private canon line labelled **god vie
 sample quote, and the character's outgoing trust/closeness/tension bars (including you).
 The design rationale is in [`docs/CAST.md`](docs/CAST.md).
 
+The dashboard polls `/api/state` every 2.5 seconds and refreshes immediately when the
+tab regains focus; the rail shows **LIVE · AUTO**. The phone DM updates after each send.
+Mattermost and the Switch Console are separate apps with their own live updates.
+
 ### Driving the story
 
 The dashboard is a **read-only projection**. `Next line` only steps through the dialogue

@@ -25,9 +25,15 @@ const state = {
     oldestId: null,
     loading: false,
     sending: false,
+    loadedFor: null,
+    error: "",
+    paintSig: null,
   },
   performance: null,
   group: { sending: false },
+  groupStatus: "",
+  clockStatus: "",
+  beatId: null,
 };
 
 function initialTheme() {
@@ -185,6 +191,10 @@ function isFriend(data, id) {
   return Boolean(data && (data.friends || []).includes(id));
 }
 
+function phoneTarget() {
+  return state.phone.character || state.selected || ORDER[0];
+}
+
 function dialogueEvents(data) {
   return (data.events || [])
     .filter((event) => event.kind === "dialogue")
@@ -294,6 +304,12 @@ function typeLine(element, text, key) {
 
 function renderStory(data) {
   const beat = currentBeat(data);
+  if (state.beatId && beat && state.beatId !== beat.id) {
+    state.performance = null;
+    state.groupStatus = "";
+    state.lineId = null;
+  }
+  state.beatId = beat ? beat.id : null;
   const present = presentCharacters(data);
   if (present.length && !present.includes(state.selected)) state.selected = present[0];
 
@@ -366,11 +382,14 @@ function renderStory(data) {
     } else if (state.performance) {
       status.textContent = `Line ${state.performance.index + 1} of ${state.performance.items.length} · Next line to continue`;
     } else {
-      status.textContent = "";
+      status.textContent = state.groupStatus || "";
     }
   }
 
   const rail = $("#scene-rail");
+  const railSig = lines.map((item) => item.id).join(",") + "|" + (line ? line.id : "");
+  if (rail.dataset.sig !== railSig) {
+  rail.dataset.sig = railSig;
   rail.replaceChildren();
   lines.forEach((item) => {
     const button = document.createElement("button");
@@ -386,6 +405,7 @@ function renderStory(data) {
     });
     rail.appendChild(button);
   });
+  }
 
   renderHero(data);
   renderCast(data);
@@ -396,6 +416,9 @@ function renderStory(data) {
 function renderSceneCast(present) {
   const row = $("#scene-cast");
   if (!row) return;
+  const sig = present.join(",") + "|" + state.selected;
+  if (row.dataset.sig === sig) return;
+  row.dataset.sig = sig;
   row.replaceChildren();
   present.forEach((id) => {
     const cast = CAST[id];
@@ -427,8 +450,11 @@ function renderSceneCast(present) {
 function renderChoices(beat) {
   const box = $("#scene-choices");
   if (!box) return;
-  box.replaceChildren();
   const choices = (beat && beat.choices) || [];
+  const sig = `${beat ? beat.id : ""}|${state.group.sending}|${choices.join("|")}`;
+  if (box.dataset.sig === sig) return;
+  box.dataset.sig = sig;
+  box.replaceChildren();
   choices.forEach((text) => {
     const button = document.createElement("button");
     button.type = "button";
@@ -446,6 +472,7 @@ async function sendGroup(text) {
   if (!text || state.group.sending) return;
   const present = presentCharacters(state.data);
   state.group.sending = true;
+  state.groupStatus = "";
   state.performance = { items: [{ character: "user", text }], index: 0 };
   renderStory(state.data);
 
@@ -469,22 +496,17 @@ async function sendGroup(text) {
       state.performance = null;
     }
     await refresh();
-    const status = $("#scene-status");
-    if (status && result.missing && result.missing.length) {
-      status.textContent = `No reply yet from ${result.missing.map((id) => firstName((CAST[id] || {}).name || id)).join(", ")}. The room may be quiet.`;
+    if (result.missing && result.missing.length) {
+      state.groupStatus = `No reply yet from ${result.missing.map((id) => firstName((CAST[id] || {}).name || id)).join(", ")}. The room may be quiet.`;
     }
   } catch (error) {
     state.group.sending = false;
     state.performance = null;
+    state.groupStatus = `The room didn't answer: ${error.message}`;
     renderStory(state.data);
-    const status = $("#scene-status");
-    if (status) status.textContent = `The room didn't answer: ${error.message}`;
   } finally {
     state.group.sending = false;
-    if (input) {
-      input.disabled = false;
-      input.value = "";
-    }
+    if (input) input.disabled = false;
     if (send) send.disabled = false;
     if (state.data) renderStory(state.data);
   }
@@ -556,6 +578,9 @@ function makeCastAction(label, onClick) {
 
 function renderCast(data) {
   const grid = $("#cast-grid");
+  const sig = ORDER.map((id) => `${id}:${Math.round(affinityFor(data, id) * 5)}:${isFriend(data, id)}`).join("|") + `|${state.selected}`;
+  if (grid.dataset.sig === sig) return;
+  grid.dataset.sig = sig;
   grid.replaceChildren();
   ORDER.forEach((id) => {
     const cast = CAST[id];
@@ -631,9 +656,7 @@ function renderCast(data) {
         addFriend(id);
         return;
       }
-      selectCast(id);
-      $(".story-phone").scrollIntoView({ behavior: "smooth", block: "center" });
-      $("#phone-input").focus();
+      openPhone(id);
     });
     foot.appendChild(chat);
 
@@ -651,8 +674,10 @@ function renderCast(data) {
 /* ---- phone DM --------------------------------------------------------- */
 
 function renderPhone(data) {
-  const cast = CAST[state.selected] || CAST[ORDER[0]];
+  const targetId = phoneTarget();
+  const cast = CAST[targetId] || CAST[ORDER[0]];
   if (!cast) return;
+  state.phone.character = cast.id;
   const friend = isFriend(data, cast.id);
   const phone = $(".phone");
   if (phone) phone.classList.toggle("is-locked", !friend);
@@ -682,9 +707,9 @@ function renderPhone(data) {
 
   if (!friend) {
     $("#phone-mood").textContent = "not a friend yet";
-    state.phone.character = null;
     state.phone.messages = [];
     state.phone.hasMore = false;
+    state.phone.error = "";
     paintPhone(cast);
     return;
   }
@@ -692,11 +717,11 @@ function renderPhone(data) {
 
   if (state.phone.sending) return;
 
-  if (state.phone.character !== cast.id) {
-    state.phone.character = cast.id;
+  if (state.phone.character !== cast.id || state.phone.loadedFor !== cast.id) {
     state.phone.messages = [];
     state.phone.hasMore = false;
     state.phone.oldestId = null;
+    state.phone.error = "";
     paintPhone(cast);
     loadPhoneHistory(cast.id);
     return;
@@ -707,6 +732,19 @@ function renderPhone(data) {
 function paintPhone(cast) {
   const thread = $("#phone-thread");
   if (!thread) return;
+  const friend = isFriend(state.data, cast.id);
+  const sig = [
+    cast.id,
+    friend,
+    state.phone.loading,
+    state.phone.hasMore,
+    state.phone.error,
+    state.phone.messages.map((message) => message.id).join(","),
+  ].join("|");
+  if (state.phone.paintSig === sig) return;
+  state.phone.paintSig = sig;
+  const atBottom = thread.scrollHeight - thread.scrollTop - thread.clientHeight < 48;
+  const previousTop = thread.scrollTop;
   thread.replaceChildren();
 
   const divider = (label) => {
@@ -726,7 +764,7 @@ function paintPhone(cast) {
     thread.appendChild(bubble);
   };
 
-  if (!isFriend(state.data, cast.id)) {
+  if (!friend) {
     const lock = document.createElement("div");
     lock.className = "phone-lock";
     const icon = document.createElement("div");
@@ -749,6 +787,17 @@ function paintPhone(cast) {
     return;
   }
 
+  if (state.phone.error) {
+    const failed = document.createElement("div");
+    failed.className = "phone-bubble character";
+    const label = document.createElement("span");
+    label.className = "phone-who";
+    label.textContent = "System";
+    failed.appendChild(label);
+    failed.appendChild(document.createTextNode(state.phone.error));
+    thread.appendChild(failed);
+    return;
+  }
   if (state.phone.loading && !state.phone.messages.length) {
     const loading = document.createElement("div");
     loading.className = "phone-empty";
@@ -792,17 +841,34 @@ async function addFriend(character) {
   if (!character) return;
   try {
     await api(`/api/friends/${encodeURIComponent(character)}`, { method: "POST" });
-    selectCast(character);
-    state.phone.character = null;
+    state.phone.character = character;
+    state.phone.loadedFor = null;
     state.phone.messages = [];
+    state.phone.error = "";
     await refresh();
-    await loadPhoneHistory(character);
-    $(".story-phone").scrollIntoView({ behavior: "smooth", block: "center" });
-    $("#phone-input").focus();
+    openPhone(character);
   } catch (error) {
     const status = $("#scene-status");
     if (status) status.textContent = `Could not add ${character}: ${error.message}`;
   }
+}
+
+function openPhone(character) {
+  const id = character || phoneTarget();
+  if (!CAST[id]) return;
+  state.phone.character = id;
+  if (!isFriend(state.data, id)) {
+    state.phone.loadedFor = null;
+    if (state.data) renderPhone(state.data);
+  } else {
+    if (state.phone.loadedFor !== id) {
+      state.phone.loadedFor = null;
+      loadPhoneHistory(id);
+    }
+    if (state.data) renderPhone(state.data);
+  }
+  $(".story-phone").scrollIntoView({ behavior: "smooth", block: "center" });
+  if (isFriend(state.data, id)) $("#phone-input").focus();
 }
 
 async function loadPhoneHistory(character, beforeId = null, prepend = false) {
@@ -823,6 +889,8 @@ async function loadPhoneHistory(character, beforeId = null, prepend = false) {
       state.phone.messages = messages;
     }
     state.phone.character = character;
+    state.phone.loadedFor = character;
+    state.phone.error = "";
     state.phone.hasMore = Boolean(result.has_more);
     state.phone.oldestId = result.oldest_id || null;
     if (cast) paintPhone(cast);
@@ -830,12 +898,8 @@ async function loadPhoneHistory(character, beforeId = null, prepend = false) {
       thread.scrollTop = thread.scrollHeight - previousHeight;
     }
   } catch (error) {
-    if (thread) {
-      const failed = document.createElement("div");
-      failed.className = "phone-bubble character";
-      failed.textContent = `History unavailable: ${error.message}`;
-      thread.appendChild(failed);
-    }
+    state.phone.error = `History unavailable: ${error.message}`;
+    state.phone.loadedFor = character;
   } finally {
     state.phone.loading = false;
     if (cast) paintPhone(cast);
@@ -852,7 +916,7 @@ async function sendPhone(event) {
   const typing = $("#phone-typing");
   const message = input.value.trim();
   if (!message) return;
-  const character = state.selected || "alice";
+  const character = phoneTarget();
   if (!isFriend(state.data, character)) {
     addFriend(character);
     return;
@@ -1645,14 +1709,17 @@ function renderSettings(data) {
   }
   const clockStatus = $("#clock-status");
   if (clockStatus) {
-    clockStatus.textContent = mode === "realtime"
+    clockStatus.textContent = state.clockStatus || (mode === "realtime"
       ? "Real time · the story follows the wall clock until you jump."
-      : "Mock time · the story waits for you.";
+      : "Mock time · the story waits for you.");
   }
   const beatSelect = $("#beat-select");
   if (beatSelect) {
     const previous = beatSelect.value;
     const beats = (current.canon && current.canon.beats) || [];
+    const sig = beats.map((beat) => `${beat.id}:${beat.title}:${beat.time}:${beat.required}`).join("|");
+    if (beatSelect.dataset.sig !== sig) {
+    beatSelect.dataset.sig = sig;
     beatSelect.replaceChildren();
     beats.forEach((beat) => {
       const option = document.createElement("option");
@@ -1660,6 +1727,7 @@ function renderSettings(data) {
       option.textContent = `${beat.title} · ${beat.time}${beat.required ? " · required" : ""}`;
       beatSelect.appendChild(option);
     });
+    }
     const ids = beats.map((beat) => beat.id);
     beatSelect.value = ids.includes(previous) ? previous : (ids.includes("cafe") ? "cafe" : (ids[0] || ""));
   }
@@ -1719,7 +1787,7 @@ function setView(view) {
   $("#view-eyebrow").textContent = meta.eyebrow;
   $("#view-title").textContent = meta.title;
   if (state.data) render(state.data);
-  if (view === "story" && state.data) loadPhoneHistory(state.selected);
+  if (view === "story" && state.data) loadPhoneHistory(phoneTarget());
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -1839,20 +1907,21 @@ async function fetchTavily() {
 
 async function setClockMode(mode) {
   const status = $("#clock-status");
-  if (status) status.textContent = mode === "realtime" ? "Aligning the story to the wall clock…" : "Freezing the story clock…";
+  state.clockStatus = mode === "realtime" ? "Aligning the story to the wall clock…" : "Freezing the story clock…";
+  if (status) status.textContent = state.clockStatus;
   try {
     const result = await api("/api/clock/mode", {
       method: "POST",
       body: JSON.stringify({ mode }),
     });
-    if (status) {
-      status.textContent = mode === "realtime"
-        ? `Real time from ${formatClock(result.clock.now)}. The next beat arrives when the clock does.`
-        : "Mock time · the story waits for you.";
-    }
+    state.clockStatus = mode === "realtime"
+      ? `Real time from ${formatClock(result.clock.now)}. The next beat arrives when the clock does.`
+      : "Mock time · the story waits for you.";
+    if (status) status.textContent = state.clockStatus;
     await refresh();
   } catch (error) {
-    if (status) status.textContent = `Clock mode failed: ${error.message}`;
+    state.clockStatus = `Clock mode failed: ${error.message}`;
+    if (status) status.textContent = state.clockStatus;
   }
 }
 
@@ -1860,26 +1929,27 @@ async function advanceClock(run) {
   const status = $("#clock-status");
   const buttons = [$("#clock-advance"), $("#clock-play")];
   buttons.forEach((button) => { if (button) button.disabled = true; });
-  if (status) status.textContent = run ? "Jumping to the next beat and playing it…" : "Jumping to the next beat…";
+  state.clockStatus = run ? "Jumping to the next beat and playing it…" : "Jumping to the next beat…";
+  if (status) status.textContent = state.clockStatus;
   try {
     const result = await api("/api/clock/advance", {
       method: "POST",
       body: JSON.stringify({ run: Boolean(run) }),
     });
-    if (status) {
-      if (result.arc_complete) {
-        status.textContent = "Arc complete — all five beats have run. Use Advance to move the clock on.";
-      } else {
-        const played = result.played ? " · beat played" : "";
-        status.textContent = `Now ${result.view.current_beat.title} at ${formatClock(result.clock.now)}${played}.`;
-      }
+    if (result.arc_complete) {
+      state.clockStatus = "Arc complete — all five beats have run. Use Advance to move the clock on.";
+    } else {
+      const played = result.played ? " · beat played" : "";
+      state.clockStatus = `Now ${result.view.current_beat.title} at ${formatClock(result.clock.now)}${played}.`;
     }
+    if (status) status.textContent = state.clockStatus;
     state.performance = null;
     state.lineId = null;
     await refresh();
     if (run) await loadSceneCard();
   } catch (error) {
-    if (status) status.textContent = `Clock advance failed: ${error.message}`;
+    state.clockStatus = `Clock advance failed: ${error.message}`;
+    if (status) status.textContent = state.clockStatus;
   } finally {
     buttons.forEach((button) => { if (button) button.disabled = false; });
   }
@@ -1966,11 +2036,13 @@ function nextLine() {
       renderStory(state.data);
       return;
     }
+    const last = state.performance.items[state.performance.items.length - 1];
+    if (last && last.character !== "user" && CAST[last.character]) state.selected = last.character;
     state.performance = null;
     renderStory(state.data);
     return;
   }
-  const lines = dialogueEvents(state.data || {});
+  const lines = dialogueEvents(state.data || {}).slice(-8);
   if (!lines.length) return;
   const index = lines.findIndex((line) => line.id === state.lineId);
   const next = lines[(index + 1 + lines.length) % lines.length];
@@ -2058,8 +2130,7 @@ $("#scene-dm").addEventListener("click", () => {
     addFriend(cast.id);
     return;
   }
-  $(".story-phone").scrollIntoView({ behavior: "smooth", block: "center" });
-  $("#phone-input").focus();
+  openPhone(state.selected);
 });
 $("#clock-mock").addEventListener("click", () => setClockMode("mock"));
 $("#clock-real").addEventListener("click", () => setClockMode("realtime"));

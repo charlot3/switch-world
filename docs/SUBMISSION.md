@@ -5,7 +5,7 @@ Nov 7 JST. Team: solo (Xinang Li). Track: **2 — Best Personal or Creative Work
 
 ## The three deliverables
 
-- [ ] **GitHub repository** — `charlot3/switch-world`, public (or shared with the judges).
+- [x] **GitHub repository** — `charlot3/switch-world`, public.
 - [ ] **Demo video** — 3–5 minutes, follows [`DEMO.md`](DEMO.md).
 - [ ] **README** — says what the project does and **how Switch is used**; the
       [`../README.md`](../README.md) "Why Switch is core" and "Quickstart" sections are the
@@ -46,7 +46,9 @@ not a fifth criterion.
 - [ ] `docker compose --env-file .env -f deploy/switch/<tag>/docker-compose.yml
       --profile collab --profile gateway down` followed by the same command with `up -d`
       works from a clean state.
-- [ ] The repo is public, or the submission form has the access it needs.
+- [x] The repo is public: <https://github.com/charlot3/switch-world>.
+- [x] `LICENSE` (MIT) is present; the hackathon does not require a license, but a public
+      repo is easier to clone and judge.
 - [ ] The demo video is uploaded (YouTube/unlisted or the platform's uploader) and the link
       works in a private window.
 - [ ] Submit on the WeMakeDevs page before the deadline; keep the confirmation.

@@ -54,10 +54,21 @@ FULL_SCAFFOLD = (
     "soft vignette, no text, no watermark, adult woman, fully clothed, modest clothing, tasteful"
 )
 
+SCENE_SCAFFOLD = (
+    "visual novel event CG, solo, three-quarter body, dynamic natural pose, "
+    "cinematic composition, character on the right third with warm negative space on the left, "
+    "the same cozy café corner at 18:30 every time: dark wood table, rain-streaked window with "
+    "autumn city lights, hanging brass lamps, empty chairs, muted plum and gold palette, "
+    "soft cel shading, clean lineart, detailed eyes, warm evening lamplight, shallow depth of field, "
+    "{character}, {pose}, {scene_extra}"
+    "no text, no watermark, adult woman, fully clothed, modest clothing, tasteful"
+)
+
 # One seed per shot type. The prompt does the character differentiation; the
 # seed holds the camera, crop and lighting constant across the four.
 SEED_BUST = 424242
 SEED_FULL = 515151
+SEED_SCENE = 626262
 
 CHARACTERS = {
     "alice": {
@@ -67,6 +78,7 @@ CHARACTERS = {
             "cream knit cardigan over a burgundy blouse, tailored beige trousers, "
             "black leather ankle boots"
         ),
+        "pose": "leaning forward on the café table with both hands wrapped around a teacup, shoulders relaxed, warm knowing smile, head tilted slightly",
         "background": "warm second-hand bookshop interior, shelves and an autumn window",
     },
     "emily": {
@@ -76,6 +88,7 @@ CHARACTERS = {
             "a composed expression, charcoal blazer over a white silk blouse, black trousers, "
             "black leather loafers"
         ),
+        "pose": "seated at the café table with legs crossed, one elbow on the table, chin resting on her hand, direct level gaze",
         "background": "muted design studio with pinned prints and a tall window",
     },
     "sophia": {
@@ -84,6 +97,8 @@ CHARACTERS = {
             "amber eyes, thin gold glasses, a calm half-smile, black turtleneck, "
             "a thin gold necklace, a long charcoal coat, black ankle boots"
         ),
+        "pose": "standing beside the rain-streaked window, a small notebook in one hand, looking back over her shoulder, glasses catching the lamplight",
+        "scene_extra": "wooden café tables, red velvet chairs and warm brass lamps fill the left side of the frame; not an empty wall, ",
         "background": "university office with books and a warm brass lamp",
     },
     "mia": {
@@ -93,6 +108,7 @@ CHARACTERS = {
             "mustard yellow sweater under a white canvas apron, dark jeans, "
             "black canvas sneakers"
         ),
+        "pose": "leaning over the table with a tray balanced on one hip, one hand on the table, bright grin, weight on one leg",
         "background": "food truck with warm string lights at golden hour",
     },
 }
@@ -176,6 +192,20 @@ def avatar(bust: Path) -> Path:
     return dest
 
 
+def scene_web(png: Path) -> Path:
+    """The model sometimes signs the bottom-left corner; crop it and ship a small JPEG."""
+    jpg = png.with_suffix(".jpg")
+    subprocess.run(
+        [
+            "ffmpeg", "-y", "-loglevel", "error", "-i", str(png),
+            "-vf", "crop=iw:ih-66:0:0,scale=832:1150:flags=lanczos",
+            "-q:v", "3", str(jpg),
+        ],
+        check=True,
+    )
+    return jpg
+
+
 def contact(paths: list[Path], dest: Path) -> None:
     if len(paths) < 2:
         return
@@ -217,7 +247,7 @@ def write_prompts(entries: list[dict]) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--kind", choices=["bust", "full", "both"], default="both")
+    parser.add_argument("--kind", choices=["bust", "full", "scene", "both"], default="both")
     parser.add_argument("--only", default=",".join(CHARACTERS))
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--studio", default=STUDIO)
@@ -233,22 +263,32 @@ def main() -> int:
         parser.error(f"unknown character(s): {', '.join(unknown)}")
 
     kinds = ["bust", "full"] if args.kind == "both" else [args.kind]
-    entries: list[dict] = []
-    made: dict[str, list[Path]] = {"bust": [], "full": []}
 
-    for kind in kinds:
-        for cid in ids:
-            config = CHARACTERS[cid]
-            prompt = (BUST_SCAFFOLD if kind == "bust" else FULL_SCAFFOLD).format(**config)
-            size = "portrait" if kind == "bust" else "tall"
-            seed = SEED_BUST if kind == "bust" else SEED_FULL
-            dest = OUT / f"{cid}-{kind}.png"
-            entries.append(
-                {"id": cid, "kind": kind, "size": size, "seed": seed,
-                 "file": dest.name, "prompt": prompt}
-            )
+    def build_entry(kind: str, cid: str) -> dict:
+        config = CHARACTERS[cid]
+        prompt = (
+            BUST_SCAFFOLD if kind == "bust"
+            else SCENE_SCAFFOLD if kind == "scene"
+            else FULL_SCAFFOLD
+        ).format(**{"scene_extra": "", **config})
+        size = "portrait" if kind in ("bust", "scene") else "tall"
+        seed = SEED_BUST if kind == "bust" else SEED_SCENE if kind == "scene" else SEED_FULL
+        dest = OUT / (f"{cid}-cg.png" if kind == "scene" else f"{cid}-{kind}.png")
+        return {
+            "id": cid, "kind": kind, "size": size, "seed": seed,
+            "file": dest.name, "prompt": prompt,
+        }
 
-    write_prompts(entries)
+    entries = [build_entry(kind, cid) for kind in kinds for cid in ids]
+    # Keep the prompt sheet complete even when rendering a subset.
+    all_entries = [
+        build_entry(kind, cid)
+        for kind in ("bust", "full", "scene")
+        for cid in CHARACTERS
+    ]
+    made: dict[str, list[Path]] = {"bust": [], "full": [], "scene": []}
+
+    write_prompts(all_entries)
     if args.prompts_only:
         print(f"wrote {OUT / 'PROMPTS.md'}")
         return 0
@@ -271,6 +311,9 @@ def main() -> int:
             crop = avatar(dest)
             print(f"  -> {crop.relative_to(ROOT)}")
             print(f"  -> {crop.with_suffix('.jpg').relative_to(ROOT)}")
+        if kind == "scene":
+            web = scene_web(dest)
+            print(f"  -> {web.relative_to(ROOT)}")
 
     for kind, paths in made.items():
         if len(paths) == len(ids) and paths:

@@ -83,3 +83,43 @@ visual novel character sheet, solo, full body, standing, front view, head to toe
 ```text
 visual novel character sheet, solo, full body, standing, front view, head to toe, entire figure including shoes, small figure centered with space above the head and below the feet, neutral relaxed pose, arms at sides, feet visible, same camera distance, soft warm late-afternoon key light, muted plum and gold palette, soft cel shading, clean lineart, detailed eyes, a woman in her mid-twenties with auburn hair in a messy ponytail, green eyes, freckles, a burn scar on one wrist, a bright grin, mustard yellow sweater under a white canvas apron, dark jeans, black canvas sneakers, plain muted plum studio backdrop with soft vignette, no text, no watermark, adult woman, fully clothed, modest clothing, tasteful
 ```
+
+## alice · scene
+
+- size: `portrait`
+- seed: `626262`
+- file: `alice-cg.png`
+
+```text
+visual novel event CG, solo, three-quarter body, dynamic natural pose, cinematic composition, character on the right third with warm negative space on the left, the same cozy café corner at 18:30 every time: dark wood table, rain-streaked window with autumn city lights, hanging brass lamps, empty chairs, muted plum and gold palette, soft cel shading, clean lineart, detailed eyes, warm evening lamplight, shallow depth of field, a woman in her early thirties with chestnut brown hair in a loose bun, warm amber eyes, round gold glasses, a soft knowing smile, ink-stained fingers, cream knit cardigan over a burgundy blouse, tailored beige trousers, black leather ankle boots, leaning forward on the café table with both hands wrapped around a teacup, shoulders relaxed, warm knowing smile, head tilted slightly, no text, no watermark, adult woman, fully clothed, modest clothing, tasteful
+```
+
+## emily · scene
+
+- size: `portrait`
+- seed: `626262`
+- file: `emily-cg.png`
+
+```text
+visual novel event CG, solo, three-quarter body, dynamic natural pose, cinematic composition, character on the right third with warm negative space on the left, the same cozy café corner at 18:30 every time: dark wood table, rain-streaked window with autumn city lights, hanging brass lamps, empty chairs, muted plum and gold palette, soft cel shading, clean lineart, detailed eyes, warm evening lamplight, shallow depth of field, a woman in her late twenties with a sharp black bob and blunt bangs, dark brown eyes, silver drop earrings, a small scar through one eyebrow, a composed expression, charcoal blazer over a white silk blouse, black trousers, black leather loafers, seated at the café table with legs crossed, one elbow on the table, chin resting on her hand, direct level gaze, no text, no watermark, adult woman, fully clothed, modest clothing, tasteful
+```
+
+## sophia · scene
+
+- size: `portrait`
+- seed: `626262`
+- file: `sophia-cg.png`
+
+```text
+visual novel event CG, solo, three-quarter body, dynamic natural pose, cinematic composition, character on the right third with warm negative space on the left, the same cozy café corner at 18:30 every time: dark wood table, rain-streaked window with autumn city lights, hanging brass lamps, empty chairs, muted plum and gold palette, soft cel shading, clean lineart, detailed eyes, warm evening lamplight, shallow depth of field, a woman in her early thirties with warm brown skin, dark curls in a low bun, amber eyes, thin gold glasses, a calm half-smile, black turtleneck, a thin gold necklace, a long charcoal coat, black ankle boots, standing beside the rain-streaked window, a small notebook in one hand, looking back over her shoulder, glasses catching the lamplight, wooden café tables, red velvet chairs and warm brass lamps fill the left side of the frame; not an empty wall, no text, no watermark, adult woman, fully clothed, modest clothing, tasteful
+```
+
+## mia · scene
+
+- size: `portrait`
+- seed: `626262`
+- file: `mia-cg.png`
+
+```text
+visual novel event CG, solo, three-quarter body, dynamic natural pose, cinematic composition, character on the right third with warm negative space on the left, the same cozy café corner at 18:30 every time: dark wood table, rain-streaked window with autumn city lights, hanging brass lamps, empty chairs, muted plum and gold palette, soft cel shading, clean lineart, detailed eyes, warm evening lamplight, shallow depth of field, a woman in her mid-twenties with auburn hair in a messy ponytail, green eyes, freckles, a burn scar on one wrist, a bright grin, mustard yellow sweater under a white canvas apron, dark jeans, black canvas sneakers, leaning over the table with a tray balanced on one hip, one hand on the table, bright grin, weight on one leg, no text, no watermark, adult woman, fully clothed, modest clothing, tasteful
+```

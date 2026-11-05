@@ -316,9 +316,8 @@ function renderStory(data) {
     portrait.onerror = null;
     portrait.src = `/static/assets/portraits/${cast.id}-bust.png`;
   };
-  portrait.src = cast.full || cast.portrait;
+  portrait.src = cast.scene || cast.full || cast.portrait;
   portrait.alt = `${cast.name} portrait`;
-  portrait.style.setProperty("--sprite-scale", cast.fullScale || 1);
   $("#scene-name").textContent = line ? line.name : cast.name;
   $("#scene-jp").textContent = line && line.name === "You" ? "" : cast.route;
   $("#scene-mood").textContent = line && line.name === "You" ? "in the room" : cast.mood;
@@ -1535,7 +1534,7 @@ function openProfile(id) {
   modal.style.setProperty("--scene-color", cast.color);
   $("#profile-route").textContent = cast.route || "";
   $("#profile-name").textContent = cast.name;
-  $("#profile-jp").textContent = cast.route;
+  $("#profile-jp").textContent = "";
   $("#profile-role").textContent = `${cast.role} · ${cast.mood}`;
   $("#profile-intro").textContent = cast.intro;
 
@@ -1571,9 +1570,9 @@ function openProfile(id) {
     img.onerror = null;
     img.src = `/static/assets/portraits/${cast.id}.svg`;
   };
-  img.style.transform = `scale(${cast.fullScale || 1})`;
-  img.src = cast.full || cast.portrait;
-  img.alt = `${cast.name} full-body character art`;
+  img.style.transform = "none";
+  img.src = cast.scene || cast.full || cast.portrait;
+  img.alt = `${cast.name} character art`;
 
   renderProfileRelationships(state.data || {}, id);
   modal.hidden = false;

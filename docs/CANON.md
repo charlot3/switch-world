@@ -132,3 +132,13 @@ The canon is read-only state. To change it:
 the character's ceiling and the chosen stance (`answer`, `tease`, `deflect`, `refuse`,
 `hard_refuse`). It never contains the user's message. Implemented in `director/social.py`
 from `world/social.json`; see the README's "Affinity and topic boundaries".
+
+
+## Scene events
+
+`turn_plan` records the deterministic plan (`primary`, `reactors`, `silent`, `chorus`,
+`topic`). Speech/reaction/chorus beats are `dialogue`; action beats are `action`; a
+planned non-answer is `silence`; a whisper is a private `whisper`/`whisper_reply`; a
+boundary is a public `boundary_violation` with no act text. Every beat carries
+`metadata` with the turn id, mode, role, expression and target. See
+[`SCENE_PROTOCOL.md`](SCENE_PROTOCOL.md).

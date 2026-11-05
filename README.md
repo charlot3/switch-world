@@ -88,14 +88,15 @@ the corrected `branch` event and the same provenance.
 Four views. The tree and ledger are read-only projections; the scene composer, the phone
 DM, the time machine and the beat controls are the write surfaces:
 
-- **Story** — two columns: the visual-novel scene + **authored arc strip** (Act I, five
-  beats, the branch the ledger chose) on the left; a **phone-shaped private DM** on the
-  right. The left is the **in-person scene**: the current beat's full-body 立绘, a row of
-  who is present, a typewriter dialogue box, **three authored choices**, and a free-text
-  **“Say something to the room”** composer. Sending goes to the live Switch room
-  (`POST /api/group/say`), addresses only the characters in the current beat, waits for
-  their own replies, and plays them back one line at a time with **Next line**. The phone
-  posts to `/api/dm`, but it is **locked until you add that character as a friend**
+- **Story** — the visual-novel scene on the left (the current beat's CG, who is present,
+  and a vertical **【Name】 turn log**) and a **phone-shaped private DM** on the right.
+  A turn is planned before any model call: named addressee, shared-fact chorus, intimate
+  primary+reactor, or default (1 primary, 0–2 reactors, the rest silent). Only the planned
+  speakers are collected; a missing speaker becomes a recorded silence. The log renders
+  speech plates, italic action/reaction captions, one stacked chorus block and dimmed
+  silent/absent portraits; **Next beat** steps the performance. The composer has authored
+  choices, free text and a **Whisper** target picker. The phone posts to `/api/dm`, but it
+  is **locked until you add that character as a friend**
   (`POST /api/friends/<id>`); the lock panel and the cast-card button both add them. The
   thread loads up to **100** private DMs, with **Load older** as a database-backed cursor;
   public scene lines never appear in the phone, so a group conversation cannot leak into a
@@ -171,6 +172,29 @@ The world stores **one story datetime** (`clock.now`) plus a mode:
 `GET /api/clock` returns the clock, the current beat and the next beat;
 `POST /api/clock/mode` switches mode; `POST /api/clock/advance` takes `{run, beat}`. The
 Settings → **Time machine** card is the UI, and the rail clock shows `· MOCK` or `· REAL`.
+
+### Whisper and boundaries
+
+`POST /api/group/whisper {to, message}` delivers the words only to the target. The target
+answers through its private Bifrost/phone model, so the response is honestly marked
+`transport: "staged"` unless a real private Switch room is available. One or two observers
+receive a token-scrubbed prompt: they saw the whisper happen, did not hear the words, and
+react publicly. The whispered text is never written to a public event, another character's
+phone, or an observer prompt.
+
+Uninvited physical contact is cut before the act is recorded: one detail-free public
+`boundary_violation`, a hard refusal from the target, the target leaves (`mark_absent`), and
+every other present character records a private `user-crossed-a-line` belief with a
+distinct confidence. The social deltas (trust/closeness/tension) come from the authored
+`world/social.json`. The act itself is never rendered.
+
+### Studio
+
+The **Studio** rail view reads `GET /api/studio/summary`: five health chips (world, Switch,
+Mattermost, gateway, Bifrost), current and next beat, **Advance & play**, agents (friend,
+presence, last event), rooms and a recent feed. Every external probe is capped at 300ms and
+a down service is a false chip, not a failed request. Settings stays the preferences/demo
+drawer. The event format is in [`docs/SCENE_PROTOCOL.md`](docs/SCENE_PROTOCOL.md).
 
 ### Group chat vs. phone
 
@@ -771,13 +795,13 @@ the scene card above: the user and the cast co-produce a scene and its provenanc
 | `gateway/` | Bifrost client, Tavily client, offline fixture |
 | `world/state/` | seed characters, relationship graph and beliefs |
 | `world/rooms.json` | surface ↔ character ↔ channel/DM mapping |
-| `world_engine/` | FastAPI + SQLite + MCP world engine, token scoping, canon API, scene card |
+| `world_engine/` | FastAPI + SQLite + MCP world engine, token scoping, canon API, scene card, Studio summary |
 | `web/` | the vanilla dashboard (Story/arc/profile, World Tree, ledger, settings) |
 | `web/assets/portraits/` | bust, full-body 立绘, avatar crops, contact sheets, `PROMPTS.md` |
 | `tests/` | pytest for the service, API, canon and café beat |
 | `agents/<name>/` | per-character working directories: `AGENTS.md`, `IDENTITY.md`, `CLAUDE.md`, generated `opencode.json` / `.mcp.json` |
 | `mcp/` | the world engine's MCP tool surface (design notes) |
-| `director/` | authored beat runners (local/Bifrost/Switch), the phone DM, group chat (`group.py`), the time machine (`clock.py`), the social gate (`social.py`), and `canon.py` |
+| `director/` | authored beat runners (local/Bifrost/Switch), the phone DM, group turns (`group.py`), whisper (`whisper.py`), the time machine (`clock.py`), the social gate (`social.py`), and `canon.py` |
 | `scripts/fetch-switch.sh` | pull the pinned Switch compose artifact |
 | `scripts/generate-cast-art.py` | one flow for the bust/full-body/avatar/café-CG set |
 | `scripts/generate-beat-cg.py` | bookshop and food-truck location CGs |

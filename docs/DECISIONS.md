@@ -330,3 +330,23 @@ or refuse, and the ledger records the reason and the delta.
 **Ruled out:** relying on a stronger prompt alone (it leaks under pressure); a second LLM
 classifier on the critical path (latency and non-determinism); making the meter a
 cosmetic UI value with no prompt read path.
+
+## 2026-11-05 — Direct the turn before the agents speak
+
+A group scene is not four independent replies to the user. The director now plans the
+turn first: a named addressee gets the floor, a shared fact becomes a short chorus, an
+intimate probe stays one primary plus one reactor, and the rest are silent. Only planned
+speakers are collected; a miss becomes a recorded silence, not an error. The plan is a
+`turn_plan` event, and every beat carries `metadata` (turn, mode, role, expression,
+target), which is what lets the UI render a galgame transcript instead of replaying chat.
+
+Whisper is staged honestly: the target answers through its private model when a real
+private Switch room is not provisioned, while observers receive a token-scrubbed public
+reaction prompt. Boundary violations are cut before the act is written: one detail-free
+public event, a hard refusal, the target leaves, and each witness records its own private
+belief. Code owns who speaks, what is allowed and what the ending sees; the model owns the
+sentence.
+
+**Ruled out:** broadcasting first and sorting replies afterwards; claiming transport
+privacy the transport cannot prove; letting a model decide who is silent or whether a
+boundary was crossed.

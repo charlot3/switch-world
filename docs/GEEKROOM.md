@@ -35,20 +35,28 @@ Alice's and Emily's turns through that client — not through a direct provider 
 - **Observability** — Bifrost logs every request; `gateway/bifrost.py` also writes
   `data/logs/bifrost.jsonl` (character, model, prompt/completion tokens, latency,
   success/error), and `GET /api/bifrost/usage` returns the current budget.
-- **Reasoning-model handling** — the local Ollama Qwen model is a reasoning model. For
-  `ollama/*` models the client sends `think: false`, otherwise the whole token budget can
-  disappear into hidden reasoning and return an empty content field.
+- **OpenCode Go adapter** — OpenCode's v2 API is not an OpenAI endpoint, so
+  `scripts/opencode-gateway.py` exposes `/v1/chat/completions` on `:8090` and runs
+  `opencode run --model opencode-go/deepseek-v4.1-flash --format json --auto`.
+  Bifrost's `openai` provider points at `http://host.docker.internal:8090`; the model id
+  in `world/models.json` is `openai/deepseek-v4.1-flash`, while the adapter calls the
+  OpenCode Go model. The token is `OPENCODE_PROXY_TOKEN`; no paid provider key is used.
+- **Reasoning-model fallback** — the optional Ollama Qwen fallback is a reasoning model.
+  For `ollama/*` models the client sends `think: false`, otherwise the whole token budget
+  can disappear into hidden reasoning and return an empty content field.
 
 Run it:
 
 ```sh
-scripts/run-bifrost.sh          # Bifrost on :8080 + Ollama proxy if needed
+scripts/run-bifrost.sh          # OpenCode adapter :8090 + Bifrost :8080
 uv run director --bifrost       # Alice and Emily generated through Bifrost
 ```
 
-The default local model is `ollama/qwen3.8:27b-q4_K_M`. Add OpenAI/Anthropic providers in
-`deploy/bifrost/data/config.json` and point `world/models.json` at
-`anthropic/...` or `openai/...` when keys are available. The request path is identical.
+The default model is **OpenCode Go `opencode-go/deepseek-v4.1-flash`** (free, already
+signed in through OpenCode), reached through the adapter. Set `OPENCODE_MODEL` to change
+it. Add OpenAI/Anthropic providers in `deploy/bifrost/data/config.json` and point
+`world/models.json` at `anthropic/...` or `openai/...` when keys are available. The
+request path is identical.
 
 ### 2. Tavily = the real world
 
@@ -136,7 +144,8 @@ before the Nagoya trip. The Flip deadline is earlier and remains the priority.
   2026-11-01–15, so the same work is inside it.
 - Neither ruleset read here has an exclusivity clause; one project can be submitted to
   both. The final Geek Room submission is one project only.
-- The local default is a single Ollama model with four character profiles. Per-character
+- The local default is a single OpenCode Go model with four character profiles, reached
+  through the local OpenCode adapter; there is no paid provider key. Per-character
   *different provider models* are a config change, not a claim that the local demo already
   uses four vendors. The README says so.
 - The offline Tavily fixture is labelled in the event text. A live submission should set

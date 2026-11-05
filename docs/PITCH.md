@@ -58,8 +58,8 @@ world engine and the canon are the same in both.
 - local guard `data/bifrost_budget.json` + gateway UI + `GET /api/bifrost/usage`;
 - evidence: `data/logs/bifrost.jsonl`, Bifrost dashboard at `:8080`.
 
-The local demo uses Ollama; swapping one character to Anthropic or OpenAI is a config
-change, not a rewrite.
+The local demo uses OpenCode Go DeepSeek 4.1 Flash through a small OpenAI-compatible
+adapter; swapping one character to Anthropic or OpenAI is a config change, not a rewrite.
 
 ## 7. Tavily: the real-world input
 
@@ -83,10 +83,10 @@ The branch/tag split keeps the Flip demo frozen while the Geek Room layer evolve
 ## 9. Proof
 
 - 40+ passing tests for the world engine, canon, Bifrost client, Tavily client and scene;
-- a real Bifrost → Ollama café scene;
+- a real Bifrost → OpenCode Go DeepSeek café scene;
 - a real-ish/offline Tavily event in the matrix and feed;
 - screenshots and a reproducible `docs/GEEKROOM.md` runbook;
-- honest scope: no 3D/voice/in-loop image generation, one local model by default.
+- honest scope: no 3D/voice/in-loop image generation, one OpenCode model by default.
 
 ## 10. Why it matters / next
 

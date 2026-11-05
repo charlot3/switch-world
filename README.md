@@ -100,6 +100,26 @@ birthday, specialty, likes and dislikes, a private canon line labelled **god vie
 sample quote, and the character's outgoing trust/closeness/tension bars (including you).
 The design rationale is in [`docs/CAST.md`](docs/CAST.md).
 
+### Driving the story
+
+The dashboard is a **read-only projection**. `Next line` only steps through the dialogue
+already captured in the feed; it does not generate a new turn. To advance the world:
+
+1. **Talk to the cast** — open `#world` at
+   <http://localhost:8065/switch/channels/world>, or use the **DM this character** link.
+   Mattermost may ask you to log in first; the local user is `MATTERMOST_USER` in `.env`.
+   In a channel, address `@alice` / `@emily`; in a DM, no `@` is needed.
+2. **Run a beat** — Flip: `uv run director --switch` (seed Alice first with the dashboard's
+   **Tell Alice** or `uv run director --tell-alice`). Geek Room: `scripts/run-bifrost.sh`,
+   then **Settings → Run Bifrost beat**, or `uv run director --bifrost`.
+3. **Continue after the café** — the prototype wires the required café beat only. After a
+   branch, DM a character, reset with a new secret, or extend the authored beats in
+   `world/canon.json`; the other four beats are scaffold, not a free-roaming scheduler.
+
+The header's **Open #world** link points at the verified public Mattermost channel
+(`switch/world`). If it shows a login page, sign in with the `MATTERMOST_USER` credentials
+from `.env`; the channel and the four bot users exist.
+
 ![The character sheet: full-body 立绘, profile, private god view, and relationship bars.](docs/profile-sheet.png)
 
 The art is **ComfyUI-rendered anime** in `web/assets/portraits/`: a **bust** (832×1216) for
@@ -281,10 +301,16 @@ scripts/run-bifrost.sh
 uv run director --bifrost
 ```
 
-The default is Ollama (`qwen3.8:27b-q4_K_M`). Add OpenAI/Anthropic providers in
-`deploy/bifrost/data/config.json` and point a character at `openai/...` or
-`anthropic/...`; the Python client does not change. Per-character token budgets,
-fallbacks and virtual-key headers are in [`docs/GEEKROOM.md`](docs/GEEKROOM.md).
+The default is **OpenCode Go `opencode-go/deepseek-v4.1-flash`** through
+`scripts/opencode-gateway.py`, a small OpenAI-compatible adapter in front of
+`opencode run`. It uses the OpenCode model already signed in on this machine, so the
+demo has no paid provider bill. Bifrost's `openai` provider points at the adapter; the
+model id in `world/models.json` is `openai/deepseek-v4.1-flash`, while the adapter calls
+the OpenCode model above. Set `OPENCODE_MODEL` to change it.
+
+Add other providers in `deploy/bifrost/data/config.json` and point a character at
+`openai/...` or `anthropic/...`; the Python client does not change. Per-character token
+budgets, fallbacks and virtual-key headers are in [`docs/GEEKROOM.md`](docs/GEEKROOM.md).
 A real two-request run is recorded in
 [`docs/bifrost-log-example.jsonl`](docs/bifrost-log-example.jsonl), with the resulting
 [`scene card`](docs/scene-card-bifrost-example.md).
@@ -304,8 +330,8 @@ A real two-request run is recorded in
 uv run director --tavily-event --query "AI agents and creative tools this week"
 ```
 
-See [`docs/GEEKROOM.md`](docs/GEEKROOM.md) for the two-edition demo, the Bifrost/Ollama
-proxy, the Geek Room submission checklist, and the pitch-deck outline.
+See [`docs/GEEKROOM.md`](docs/GEEKROOM.md) for the two-edition demo, the
+Bifrost/OpenCode adapter, the Geek Room submission checklist, and the pitch-deck outline.
 
 ## Cast
 
@@ -599,9 +625,11 @@ the scene card above: the user and the cast co-produce a scene and its provenanc
 | `scripts/generate-cast-art.py` | one flow for the bust/full-body/avatar set |
 | `scripts/update-mattermost-avatars.sh` | push the square crops to the four bot accounts |
 | `scripts/normalize-relationships.py` | repair name-keyed relationship rows from older databases |
-| `scripts/run-bifrost.sh` | start the Bifrost gateway + the Ollama host proxy |
+| `scripts/run-bifrost.sh` | start the OpenCode adapter + Bifrost gateway |
+| `scripts/run-opencode-gateway.sh` | OpenAI-compatible adapter for `opencode run` |
+| `scripts/opencode-gateway.py` | the adapter implementation on :8090 |
 | `scripts/run-geekroom-engine.sh` | separate Geek Room world engine on :8891 |
-| `scripts/ollama-proxy.py` | expose loopback Ollama to Docker Desktop |
+| `scripts/ollama-proxy.py` | optional Ollama fallback proxy for Docker Desktop |
 | `scripts/world-tick.py` | one-shot/loop Tavily world-event scheduler |
 | `scripts/make-pitch-deck.py` | Geek Room PPTX draft from the docs screenshots |
 | `deploy/bifrost/` | Bifrost config, provider notes, local data mount |
@@ -627,8 +655,9 @@ requires a confidence floor and a content match before it calls a belief a discl
 the service resolves display names to character ids so `"Emily"` cannot create a second
 relationship row next to `"emily"`.
 
-For the Geek Room edition, the local default is **one** Ollama model with four character
-profiles; per-character different provider models and failover chains are a config change
+For the Geek Room edition, the local default is **one** OpenCode Go model
+(`opencode-go/deepseek-v4.1-flash`) with four character profiles and no paid key;
+per-character different provider models and failover chains are a config change
 (`world/models.json` + `deploy/bifrost/data/config.json`). Live Tavily needs
 `TAVILY_API_KEY`; the offline fixture is explicitly labelled in the event text.
 

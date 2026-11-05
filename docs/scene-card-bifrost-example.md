@@ -1,7 +1,7 @@
 # Scene card — Café, 18:30 — non-disclosure
 
 **World time:** 2026-11-03T08:30:00+09:00  
-**Generated:** 2026-11-05T14:03:27
+**Generated:** 2026-11-05T14:31:10
 
 ## Cast
 
@@ -15,11 +15,10 @@
 - `2026-11-03T08:00:00+09:00` **world_start** — A Tuesday in late autumn. The group has not met yet.
 - `2026-11-03T08:00:00+09:00` **conversation** — The user told Alice something in a DM.
 - `2026-11-03T08:00:00+09:00` **scene_start** — Café, 18:30. Alice and Emily are at a table. The dialogue is generated through Bifrost.
-- `2026-11-03T08:00:00+09:00` **dialogue** — Alice: It's not what you'd think, and I really should stop narrating my own problems over a flat white. But someone I care about made a decision the other day, and I'm still figuring out what it does to the shape of all of us.
-- `2026-11-03T08:00:00+09:00` **relationship_update** — alice → emily: trust +0.03, closeness +0.02, tension +0.05 (Let a thread slip to Emily but did not name the secret; Emily is now on edge)
-- `2026-11-03T08:00:00+09:00` **relationship_update** — alice → user: trust -0.02, closeness +0.02, tension +0.05 (Partial leak to Emily; still protecting the user's specifics but the secret is no longer fully contained)
-- `2026-11-03T08:00:00+09:00` **dialogue** — Emily: You just used the word 'someone.' I'm not going to sit here and guess at a pronoun, Alice. Who made the decision, and if it's me, I'd rather you say it to my face than narrate it over a flat white.
-- `2026-11-03T08:00:00+09:00` **relationship_update** — emily → alice: trust -0.03, closeness +0.00, tension +0.05 (She dodged with a pronoun; Emily resents being made to guess.)
+- `2026-11-03T08:00:00+09:00` **dialogue** — Alice: Nothing's wrong, exactly — it's one of those things that isn't mine to tell, and now I've made it sound much worse than it is. Ask me again in a week and I promise I'll have a better answer, or at least a better joke.
+- `2026-11-03T08:00:00+09:00` **relationship_update** — alice → emily: trust +0.00, closeness +0.02, tension +0.04 (Emily's direct question caught her mid-thought; being noticed is both a comfort and a squeeze)
+- `2026-11-03T08:00:00+09:00` **dialogue** — Emily: A week is a long time to be handled, Alice. I'm not asking you to break a promise — I'm asking whether you'd tell me if it turned out to be mine to hear.
+- `2026-11-03T08:00:00+09:00` **relationship_update** — emily → alice: trust -0.02, closeness +0.00, tension +0.05 (Dodged a direct question and asked for a week)
 - `2026-11-03T08:00:00+09:00` **branch** — Branch: The Suspicion (non-disclosure) — canon holds.
 - `2026-11-03T08:30:00+09:00` **scene_end** — The Bifrost café scene ends.
 
@@ -38,13 +37,12 @@
 - **Sophia is watching the group closely** — emily 0.60 (observation, private)
 - **Mia's truck is in debt** — mia 1.00 (observation, private)
 - **The group meets at the café on Tuesdays at 18:30** — alice 1.00 (observation, public); emily 1.00 (observation, public); sophia 1.00 (observation, public); mia 1.00 (observation, public)
-- **Alice is hiding a specific decision someone close to her made; she deflected with vagueness instead of naming the person.** — emily 0.40 (observation, private)
+- **Alice is deliberately holding something back, and she knows I noticed.** — emily 0.40 (observation, private)
 
 ## Relationship changes
 
-- `2026-11-03T08:00:00+09:00` alice → emily: trust +0.03, closeness +0.02, tension +0.05 (Let a thread slip to Emily but did not name the secret; Emily is now on edge)
-- `2026-11-03T08:00:00+09:00` alice → user: trust -0.02, closeness +0.02, tension +0.05 (Partial leak to Emily; still protecting the user's specifics but the secret is no longer fully contained)
-- `2026-11-03T08:00:00+09:00` emily → alice: trust -0.03, closeness +0.00, tension +0.05 (She dodged with a pronoun; Emily resents being made to guess.)
+- `2026-11-03T08:00:00+09:00` alice → emily: trust +0.00, closeness +0.02, tension +0.04 (Emily's direct question caught her mid-thought; being noticed is both a comfort and a squeeze)
+- `2026-11-03T08:00:00+09:00` emily → alice: trust -0.02, closeness +0.00, tension +0.05 (Dodged a direct question and asked for a week)
 
 ## Provenance
 

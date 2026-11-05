@@ -1,2 +1,2 @@
-{"ts":"2026-11-05T05:01:54.544673+00:00","character":"alice","model":"qwen3.8:27b-q4_K_M","prompt_tokens":1615,"completion_tokens":1428,"total_tokens":3043,"latency_ms":142329,"ok":true}
-{"ts":"2026-11-05T05:03:27.407643+00:00","character":"emily","model":"qwen3.8:27b-q4_K_M","prompt_tokens":1568,"completion_tokens":835,"total_tokens":2403,"latency_ms":92859,"ok":true}
+{"ts":"2026-11-05T05:31:05.767735+00:00","character":"alice","model":"opencode-go/deepseek-v4.1-flash","prompt_tokens":1578,"completion_tokens":115,"total_tokens":1693,"latency_ms":8807,"ok":true}
+{"ts":"2026-11-05T05:31:10.659319+00:00","character":"emily","model":"opencode-go/deepseek-v4.1-flash","prompt_tokens":1516,"completion_tokens":155,"total_tokens":1671,"latency_ms":4888,"ok":true}

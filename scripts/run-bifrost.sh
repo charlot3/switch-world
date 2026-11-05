@@ -26,6 +26,12 @@ fi
 : "${BIFROST_ENCRYPTION_KEY:=0123456789abcdef0123456789abcdef}"
 : "${OLLAMA_URL:=http://host.docker.internal:11435}"
 : "${BIFROST_PORT:=8080}"
+: "${OPENCODE_PROXY_TOKEN:=opencode-shim}"
+export OPENCODE_PROXY_TOKEN
+
+# Bifrost's primary provider is the OpenCode Go adapter on :8090. It uses the
+# OpenCode model already signed in on this machine, so the demo has no paid API bill.
+bash "$ROOT/scripts/run-opencode-gateway.sh" "$ENV_FILE"
 
 # Docker Desktop can reach the host, but Ollama commonly listens only on 127.0.0.1.
 # Give Bifrost a host-reachable port without changing the user's Ollama configuration.
@@ -43,6 +49,7 @@ docker run -d --rm --name switch-world-bifrost \
   -v "$ROOT/deploy/bifrost/data:/app/data" \
   -e BIFROST_ENCRYPTION_KEY="$BIFROST_ENCRYPTION_KEY" \
   -e OLLAMA_URL="$OLLAMA_URL" \
+  -e OPENCODE_PROXY_TOKEN="$OPENCODE_PROXY_TOKEN" \
   maximhq/bifrost
 
 echo "Bifrost starting on http://127.0.0.1:${BIFROST_PORT}"

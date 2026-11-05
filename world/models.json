@@ -1,38 +1,38 @@
 {
   "alice": {
-    "model": "ollama/qwen3.8:27b-q4_K_M",
+    "model": "openai/deepseek-v4.1-flash",
     "fallbacks": [],
     "temperature": 0.75,
-    "max_tokens": 2500,
+    "max_tokens": 700,
     "daily_tokens": 60000,
     "virtual_key_env": "BIFROST_VK_ALICE",
-    "note": "warm and unhurried; a slower, softer sampling profile"
+    "note": "warm and unhurried; a slower, softer sampling profile \u00b7 OpenCode Go DeepSeek 4.1 Flash via scripts/opencode-gateway.py"
   },
   "emily": {
-    "model": "ollama/qwen3.8:27b-q4_K_M",
+    "model": "openai/deepseek-v4.1-flash",
     "fallbacks": [],
     "temperature": 0.55,
-    "max_tokens": 2500,
+    "max_tokens": 700,
     "daily_tokens": 50000,
     "virtual_key_env": "BIFROST_VK_EMILY",
-    "note": "short, precise, low-temperature"
+    "note": "short, precise, low-temperature \u00b7 OpenCode Go DeepSeek 4.1 Flash via scripts/opencode-gateway.py"
   },
   "sophia": {
-    "model": "ollama/qwen3.8:27b-q4_K_M",
+    "model": "openai/deepseek-v4.1-flash",
     "fallbacks": [],
     "temperature": 0.45,
-    "max_tokens": 2500,
+    "max_tokens": 700,
     "daily_tokens": 50000,
     "virtual_key_env": "BIFROST_VK_SOPHIA",
-    "note": "measured; long pauses are part of the voice"
+    "note": "measured; long pauses are part of the voice \u00b7 OpenCode Go DeepSeek 4.1 Flash via scripts/opencode-gateway.py"
   },
   "mia": {
-    "model": "ollama/qwen3.8:27b-q4_K_M",
+    "model": "openai/deepseek-v4.1-flash",
     "fallbacks": [],
     "temperature": 0.95,
-    "max_tokens": 2500,
+    "max_tokens": 700,
     "daily_tokens": 60000,
     "virtual_key_env": "BIFROST_VK_MIA",
-    "note": "fast, funny, high-variance"
+    "note": "fast, funny, high-variance \u00b7 OpenCode Go DeepSeek 4.1 Flash via scripts/opencode-gateway.py"
   }
 }

@@ -153,3 +153,22 @@ def test_record_event(service):
     assert event["id"] > 0
     assert event["participants"] == ["alice", "emily"]
     assert json.dumps(event["participants"])
+
+
+def test_phone_history_returns_100_and_paginates(service):
+    for index in range(105):
+        service.record_event(
+            "alice", "dm", f"Alice: message {index}", ["alice", "user"], "private"
+        )
+    first = service.phone_history("alice", limit=100)
+    assert len(first["messages"]) == 100
+    assert first["has_more"] is True
+    assert first["oldest_id"] == first["messages"][0]["id"]
+    assert first["messages"][-1]["text"] == "message 104"
+
+    older = service.phone_history("alice", limit=100, before_id=first["oldest_id"])
+    assert len(older["messages"]) == 5
+    assert older["has_more"] is False
+
+    # A different character never sees Alice's private DM history.
+    assert service.phone_history("emily")["messages"] == []

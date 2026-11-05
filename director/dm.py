@@ -40,10 +40,13 @@ def reply_to_dm(
     canon = load_canon()
     context = world_context(service)
     history = [
-        event for event in service.state()["events"]
-        if event["kind"] == "dm" and character in (event.get("participants") or [])
-    ][-8:]
-    history_text = "\n".join(event["summary"] for event in history) or "(no earlier DMs)"
+        message for message in service.phone_history(character, limit=100)["messages"]
+        if message["kind"] == "dm"
+    ]
+    history_text = "\n".join(
+        ("You: " if message["role"] == "user" else f"{character.title()}: ") + message["text"]
+        for message in history
+    ) or "(no earlier DMs)"
     memories = service.recall(character, query=message, limit=6)["memories"]
     memory_text = "\n".join(
         f"- {item['proposition']} (source {item['source']}, confidence {item['confidence']:.2f})"

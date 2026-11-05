@@ -729,6 +729,20 @@ select {
 }
 .phone-who { display: block; margin-bottom: 3px; font-size: 8px; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.7; }
 
+.phone-older {
+  align-self: center;
+  padding: 4px 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 8px;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+.phone-older:hover { color: var(--ink); border-color: var(--border-strong); }
+.phone-older:disabled { opacity: 0.5; cursor: default; }
+
 .phone-divider {
   align-self: center;
   margin: 5px 0;

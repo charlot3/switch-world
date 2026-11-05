@@ -18,6 +18,14 @@ const state = {
   typing: null,
   theme: initialTheme(),
   motion: initialMotion(),
+  phone: {
+    character: null,
+    messages: [],
+    hasMore: false,
+    oldestId: null,
+    loading: false,
+    sending: false,
+  },
 };
 
 function initialTheme() {
@@ -485,9 +493,25 @@ function renderPhone(data) {
     : "--:--";
   $("#phone-time").textContent = clock;
 
+  if (state.phone.sending) return;
+
+  if (state.phone.character !== cast.id) {
+    state.phone.character = cast.id;
+    state.phone.messages = [];
+    state.phone.hasMore = false;
+    state.phone.oldestId = null;
+    paintPhone(cast);
+    loadPhoneHistory(cast.id);
+    return;
+  }
+  paintPhone(cast);
+}
+
+function paintPhone(cast) {
   const thread = $("#phone-thread");
   if (!thread) return;
   thread.replaceChildren();
+
   const divider = (label) => {
     const node = document.createElement("div");
     node.className = "phone-divider";
@@ -505,39 +529,82 @@ function renderPhone(data) {
     thread.appendChild(bubble);
   };
 
-  const recentScene = (data.events || [])
-    .filter((event) => event.kind === "dialogue" && (event.participants || []).includes(cast.id))
-    .slice(-3);
-  if (recentScene.length) {
-    divider("Earlier at the café");
-    recentScene.forEach((event) => {
-      const summary = String(event.summary || "");
-      bubbleFor(
-        summary.replace(/^(You|[^:]+):\s*/, ""),
-        "character",
-        `Café · ${firstName(cast.name)}`,
-      );
+  if (state.phone.loading && !state.phone.messages.length) {
+    const loading = document.createElement("div");
+    loading.className = "phone-empty";
+    loading.textContent = "Loading history…";
+    thread.appendChild(loading);
+    return;
+  }
+  if (state.phone.hasMore) {
+    const older = document.createElement("button");
+    older.type = "button";
+    older.className = "phone-older";
+    older.textContent = "Load older";
+    older.disabled = state.phone.loading;
+    older.addEventListener("click", () => {
+      loadPhoneHistory(cast.id, state.phone.oldestId, true);
     });
+    thread.appendChild(older);
+  }
+  if (!state.phone.messages.length) {
+    bubbleFor(cast.quote, "character", firstName(cast.name));
+    thread.scrollTop = thread.scrollHeight;
+    return;
   }
 
-  const events = (data.events || []).filter(
-    (event) => event.kind === "dm" && (event.participants || []).includes(cast.id),
-  );
-  if (events.length) {
-    divider("Private DM");
-    events.forEach((event) => {
-      const summary = String(event.summary || "");
-      const isUser = summary.startsWith("You:");
-      bubbleFor(
-        summary.replace(/^(You|[^:]+):\s*/, ""),
-        isUser ? "user" : "character",
-        isUser ? "You" : firstName(cast.name),
-      );
-    });
-  } else if (!recentScene.length) {
-    bubbleFor(cast.quote, "character", firstName(cast.name));
-  }
+  let lastKind = null;
+  state.phone.messages.forEach((message) => {
+    if (message.kind !== lastKind) {
+      divider(message.kind === "dm" ? "Private DM" : "Earlier at the café");
+      lastKind = message.kind;
+    }
+    bubbleFor(
+      message.text,
+      message.role === "user" ? "user" : "character",
+      message.role === "user" ? "You" : firstName(cast.name),
+    );
+  });
   thread.scrollTop = thread.scrollHeight;
+}
+
+async function loadPhoneHistory(character, beforeId = null, prepend = false) {
+  if (!character || state.phone.loading || state.phone.sending) return;
+  state.phone.loading = true;
+  const thread = $("#phone-thread");
+  const previousHeight = thread ? thread.scrollHeight : 0;
+  const cast = CAST[character];
+  if (cast) paintPhone(cast);
+  try {
+    const query = `/api/dm/${encodeURIComponent(character)}?limit=100${beforeId ? `&before_id=${beforeId}` : ""}`;
+    const result = await api(query);
+    const messages = result.messages || [];
+    if (prepend) {
+      state.phone.messages = [...messages, ...state.phone.messages];
+    } else {
+      state.phone.messages = messages;
+    }
+    state.phone.character = character;
+    state.phone.hasMore = Boolean(result.has_more);
+    state.phone.oldestId = result.oldest_id || null;
+    if (cast) paintPhone(cast);
+    if (prepend && thread) {
+      thread.scrollTop = thread.scrollHeight - previousHeight;
+    }
+  } catch (error) {
+    if (thread) {
+      const failed = document.createElement("div");
+      failed.className = "phone-bubble character";
+      failed.textContent = `History unavailable: ${error.message}`;
+      thread.appendChild(failed);
+    }
+  } finally {
+    state.phone.loading = false;
+    if (cast) paintPhone(cast);
+    if (prepend && thread) {
+      thread.scrollTop = thread.scrollHeight - previousHeight;
+    }
+  }
 }
 
 async function sendPhone(event) {
@@ -554,6 +621,7 @@ async function sendPhone(event) {
   input.disabled = true;
   send.disabled = true;
   typing.hidden = false;
+  state.phone.sending = true;
 
   const bubble = document.createElement("div");
   bubble.className = "phone-bubble user";
@@ -570,8 +638,11 @@ async function sendPhone(event) {
       method: "POST",
       body: JSON.stringify({ character, message }),
     });
+    state.phone.sending = false;
+    await loadPhoneHistory(character);
     await refresh();
   } catch (error) {
+    state.phone.sending = false;
     const failed = document.createElement("div");
     failed.className = "phone-bubble character";
     const label = document.createElement("span");
@@ -582,6 +653,7 @@ async function sendPhone(event) {
     thread.appendChild(failed);
     thread.scrollTop = thread.scrollHeight;
   } finally {
+    state.phone.sending = false;
     typing.hidden = true;
     input.disabled = false;
     send.disabled = false;
@@ -1364,6 +1436,7 @@ function setView(view) {
   $("#view-eyebrow").textContent = meta.eyebrow;
   $("#view-title").textContent = meta.title;
   if (state.data) render(state.data);
+  if (view === "story" && state.data) loadPhoneHistory(state.selected);
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 

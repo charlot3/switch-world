@@ -260,3 +260,13 @@ agent's DM session also came up with only the Switch MCP tools, not the world MC
 could not recall/record beliefs. We did not pretend the DM worked: the Story phone is now
 the private-DM surface (Bifrost/OpenCode, with recent DM history and world recall), and
 the live Switch path is `#world`. The README and `docs/SWITCH.md` carry the limitation.
+
+## 2026-11-05 — Phone history is 100 + a database cursor
+
+The phone initially loaded three scene lines from `/api/state`; that was too little to
+feel like a conversation and it ignored older DMs. It now calls
+`GET /api/dm/<character>?limit=100&before_id=...`, which reads the event database directly,
+returns scene + private DM messages for that character, and reports `has_more`/`oldest_id`.
+The phone shows the recent 100 and a **Load older** control for the rows above; the DM
+prompt also carries the last 100 DMs. The user's turn is recorded before the model call so
+the auto-refresh cannot remove it while the character is thinking.

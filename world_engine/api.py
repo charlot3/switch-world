@@ -107,6 +107,10 @@ def create_app(service: WorldService | None = None) -> FastAPI:
             raise HTTPException(400, str(exc)) from exc
         return result
 
+    @app.get("/api/dm/{character}")
+    def dm_history(character: str, limit: int = 100, before_id: int | None = None):
+        return service.phone_history(character, limit=limit, before_id=before_id)
+
     @app.post("/api/dm")
     def dm(payload: dict | None = None):
         from director.dm import reply_to_dm

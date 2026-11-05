@@ -136,3 +136,12 @@ def test_run_beat_and_arc_endpoints(client):
     assert [item["beat"]["id"] for item in arc.json()["beats"]] == [
         "morning-shop", "truck-lunch", "cafe", "aftermath", "roundup"
     ]
+
+
+def test_dm_history_endpoint(client):
+    response = client.get("/api/dm/alice?limit=100")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["character"] == "alice"
+    assert body["messages"] == []
+    assert body["has_more"] is False

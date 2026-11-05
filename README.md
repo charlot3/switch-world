@@ -86,9 +86,10 @@ Four views. The Story scene, tree and ledger are read-only projections; the phon
 - **Story** — two columns: the visual-novel scene + **authored arc strip** (Act I, five
   beats, the branch the ledger chose) on the left; a **phone-shaped private DM** on the
   right. The phone posts to `/api/dm`, runs the selected character through
-  Bifrost/OpenCode, and records private `dm` events. The thread shows a three-line
-  "Earlier at the café" recap plus the stored DM history; the user's turn is written
-  before the model call, so it stays visible while the typing indicator runs. On mobile
+  Bifrost/OpenCode, and records private `dm` events. The thread loads up to **100** recent
+  scene + DM messages, with **Load older** as a database-backed cursor for anything above
+  that; the user's turn is written before the model call, so it stays visible while the
+  typing indicator runs. On mobile
   it stacks below the scene. Cast cards with a two-line intro, affinity hearts, **Chat**
   and **Profile** actions sit below. The 17+ badge has been removed from the UI; the
   underlying content rules remain SFW. History is per world instance; Mattermost DMs are

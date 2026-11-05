@@ -403,6 +403,67 @@ class WorldService:
             "holders": holders,
         }
 
+    # ---- phone history -----------------------------------------------------
+    def phone_history(
+        self,
+        character: str,
+        limit: int = 100,
+        before_id: int | None = None,
+    ) -> dict:
+        """Recent scene lines + DMs for one character, newest last.
+
+        The dashboard phone asks for 100 at a time; `before_id` is the pagination
+        cursor for older database rows. Only events the character participates in are
+        returned, so a private DM never leaks into another character's phone.
+        """
+        limit = max(1, min(int(limit), 200))
+        with self._conn() as conn:
+            rows = conn.execute(
+                """SELECT id, kind, summary, participants_json, created_at
+                     FROM events
+                    WHERE kind IN ('dialogue', 'dm')
+                      AND (? IS NULL OR id < ?)
+                    ORDER BY id DESC
+                    LIMIT ?""",
+                (before_id, before_id, max(limit * 3, limit + 1)),
+            ).fetchall()
+
+        messages: list[dict] = []
+        for row in rows:
+            participants = json.loads(row["participants_json"] or "[]")
+            if character not in participants:
+                continue
+            summary = row["summary"] or ""
+            if ":" not in summary:
+                continue
+            if row["kind"] == "dm":
+                role = "user" if summary.startswith("You:") else "character"
+                text = summary.split(":", 1)[1].strip()
+                source = "dm"
+            else:
+                role = "character"
+                text = summary.split(":", 1)[1].strip()
+                source = "scene"
+            messages.append(
+                {
+                    "id": row["id"],
+                    "kind": source,
+                    "role": role,
+                    "text": text,
+                    "created_at": row["created_at"],
+                }
+            )
+            if len(messages) >= limit:
+                break
+        messages.reverse()
+        oldest = messages[0]["id"] if messages else None
+        return {
+            "character": character,
+            "messages": messages,
+            "has_more": len(messages) == limit,
+            "oldest_id": oldest,
+        }
+
     # ---- state and projections -------------------------------------------
 
     def state(self) -> dict:

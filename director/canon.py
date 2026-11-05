@@ -140,7 +140,7 @@ def validate(service: WorldService, canon: dict | None = None) -> list[str]:
     for belief in state["beliefs"]:
         if resolve(belief["holder"]) not in known:
             issues.append(f"belief holder {belief['holder']} is not in the cast")
-    for event in state["events"]:
+    for event in service.events():
         for participant in event.get("participants", []):
             if resolve(participant) not in known:
                 issues.append(f"event {event['id']} has unknown participant {participant}")

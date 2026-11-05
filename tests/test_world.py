@@ -172,3 +172,28 @@ def test_phone_history_returns_100_and_paginates(service):
 
     # A different character never sees Alice's private DM history.
     assert service.phone_history("emily")["messages"] == []
+
+
+def test_phone_history_exactly_limit_has_no_more(service):
+    for index in range(100):
+        service.record_event(
+            "alice", "dm", f"Alice: message {index}", ["alice", "user"], "private"
+        )
+    page = service.phone_history("alice", limit=100)
+    assert len(page["messages"]) == 100
+    assert page["has_more"] is False
+
+
+def test_phone_history_skips_other_characters(service):
+    for index in range(450):
+        service.record_event(
+            "emily", "dm", f"Emily: noise {index}", ["emily", "user"], "private"
+        )
+    for index in range(100):
+        service.record_event(
+            "alice", "dm", f"Alice: message {index}", ["alice", "user"], "private"
+        )
+    page = service.phone_history("alice", limit=100)
+    assert len(page["messages"]) == 100
+    assert page["has_more"] is False
+    assert page["messages"][-1]["text"] == "message 99"

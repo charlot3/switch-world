@@ -97,3 +97,17 @@ def test_bifrost_can_run_a_partial_beat(tmp_path):
     assert [call[0] for call in client.calls] == ["alice"]
     assert "You're early" in result["transcript"][0]
     assert result["bifrost"]["requests"] == 1
+
+
+def test_branch_and_arc_survive_more_than_50_events(tmp_path):
+    service = make_service(tmp_path)
+    run_local_beat(service, "cafe")
+    assert "cafe" in service.completed_beats()
+    for index in range(60):
+        service.record_event(
+            "alice", "dm", f"Alice: later message {index}", ["alice", "user"], "private"
+        )
+    assert "cafe" in service.completed_beats()
+    assert service.latest_event("branch") is not None
+    result = run_local_beat(service, "aftermath")
+    assert result["beat"]["id"] == "aftermath"

@@ -7,7 +7,6 @@ authored beat arrives when its time of day actually arrives.
 """
 from __future__ import annotations
 
-import re
 from datetime import datetime, timedelta
 
 from world_engine.service import WorldService
@@ -44,16 +43,7 @@ def next_beat(canon: dict, now: datetime) -> tuple[dict, datetime]:
 
 
 def done_beats(service: WorldService) -> set[str]:
-    done: set[str] = set()
-    for event in service.state()["events"]:
-        if event["kind"] == "branch":
-            done.add("cafe")
-        if event["kind"] != "beat":
-            continue
-        match = re.match(r"Beat:\s*([a-z-]+)", str(event["summary"] or ""), re.I)
-        if match:
-            done.add(match.group(1))
-    return done
+    return set(service.completed_beats())
 
 
 def next_unplayed(canon: dict, done: set[str]) -> dict | None:

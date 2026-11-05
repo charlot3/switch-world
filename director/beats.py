@@ -210,8 +210,7 @@ def run_local_beat(
         }
 
     if beat_id == "aftermath":
-        branch_events = [e for e in service.state()["events"] if e["kind"] == "branch"]
-        if not branch_events:
+        if service.latest_event("branch") is None:
             raise ValueError("run the café beat first; aftermath needs a branch")
         branch = branch_for(service, DEMO_KEY)
         branch_id = branch["id"]

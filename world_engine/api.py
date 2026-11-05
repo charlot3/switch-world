@@ -119,7 +119,16 @@ def create_app(service: WorldService | None = None) -> FastAPI:
             if payload.get("run") and not explicit:
                 # Fast-forward the arc: play the first beat that has not happened yet.
                 upcoming = next_unplayed(canon_data, done_beats(service))
-                explicit = upcoming["id"] if upcoming else None
+                if upcoming is None:
+                    view = clock_view()
+                    return {
+                        "beat": view["current_beat"],
+                        "clock": service.clock(),
+                        "view": view,
+                        "played": None,
+                        "arc_complete": True,
+                    }
+                explicit = upcoming["id"]
             if explicit:
                 moved = advance_to_beat(service, canon_data, explicit)
             else:
@@ -207,6 +216,8 @@ def create_app(service: WorldService | None = None) -> FastAPI:
 
     @app.get("/api/dm/{character}")
     def dm_history(character: str, limit: int = 100, before_id: int | None = None):
+        if not service.character_exists(character):
+            raise HTTPException(404, f"unknown character: {character}")
         if not service.is_friend(character):
             raise HTTPException(
                 403,
@@ -220,6 +231,8 @@ def create_app(service: WorldService | None = None) -> FastAPI:
 
         payload = payload or {}
         character = str(payload.get("character") or "")
+        if not service.character_exists(character):
+            raise HTTPException(404, f"unknown character: {character}")
         if not service.is_friend(character):
             raise HTTPException(
                 403,

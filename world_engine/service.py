@@ -197,6 +197,10 @@ class WorldService:
             ).fetchone()
         return dict(row)
 
+    def character_exists(self, character: str) -> bool:
+        with self._conn() as conn:
+            return self._character_exists(conn, character)
+
     def characters(self) -> list[dict]:
         with self._conn() as conn:
             rows = [dict(r) for r in conn.execute("SELECT * FROM characters")]
@@ -451,6 +455,48 @@ class WorldService:
                 "room_id": room_id, "message_id": message_id,
             }
 
+    def events(self, kind: str | None = None) -> list[dict]:
+        """Every event, oldest first. The dashboard's `/api/state` only needs the tail,
+        but branch and arc checks must not lose an event older than the last 50."""
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT * FROM events WHERE (? IS NULL OR kind = ?) ORDER BY id",
+                (kind, kind),
+            ).fetchall()
+        result = []
+        for row in rows:
+            event = dict(row)
+            event["participants"] = json.loads(event.pop("participants_json") or "[]")
+            result.append(event)
+        return result
+
+    def latest_event(self, kind: str) -> dict | None:
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT * FROM events WHERE kind = ? ORDER BY id DESC LIMIT 1", (kind,)
+            ).fetchone()
+        if not row:
+            return None
+        event = dict(row)
+        event["participants"] = json.loads(event.pop("participants_json") or "[]")
+        return event
+
+    def completed_beats(self) -> list[str]:
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT kind, summary FROM events WHERE kind IN ('beat', 'branch')"
+            ).fetchall()
+        done: set[str] = set()
+        for row in rows:
+            if row["kind"] == "branch":
+                done.add("cafe")
+                continue
+            match = re.match(r"Beat:\s*([a-z-]+)", str(row["summary"] or ""), re.I)
+            if match:
+                done.add(match.group(1))
+        order = {"morning-shop": 0, "truck-lunch": 1, "cafe": 2, "aftermath": 3, "roundup": 4}
+        return sorted(done, key=lambda beat: (order.get(beat, 99), beat))
+
     def who_knows(self, proposition_key: str) -> dict:
         with self._conn() as conn:
             rows = conn.execute(
@@ -489,55 +535,65 @@ class WorldService:
     ) -> dict:
         """Recent scene lines + DMs for one character, newest last.
 
-        The dashboard phone asks for 100 at a time; `before_id` is the pagination
-        cursor for older database rows. Only events the character participates in are
-        returned, so a private DM never leaks into another character's phone.
+        The dashboard asks for 100 at a time; `before_id` is the pagination cursor. The
+        query walks backwards in batches until it has one more matching message than the
+        limit, so `has_more` is honest even when other characters' DMs dominate the log.
         """
         limit = max(1, min(int(limit), 200))
-        with self._conn() as conn:
-            rows = conn.execute(
-                """SELECT id, kind, summary, participants_json, created_at
-                     FROM events
-                    WHERE kind IN ('dialogue', 'dm')
-                      AND (? IS NULL OR id < ?)
-                    ORDER BY id DESC
-                    LIMIT ?""",
-                (before_id, before_id, max(limit * 3, limit + 1)),
-            ).fetchall()
-
         messages: list[dict] = []
-        for row in rows:
-            participants = json.loads(row["participants_json"] or "[]")
-            if character not in participants:
-                continue
-            summary = row["summary"] or ""
-            if ":" not in summary:
-                continue
-            if row["kind"] == "dm":
-                role = "user" if summary.startswith("You:") else "character"
-                text = summary.split(":", 1)[1].strip()
-                source = "dm"
-            else:
-                role = "character"
-                text = summary.split(":", 1)[1].strip()
-                source = "scene"
-            messages.append(
-                {
-                    "id": row["id"],
-                    "kind": source,
-                    "role": role,
-                    "text": text,
-                    "created_at": row["created_at"],
-                }
-            )
-            if len(messages) >= limit:
+        cursor = before_id
+        batch = max(limit * 2, 200)
+        while len(messages) <= limit:
+            with self._conn() as conn:
+                rows = conn.execute(
+                    """SELECT id, kind, summary, participants_json, created_at
+                         FROM events
+                        WHERE kind IN ('dialogue', 'dm')
+                          AND (? IS NULL OR id < ?)
+                        ORDER BY id DESC
+                        LIMIT ?""",
+                    (cursor, cursor, batch),
+                ).fetchall()
+            if not rows:
                 break
+            for row in rows:
+                participants = json.loads(row["participants_json"] or "[]")
+                if character not in participants:
+                    continue
+                summary = row["summary"] or ""
+                if ":" not in summary:
+                    continue
+                if row["kind"] == "dm":
+                    role = "user" if summary.startswith("You:") else "character"
+                    text = summary.split(":", 1)[1].strip()
+                    source = "dm"
+                else:
+                    role = "character"
+                    text = summary.split(":", 1)[1].strip()
+                    source = "scene"
+                messages.append(
+                    {
+                        "id": row["id"],
+                        "kind": source,
+                        "role": role,
+                        "text": text,
+                        "created_at": row["created_at"],
+                    }
+                )
+                if len(messages) > limit:
+                    break
+            cursor = rows[-1]["id"]
+            if len(rows) < batch or len(messages) > limit:
+                break
+
+        has_more = len(messages) > limit
+        messages = messages[:limit]
         messages.reverse()
         oldest = messages[0]["id"] if messages else None
         return {
             "character": character,
             "messages": messages,
-            "has_more": len(messages) == limit,
+            "has_more": has_more,
             "oldest_id": oldest,
         }
 
@@ -575,6 +631,8 @@ class WorldService:
             "relationships": relationships,
             "events": list(reversed(events)),
             "friends": friends,
+            "done_beats": self.completed_beats(),
+            "branch": self.latest_event("branch"),
             "matrix": self.matrix(),
         }
 

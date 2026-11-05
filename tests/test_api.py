@@ -179,6 +179,14 @@ def test_clock_endpoints(client):
     assert following.json()["beat"]["id"] == "truck-lunch"
     assert following.json()["played"]["beat"]["id"] == "truck-lunch"
 
+    for _ in range(5):
+        arc = client.post("/api/clock/advance", json={"run": True})
+        assert arc.status_code == 200
+    complete = client.post("/api/clock/advance", json={"run": True})
+    assert complete.status_code == 200
+    assert complete.json()["arc_complete"] is True
+    assert complete.json()["played"] is None
+
     realtime = client.post("/api/clock/mode", json={"mode": "realtime"})
     assert realtime.status_code == 200
     assert realtime.json()["clock"]["mode"] == "realtime"

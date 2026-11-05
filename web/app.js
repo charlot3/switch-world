@@ -776,7 +776,7 @@ function paintPhone(cast) {
   let lastKind = null;
   state.phone.messages.forEach((message) => {
     if (message.kind !== lastKind) {
-      divider(message.kind === "dm" ? "Private DM" : "Earlier at the café");
+      divider(message.kind === "dm" ? "Private DM" : "Earlier in the scene");
       lastKind = message.kind;
     }
     bubbleFor(
@@ -910,7 +910,7 @@ async function sendPhone(event) {
 function renderArc(data) {
   const canon = data.canon || {};
   const beats = canon.beats || [];
-  const branchEvent = [...(data.events || [])].reverse().find((event) => event.kind === "branch");
+  const branchEvent = data.branch || [...(data.events || [])].reverse().find((event) => event.kind === "branch");
   $("#arc-act").textContent = canon.act || "Act I — The Secret";
 
   let branchLabel = "the café is open";
@@ -923,16 +923,16 @@ function renderArc(data) {
   branchNode.textContent = branchLabel;
   branchNode.title = branchEvent ? branchEvent.summary : "The authored café beat has not run yet.";
 
-  const done = new Set(
+  const done = new Set(data.done_beats || []);
+  if (!done.size) {
     (data.events || [])
       .filter((event) => event.kind === "beat")
-      .map((event) => {
+      .forEach((event) => {
         const match = String(event.summary || "").match(/^Beat:\s*([a-z-]+)/i);
-        return match ? match[1] : null;
-      })
-      .filter(Boolean),
-  );
-  if (branchEvent) done.add("cafe");
+        if (match) done.add(match[1]);
+      });
+    if (branchEvent) done.add("cafe");
+  }
   const current = beats.find((beat) => !done.has(beat.id));
 
   const list = $("#arc-beats");
@@ -1867,7 +1867,12 @@ async function advanceClock(run) {
       body: JSON.stringify({ run: Boolean(run) }),
     });
     if (status) {
-      status.textContent = `Now ${result.view.current_beat.title} at ${formatClock(result.clock.now)}${run ? " · beat played" : ""}.`;
+      if (result.arc_complete) {
+        status.textContent = "Arc complete — all five beats have run. Use Advance to move the clock on.";
+      } else {
+        const played = result.played ? " · beat played" : "";
+        status.textContent = `Now ${result.view.current_beat.title} at ${formatClock(result.clock.now)}${played}.`;
+      }
     }
     state.performance = null;
     state.lineId = null;

@@ -23,8 +23,7 @@ DEFAULT_QUERY = os.environ.get(
 
 
 def latest_world_event(service: WorldService) -> dict | None:
-    events = [event for event in service.state()["events"] if event["kind"] == "world_event"]
-    return events[-1] if events else None
+    return service.latest_event("world_event")
 
 
 def world_context(service: WorldService, max_chars: int = 700) -> str:

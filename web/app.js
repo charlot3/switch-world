@@ -282,7 +282,6 @@ function renderStory(data) {
   $("#scene-caption").textContent = line
     ? `${formatClock(line.ts)} · late autumn`
     : "18:30 · a Tuesday in late autumn";
-  $("#scene-dm").href = cast.dm;
 
   const text = line ? line.text : cast.quote;
   typeLine($("#scene-line"), text, line ? `line:${line.id}` : `quote:${cast.id}`);
@@ -306,6 +305,7 @@ function renderStory(data) {
   renderHero(data);
   renderCast(data);
   renderArc(data);
+  renderPhone(data);
 }
 
 function renderHero(data) {
@@ -456,6 +456,111 @@ function renderCast(data) {
     card.appendChild(info);
     grid.appendChild(card);
   });
+}
+
+/* ---- phone DM --------------------------------------------------------- */
+
+function renderPhone(data) {
+  const cast = CAST[state.selected] || CAST[ORDER[0]];
+  if (!cast) return;
+  const avatar = $("#phone-avatar");
+  avatar.onerror = () => {
+    avatar.onerror = null;
+    avatar.src = `/static/assets/portraits/${cast.id}-avatar.svg`;
+  };
+  avatar.src = cast.avatar;
+  avatar.alt = `${cast.name} avatar`;
+  $("#phone-name").textContent = cast.name;
+  $("#phone-mood").textContent = cast.mood;
+  $("#phone-open").href = cast.dm;
+  $("#phone-input").placeholder = `Message ${firstName(cast.name)}…`;
+  const clock = data.clock && data.clock.now
+    ? new Date(data.clock.now).toLocaleTimeString("en-GB", {
+        timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit",
+      })
+    : "--:--";
+  $("#phone-time").textContent = clock;
+
+  const thread = $("#phone-thread");
+  if (!thread) return;
+  thread.replaceChildren();
+  const events = (data.events || []).filter(
+    (event) => event.kind === "dm" && (event.participants || []).includes(cast.id),
+  );
+  if (!events.length) {
+    const bubble = document.createElement("div");
+    bubble.className = "phone-bubble character";
+    const who = document.createElement("span");
+    who.className = "phone-who";
+    who.textContent = firstName(cast.name);
+    bubble.appendChild(who);
+    bubble.appendChild(document.createTextNode(cast.quote));
+    thread.appendChild(bubble);
+  } else {
+    events.forEach((event) => {
+      const summary = String(event.summary || "");
+      const isUser = summary.startsWith("You:");
+      const bubble = document.createElement("div");
+      bubble.className = `phone-bubble ${isUser ? "user" : "character"}`;
+      const who = document.createElement("span");
+      who.className = "phone-who";
+      who.textContent = isUser ? "You" : firstName(cast.name);
+      bubble.appendChild(who);
+      bubble.appendChild(document.createTextNode(summary.replace(/^(You|[^:]+):\s*/, "")));
+      thread.appendChild(bubble);
+    });
+  }
+  thread.scrollTop = thread.scrollHeight;
+}
+
+async function sendPhone(event) {
+  event.preventDefault();
+  const input = $("#phone-input");
+  const send = $("#phone-send");
+  const typing = $("#phone-typing");
+  const message = input.value.trim();
+  if (!message) return;
+  const character = state.selected || "alice";
+  const cast = CAST[character];
+  const thread = $("#phone-thread");
+  input.value = "";
+  input.disabled = true;
+  send.disabled = true;
+  typing.hidden = false;
+
+  const bubble = document.createElement("div");
+  bubble.className = "phone-bubble user";
+  const who = document.createElement("span");
+  who.className = "phone-who";
+  who.textContent = "You";
+  bubble.appendChild(who);
+  bubble.appendChild(document.createTextNode(message));
+  thread.appendChild(bubble);
+  thread.scrollTop = thread.scrollHeight;
+
+  try {
+    await api("/api/dm", {
+      method: "POST",
+      body: JSON.stringify({ character, message }),
+    });
+    await refresh();
+  } catch (error) {
+    const failed = document.createElement("div");
+    failed.className = "phone-bubble character";
+    const label = document.createElement("span");
+    label.className = "phone-who";
+    label.textContent = "System";
+    failed.appendChild(label);
+    failed.appendChild(document.createTextNode(`The line went quiet: ${error.message}`));
+    thread.appendChild(failed);
+    thread.scrollTop = thread.scrollHeight;
+  } finally {
+    typing.hidden = true;
+    input.disabled = false;
+    send.disabled = false;
+    input.focus();
+    if (!cast) input.placeholder = "Message…";
+  }
 }
 
 /* ---- authored arc ----------------------------------------------------- */
@@ -1452,11 +1557,16 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") closeProfile();
 });
 $("#scene-next").addEventListener("click", nextLine);
+$("#scene-dm").addEventListener("click", () => {
+  $(".story-phone").scrollIntoView({ behavior: "smooth", block: "center" });
+  $("#phone-input").focus();
+});
 $("#scene-run").addEventListener("click", copyLiveCommand);
 $("#tell-alice").addEventListener("click", tellAlice);
 $("#run-cafe").addEventListener("click", runLocalBeat);
 $("#run-arc").addEventListener("click", runArc);
 $("#run-bifrost").addEventListener("click", runBifrost);
+$("#phone-form").addEventListener("submit", sendPhone);
 $("#fetch-tavily").addEventListener("click", fetchTavily);
 $("#reset").addEventListener("click", resetWorld);
 $("#load-card").addEventListener("click", loadSceneCard);

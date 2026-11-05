@@ -43,7 +43,6 @@
       <div class="rail-foot">
         <div class="rail-clock"><i class="live-dot"></i><span id="rail-clock">--:--</span><span class="live-label">LIVE</span></div>
         <div class="rail-badges">
-          <span class="pill">17+ · SFW</span>
           <span class="pill ghost">Switch × Mattermost</span>
         </div>
         <button class="rail-theme" id="theme-toggle" type="button" aria-label="Toggle theme">
@@ -61,7 +60,6 @@
         <div class="top-actions">
           <a class="btn ghost" href="http://127.0.0.1:8065/switch/channels/world" target="_blank" rel="noopener" title="Mattermost may ask you to log in; use MATTERMOST_USER / MATTERMOST_USER_PASSWORD from .env">Open #world ↗</a>
           <a class="btn ghost" href="http://127.0.0.1:3000" target="_blank" rel="noopener">Switch Gateway ↗</a>
-          <span class="heart-badge" title="17+ romantic tension, SFW">♡ 17+</span>
         </div>
       </header>
 
@@ -69,6 +67,8 @@
 
       <!-- STORY -->
       <section id="view-story" class="view is-active" aria-label="Story view">
+        <div class="story-layout">
+          <div class="story-stage">
         <div class="scene">
           <div class="scene-art">
             <div class="scene-wash" id="scene-wash"></div>
@@ -87,7 +87,7 @@
             <p class="scene-line" id="scene-line"></p>
             <div class="scene-actions">
               <button class="btn primary" id="scene-next" type="button">Next line <span class="kbd">→</span></button>
-              <a class="btn ghost" id="scene-dm" href="#" target="_blank" rel="noopener">DM this character</a>
+              <button class="btn ghost" id="scene-dm" type="button">Message this character</button>
               <button class="btn ghost" id="scene-run" type="button">Copy live-beat command</button>
             </div>
             <div class="scene-rail" id="scene-rail" aria-label="Recent dialogue"></div>
@@ -106,6 +106,36 @@
             </div>
           </div>
           <ol class="arc-beats" id="arc-beats"></ol>
+        </div>
+          </div>
+
+          <aside class="story-phone" aria-label="Private chat">
+            <div class="phone">
+              <div class="phone-notch" aria-hidden="true"></div>
+              <div class="phone-screen">
+                <div class="phone-status">
+                  <span id="phone-time">22:10</span>
+                  <span class="phone-signal" aria-hidden="true">●●● ▰</span>
+                </div>
+                <header class="phone-head">
+                  <img id="phone-avatar" alt="">
+                  <div class="phone-person">
+                    <strong id="phone-name">Alice</strong>
+                    <span id="phone-mood">warm · watchful</span>
+                  </div>
+                  <a id="phone-open" class="phone-open" href="#" target="_blank" rel="noopener" title="Open this conversation in Mattermost">↗</a>
+                </header>
+                <div class="phone-thread" id="phone-thread" aria-live="polite"></div>
+                <div class="phone-typing" id="phone-typing" hidden><i></i><i></i><i></i></div>
+                <form class="phone-composer" id="phone-form">
+                  <input id="phone-input" type="text" maxlength="800" autocomplete="off" placeholder="Message Alice…" aria-label="Message">
+                  <button type="submit" id="phone-send" aria-label="Send message">↑</button>
+                </form>
+                <div class="phone-home" aria-hidden="true"></div>
+              </div>
+            </div>
+            <p class="phone-note">Private DM · local OpenCode model · <a href="http://127.0.0.1:8065/switch/channels/world" target="_blank" rel="noopener">live room ↗</a></p>
+          </aside>
         </div>
 
         <div class="secret-banner">

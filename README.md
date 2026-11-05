@@ -81,12 +81,15 @@ the corrected `branch` event and the same provenance.
 
 ## Dashboard
 
-Four views, all read-only projections of the Switch world state:
+Four views. The Story scene, tree and ledger are read-only projections; the phone DM and the beat controls are the write surfaces:
 
-- **Story** — a visual-novel scene with the latest live dialogue, the character's bust,
-  typewriter text, an **authored arc strip** (Act I, five beats, the branch the ledger
-  chose), and cast cards with a two-line intro, affinity hearts, **Story** and **Profile**
-  actions, and DM links.
+- **Story** — two columns: the visual-novel scene + **authored arc strip** (Act I, five
+  beats, the branch the ledger chose) on the left; a **phone-shaped private DM** on the
+  right. The phone posts to `/api/dm`, runs the selected character through
+  Bifrost/OpenCode, and records private `dm` events; on mobile it stacks below the scene.
+  Cast cards with a two-line intro, affinity hearts, **Story** and **Profile** actions sit
+  below. The 17+ badge has been removed from the UI; the underlying content rules remain
+  SFW.
 - **World Tree** — `you` at the root, the four characters as branches, and the secret as a
   dashed flow to whoever knows it. Click a node to inspect that character's beliefs and
   relationship bars.
@@ -105,14 +108,17 @@ The design rationale is in [`docs/CAST.md`](docs/CAST.md).
 The dashboard is a **read-only projection**. `Next line` only steps through the dialogue
 already captured in the feed; it does not generate a new turn. To advance the world:
 
-1. **Talk to the cast** — open `#world` at
-   <http://localhost:8065/switch/channels/world>, or use the **DM this character** link.
+1. **Use the phone** — the right-hand phone on Story is a private DM. Pick a cast card,
+   type, send; the reply comes through Bifrost/OpenCode and is logged as a private `dm`
+   event. This needs no Mattermost login.
+2. **Talk in #world** — open `#world` at
+   <http://127.0.0.1:8065/switch/channels/world>, or use the **DM this character** link.
    Mattermost may ask you to log in first; the local user is `MATTERMOST_USER` in `.env`.
    In a channel, address `@alice` / `@emily`; in a DM, no `@` is needed.
-2. **Run a beat** — Flip: `uv run director --switch` (seed Alice first with the dashboard's
+3. **Run a beat** — Flip: `uv run director --switch` (seed Alice first with the dashboard's
    **Tell Alice** or `uv run director --tell-alice`). Geek Room: `scripts/run-bifrost.sh`,
    then **Settings → Run Bifrost beat**, or `uv run director --bifrost`.
-3. **Run a partial beat** — Settings → **Demo beats**: choose morning / lunch / café /
+4. **Run a partial beat** — Settings → **Demo beats**: choose morning / lunch / café /
    aftermath / roundup, then **Run selected local beat** or **Run full local arc**. The
    café is the required branch; aftermath needs it; the other beats are independent
    partial demos. Bifrost: choose the beat and use **Run Bifrost beat**. CLI:
@@ -622,7 +628,7 @@ the scene card above: the user and the cast co-produce a scene and its provenanc
 | `tests/` | pytest for the service, API, canon and café beat |
 | `agents/<name>/` | per-character working directories: `AGENTS.md`, `IDENTITY.md`, `CLAUDE.md`, generated `opencode.json` / `.mcp.json` |
 | `mcp/` | the world engine's MCP tool surface (design notes) |
-| `director/` | the beat runner, the local café simulation, and `canon.py` |
+| `director/` | authored beat runners (local/Bifrost/Switch), the phone DM, and `canon.py` |
 | `scripts/fetch-switch.sh` | pull the pinned Switch compose artifact |
 | `scripts/generate-cast-art.py` | one flow for the bust/full-body/avatar set |
 | `scripts/update-mattermost-avatars.sh` | push the square crops to the four bot accounts |

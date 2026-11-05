@@ -107,6 +107,22 @@ def create_app(service: WorldService | None = None) -> FastAPI:
             raise HTTPException(400, str(exc)) from exc
         return result
 
+    @app.post("/api/dm")
+    def dm(payload: dict | None = None):
+        from director.dm import reply_to_dm
+
+        payload = payload or {}
+        try:
+            return reply_to_dm(
+                service,
+                character=str(payload.get("character") or ""),
+                message=str(payload.get("message") or ""),
+            )
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        except Exception as exc:
+            raise HTTPException(502, f"DM failed: {exc}") from exc
+
     @app.post("/api/dev/run-beat")
     def run_beat_endpoint(payload: dict | None = None):
         if not config.DEV_MODE:

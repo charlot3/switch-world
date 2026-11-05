@@ -239,3 +239,14 @@ room. The café remains the required beat and owns the branch; aftermath refuses
 before it. The dashboard adds a **Demo beats** selector and a full local arc; the story
 strip marks beats done from the immutable `beat` events. This is the "several partial
 demos" version for both the Flip and Geek Room editions.
+
+## 2026-11-05 — Story has two parts: the scene and a phone DM
+
+The Story view is now a two-column composition: the scene card and authored arc on the
+left, a phone-shaped private DM on the right. The phone posts to `/api/dm`, runs the
+selected character through Bifrost/OpenCode, and records private `dm` events with the
+same provenance rules; the header `↗` still opens the live Mattermost conversation. On
+mobile the phone stacks below the scene, with **Message this character** scrolling to it.
+The visible 17+ badge was removed from the dashboard; the underlying SFW/age rules remain
+in the canon and agent prompts. The point is to make the human's input a first-class part
+of the product rather than a link out to another app.

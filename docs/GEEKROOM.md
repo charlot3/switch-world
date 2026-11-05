@@ -118,6 +118,11 @@ The demo shows:
 4. `GET /api/bifrost/usage` and `data/logs/bifrost.jsonl` as governance/observability
    evidence.
 
+The Story view's right-hand **phone** is a private DM through Bifrost/OpenCode. It posts
+to `/api/dm` and records private `dm` events, so it works without a Mattermost login; the
+`↗` in the phone header opens the live Mattermost conversation. On mobile the phone stacks
+below the scene, and **Message this character** scrolls to it.
+
 Screenshots: [`geekroom-dashboard.png`](geekroom-dashboard.png),
 [`geekroom-ledger.png`](geekroom-ledger.png),
 [`geekroom-settings.png`](geekroom-settings.png). The real run also produced

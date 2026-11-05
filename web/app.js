@@ -312,12 +312,21 @@ function renderStory(data) {
   const scene = $(".scene");
   scene.style.setProperty("--scene-color", cast.color);
   const portrait = $("#scene-portrait");
+  const backdrop = $("#scene-backdrop");
   portrait.onerror = () => {
     portrait.onerror = null;
     portrait.src = `/static/assets/portraits/${cast.id}-bust.png`;
   };
-  portrait.src = cast.scene || cast.full || cast.portrait;
+  const sceneArt = cast.scene || cast.full || cast.portrait;
+  portrait.src = sceneArt;
   portrait.alt = `${cast.name} portrait`;
+  if (backdrop) {
+    backdrop.onerror = () => {
+      backdrop.onerror = null;
+      backdrop.src = `/static/assets/portraits/${cast.id}-bust.png`;
+    };
+    backdrop.src = sceneArt;
+  }
   $("#scene-name").textContent = line ? line.name : cast.name;
   $("#scene-jp").textContent = line && line.name === "You" ? "" : cast.route;
   $("#scene-mood").textContent = line && line.name === "You" ? "in the room" : cast.mood;
@@ -1570,8 +1579,17 @@ function openProfile(id) {
     img.onerror = null;
     img.src = `/static/assets/portraits/${cast.id}.svg`;
   };
+  const bg = $("#profile-art-bg");
+  const art = cast.scene || cast.full || cast.portrait;
+  if (bg) {
+    bg.onerror = () => {
+      bg.onerror = null;
+      bg.src = cast.portrait;
+    };
+    bg.src = art;
+  }
   img.style.transform = "none";
-  img.src = cast.scene || cast.full || cast.portrait;
+  img.src = art;
   img.alt = `${cast.name} character art`;
 
   renderProfileRelationships(state.data || {}, id);

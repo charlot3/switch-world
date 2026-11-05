@@ -12,7 +12,6 @@ const state = {
   data: null,
   view: initialView(),
   selected: "alice",
-  lineId: null,
   typedKey: null,
   typingKey: null,
   typing: null,
@@ -29,11 +28,14 @@ const state = {
     error: "",
     paintSig: null,
   },
-  performance: null,
   group: { sending: false },
+  turn: null,
+  whisper: false,
+  whisperTarget: null,
   groupStatus: "",
   clockStatus: "",
   beatId: null,
+  studio: { data: null, error: "", loading: false, fetchedAt: 0 },
 };
 
 function initialTheme() {
@@ -56,7 +58,7 @@ function initialMotion() {
 
 function initialView() {
   const param = new URLSearchParams(location.search).get("view");
-  return ["story", "tree", "ledger", "settings"].includes(param) ? param : "story";
+  return ["story", "tree", "ledger", "studio", "settings"].includes(param) ? param : "story";
 }
 
 function shellMode() {
@@ -177,12 +179,111 @@ function currentBeat(data) {
   return beats[0] || null;
 }
 
-function presentCharacters(data) {
+function sceneCharacters(data) {
   const beat = currentBeat(data);
-  if (!beat) return ORDER.slice();
-  return (beat.characters || []).map((id) => String(id).toLowerCase())
-    .filter((id) => CAST[id]);
+  if (!beat || !beat.characters || !beat.characters.length) return ORDER.slice();
+  return beat.characters.map((id) => String(id).toLowerCase()).filter((id) => CAST[id]);
 }
+
+function eventMeta(event) {
+  if (!event) return {};
+  const raw = event.metadata !== undefined && event.metadata !== null
+    ? event.metadata
+    : event.metadata_json;
+  if (!raw) return {};
+  if (typeof raw === "string") {
+    try {
+      return JSON.parse(raw) || {};
+    } catch {
+      return {};
+    }
+  }
+  return typeof raw === "object" ? raw : {};
+}
+
+function parseSummary(summary) {
+  const text = String(summary || "");
+  const match = text.match(/^([^:\n]{1,48}):\s*([\s\S]*)$/);
+  return match
+    ? { who: match[1].trim(), text: match[2].trim() }
+    : { who: "", text: text.trim() };
+}
+
+function asCastId(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+  const lowered = raw.toLowerCase();
+  if (lowered === "user" || lowered === "you" || lowered === "the user") return "user";
+  if (CAST[lowered]) return lowered;
+  // Event summaries use suffixes such as "Alice (whisper): ...".
+  const cleaned = raw.replace(/\s*\([^)]*\)\s*$/, "").trim();
+  if (CAST[cleaned.toLowerCase()]) return cleaned.toLowerCase();
+  const byName = castIdForName(cleaned);
+  if (byName) return byName;
+  const firstWord = cleaned.split(/[\s:]+/)[0].toLowerCase();
+  return CAST[firstWord] ? firstWord : null;
+}
+
+/* Absent characters come from the optional state field, the studio summary, and
+   the sanitised boundary_violation events (participants only, never act text). */
+function absentSet(data) {
+  const result = new Set();
+  const add = (value) => {
+    if (!value) return;
+    if (typeof value === "object") {
+      const key = value.id || value.character || value.name;
+      if (value.absent !== false && value.absent !== undefined) add(key);
+      return;
+    }
+    const id = asCastId(value);
+    if (id && CAST[id]) result.add(id);
+  };
+  const direct = data && (data.absent || data.absent_characters);
+  if (Array.isArray(direct)) direct.forEach(add);
+  else if (direct && typeof direct === "object") {
+    Object.entries(direct).forEach(([key, value]) => { if (value) add(key); });
+  }
+  const sceneAbsent = data && data.scene && (data.scene.absent || data.scene.absent_characters);
+  if (Array.isArray(sceneAbsent)) sceneAbsent.forEach(add);
+  const studioAgents = state.studio.data && state.studio.data.agents;
+  if (Array.isArray(studioAgents)) {
+    studioAgents.forEach((agent) => { if (agent && agent.absent) add(agent.id || agent.character); });
+  }
+  ((data && data.events) || []).forEach((event) => {
+    if (event.kind !== "boundary_violation") return;
+    const meta = eventMeta(event);
+    const target = meta.target
+      || (event.participants || []).find((id) => String(id).toLowerCase() !== "user");
+    if (target) add(target);
+  });
+  if (state.turn && state.turn.boundary && state.turn.boundaryTarget) {
+    add(state.turn.boundaryTarget);
+  }
+  return result;
+}
+
+function latestBoundary(data) {
+  const events = ((data && data.events) || []).filter((event) => event.kind === "boundary_violation");
+  return events.length ? events[events.length - 1] : null;
+}
+
+function firstNameOf(id) {
+  const cast = CAST[id];
+  return cast ? firstName(cast.name) : String(id || "them");
+}
+
+function nameList(ids) {
+  const names = ids.filter(Boolean).map(firstNameOf);
+  if (names.length <= 1) return names.join("");
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
+
+const SCENE_EVENT_KINDS = new Set([
+  "dialogue", "silence", "reaction", "action", "chorus",
+  "whisper", "whisper_reply", "boundary_violation",
+]);
+
+const SPEECH_MODES = new Set(["speech", "chorus", "whisper", "whisper_reply"]);
 
 const BEAT_ART = {
   "morning-shop": "/static/assets/portraits/beat-morning-shop.jpg",
@@ -202,21 +303,204 @@ function phoneTarget() {
   return state.phone.character || state.selected || ORDER[0];
 }
 
-function dialogueEvents(data) {
-  return (data.events || [])
-    .filter((event) => event.kind === "dialogue")
-    .map((event) => {
-      const match = String(event.summary || "").match(/^([^:]+):\s*([\s\S]*)$/);
-      if (!match) return null;
-      return {
-        id: event.id,
-        name: match[1].trim(),
-        castId: castIdForName(match[1]),
-        text: match[2].trim(),
-        ts: event.created_at,
-      };
-    })
-    .filter(Boolean);
+function normalizeText(value) {
+  return String(value || "").replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function speakerFromText(text) {
+  const lowered = String(text || "").trim().toLowerCase();
+  if (!lowered) return null;
+  return ORDER.find((id) => {
+    const cast = CAST[id];
+    const full = cast.name.toLowerCase();
+    const first = cast.name.split(" ")[0].toLowerCase();
+    return lowered.startsWith(`${full} `) || lowered.startsWith(`${first} `)
+      || lowered.startsWith(`${full}:`) || lowered.startsWith(`${first}:`);
+  }) || null;
+}
+
+function stripSpeakerPrefix(text, id) {
+  const cast = CAST[id];
+  if (!cast) return text;
+  const value = String(text || "");
+  for (const name of [cast.name, cast.name.split(" ")[0]]) {
+    if (value.toLowerCase().startsWith(`${name.toLowerCase()} `)) {
+      return value.slice(name.length + 1).trim();
+    }
+  }
+  return value;
+}
+
+/* The scene log is built from events. Metadata is trusted when the backend sends
+   it; otherwise the summary prefix ("Alice: ...") carries enough for a plain log. */
+function buildEventEntries(data) {
+  const entries = [];
+  ((data && data.events) || []).forEach((event) => {
+    const kind = String(event.kind || "");
+    if (!SCENE_EVENT_KINDS.has(kind)) return;
+    const meta = eventMeta(event);
+    const summary = parseSummary(event.summary);
+    const boundary = kind === "boundary_violation";
+    let mode = meta.mode || "";
+    if (!mode) {
+      if (boundary) mode = "boundary";
+      else if (kind === "silence") mode = "silence";
+      else if (kind === "reaction" || kind === "action" || kind === "chorus") mode = kind;
+      else if (kind === "whisper" || kind === "whisper_reply") mode = kind;
+      else mode = "speech";
+    }
+    let rawWho = meta.character || meta.speaker || summary.who || "";
+    const inferred = !rawWho ? speakerFromText(summary.text) : null;
+    if (inferred) rawWho = inferred;
+    const isUser = /^(you|user|the user)\b/i.test(String(rawWho).trim());
+    const castId = isUser ? null : asCastId(rawWho);
+    let text = boundary ? String(event.summary || "") : summary.text;
+    if (inferred && !boundary && text) text = stripSpeakerPrefix(text, inferred);
+    if (!text && (mode === "silence" || meta.role === "silent")) {
+      text = `${firstNameOf(castId || rawWho)} stays quiet.`;
+    }
+    entries.push({
+      key: `ev-${event.id}`,
+      eventId: event.id,
+      kind,
+      mode,
+      role: meta.role || "",
+      castId: castId && CAST[castId] ? castId : null,
+      isUser,
+      speaker: isUser ? "You" : (CAST[castId] ? CAST[castId].name : (rawWho || "The room")),
+      text: text || "",
+      expression: meta.expression || "",
+      target: meta.target || "",
+      chorus: Boolean(meta.chorus) || mode === "chorus",
+      private: Boolean(meta.private) || event.visibility === "private"
+        || mode === "whisper" || mode === "whisper_reply",
+      silent: mode === "silence" || meta.role === "silent",
+      boundary: boundary || mode === "boundary",
+      turnId: meta.turn_id || meta.turnId || null,
+      beatIndex: -1,
+      ts: event.created_at,
+      snapshot: event,
+    });
+  });
+  const counters = new Map();
+  entries.forEach((entry) => {
+    if (entry.isUser) {
+      entry.beatIndex = -1;
+      return;
+    }
+    if (!entry.turnId) return;
+    const next = counters.get(entry.turnId) || 0;
+    entry.beatIndex = next;
+    counters.set(entry.turnId, next + 1);
+  });
+  return entries;
+}
+
+function beatFromResponse(raw, fallbackMode, plan) {
+  if (!raw || typeof raw !== "object") return null;
+  const who = raw.character || raw.speaker || raw.id || raw.agent || "";
+  const castId = asCastId(who) || who;
+  const mode = raw.mode || raw.kind || fallbackMode || "speech";
+  let text = String(raw.text || raw.line || raw.message || "").trim();
+  if (!text && (mode === "silence" || raw.role === "silent")) {
+    text = `${firstNameOf(castId)} stays quiet.`;
+  }
+  return {
+    character: castId,
+    castId: CAST[castId] ? castId : null,
+    speaker: castId === "user" ? "You" : (CAST[castId] ? CAST[castId].name : (who || "The room")),
+    mode,
+    role: raw.role || "",
+    text,
+    expression: raw.expression || "",
+    target: raw.target || (plan && plan.target) || null,
+    chorus: Boolean(raw.chorus) || mode === "chorus"
+      || Boolean(plan && plan.chorus && mode === "speech"),
+    private: Boolean(raw.private) || mode === "whisper" || mode === "whisper_reply"
+      || raw.visibility === "private",
+    silent: mode === "silence" || raw.role === "silent",
+    eventId: raw.event_id || null,
+  };
+}
+
+/* The contract returns result.turn.lines. Keep the older replies shape as a
+   fallback so the frontend keeps working while the backend is in flight. */
+function extractTurnLines(result, whisper, plan) {
+  const raw = [];
+  const push = (items, mode) => {
+    if (!Array.isArray(items)) return;
+    items.forEach((item) => {
+      if (!item) return;
+      if (typeof item === "string") raw.push({ character: null, text: item, mode });
+      else raw.push({ ...item, mode: item.mode || item.kind || mode });
+    });
+  };
+  if (result) {
+    if (result.turn) push(result.turn.lines, "speech");
+    const hasTurnLines = Boolean(result.turn && Array.isArray(result.turn.lines) && result.turn.lines.length);
+    if (!hasTurnLines) {
+      // Compatibility with the pre-turn backend shape.
+      push(result.lines, "speech");
+      push(result.reactions, "reaction");
+      push(result.replies, whisper ? "whisper_reply" : "speech");
+      if (result.reply && typeof result.reply === "object") {
+        raw.push({ ...result.reply, mode: result.reply.mode || (whisper ? "whisper_reply" : "speech") });
+      }
+      if (result.whisper_reply && typeof result.whisper_reply === "object") {
+        raw.push({ ...result.whisper_reply, mode: "whisper_reply" });
+      }
+    }
+  }
+  const seen = new Set();
+  const beats = [];
+  raw.forEach((item) => {
+    const beat = beatFromResponse(item, whisper ? "whisper_reply" : "speech", plan);
+    if (!beat || !beat.text) return;
+    // The contract puts the user's own whispered words in turn.lines with the
+    // target's character id; the optimistic user line already renders them.
+    if (whisper && beat.mode === "whisper") return;
+    if (beat.character === "user" || /^(you|user)$/i.test(String(beat.character || ""))) return;
+    const key = `${beat.character}|${beat.mode}|${normalizeText(beat.text)}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    beats.push(beat);
+  });
+  return beats;
+}
+
+function directionText(turn) {
+  if (!turn) return "";
+  const plan = turn.plan || {};
+  if (plan.whisper || turn.userPrivate) {
+    const target = plan.target || turn.whisperTo || plan.primary || state.whisperTarget;
+    const name = target && CAST[target] ? firstNameOf(target) : "";
+    return name
+      ? `You whisper to ${name}. The others only notice that something passed between you.`
+      : "You whisper. The others only notice that something passed between you.";
+  }
+  if (plan.boundary && plan.boundary !== "none") {
+    return "The scene cuts on the consequence. The act itself is not shown.";
+  }
+  const primary = plan.primary ? firstNameOf(plan.primary) : "";
+  const reactors = (plan.reactors || []).map(firstNameOf).filter(Boolean);
+  const silent = (plan.silent || []).map(firstNameOf).filter(Boolean);
+  if (plan.chorus) {
+    const chorusNames = [...new Set([
+      primary,
+      ...(plan.chorusNames || plan.chorus_speakers || plan.reactors || []).map(firstNameOf),
+    ].filter(Boolean))];
+    const chorus = chorusNames.length
+      ? `A chorus: ${nameList(chorusNames)} answer together`
+      : "A chorus answers together";
+    return silent.length
+      ? `${chorus}; ${nameList(silent)} stay${silent.length === 1 ? "s" : ""} quiet.`
+      : `${chorus}.`;
+  }
+  const pieces = [];
+  if (primary) pieces.push(`${primary} takes the lead`);
+  if (reactors.length) pieces.push(`${nameList(reactors)} react${reactors.length === 1 ? "s" : ""}`);
+  if (silent.length) pieces.push(`${nameList(silent)} stay${silent.length === 1 ? "s" : ""} quiet`);
+  return pieces.length ? `${pieces.join(" · ")}.` : "The room responds.";
 }
 
 /* ---- tooltip ---------------------------------------------------------- */
@@ -279,6 +563,13 @@ function bindTip(element, lines) {
 
 /* ---- story ------------------------------------------------------------ */
 
+function cancelTyping() {
+  if (!state.typing) return;
+  clearInterval(state.typing);
+  state.typing = null;
+  state.typingKey = null;
+}
+
 function typeLine(element, text, key) {
   if (state.typing && state.typingKey === key) return;
   if (state.typing) {
@@ -310,49 +601,43 @@ function typeLine(element, text, key) {
 }
 
 function renderStory(data) {
+  data = data || {};
   const beat = currentBeat(data);
   if (state.beatId && beat && state.beatId !== beat.id) {
-    state.performance = null;
+    state.turn = null;
     state.groupStatus = "";
-    state.lineId = null;
   }
   state.beatId = beat ? beat.id : null;
-  const present = presentCharacters(data);
-  if (present.length && !present.includes(state.selected)) state.selected = present[0];
 
-  const performance = state.performance && state.performance.items[state.performance.index];
-  const lines = dialogueEvents(data).slice(-8);
-  if (state.lineId != null && !lines.some((line) => line.id === state.lineId)) {
-    state.lineId = null;
+  const absent = absentSet(data);
+  const beatCast = sceneCharacters(data);
+  const present = beatCast.filter((id) => !absent.has(id));
+  // Keep a deliberately selected absent character selected so the portrait dims
+  // and the consequence stays visible; otherwise follow the first present member.
+  if (present.length && !present.includes(state.selected) && !absent.has(state.selected)) {
+    state.selected = present[0];
   }
-  const castLines = lines.filter((item) => item.castId === state.selected);
-  let line = state.lineId != null
-    ? lines.find((item) => item.id === state.lineId)
-    : (castLines[castLines.length - 1] || null);
-  if (performance) {
-    line = {
-      id: `perf:${state.performance.index}:${performance.text.slice(0, 24)}`,
-      name: performance.character === "user" ? "You" : (CAST[performance.character] || {}).name || performance.character,
-      castId: performance.character === "user" ? null : performance.character,
-      text: performance.text,
-      ts: data.clock ? data.clock.now : null,
-    };
-  } else if (line && state.lineId != null && line.castId) {
-    state.selected = line.castId;
-  }
-  const cast = CAST[(line && line.castId) || state.selected] || CAST[state.selected];
+  if (!CAST[state.selected]) state.selected = present[0] || ORDER[0];
+  const cast = CAST[state.selected] || CAST[ORDER[0]];
+  const selectedAbsent = absent.has(cast.id);
 
   const scene = $(".scene");
-  scene.style.setProperty("--scene-color", cast.color);
+  if (scene) {
+    scene.style.setProperty("--scene-color", cast.color);
+    scene.classList.toggle("is-absent", selectedAbsent);
+  }
   const portrait = $("#scene-portrait");
   const backdrop = $("#scene-backdrop");
-  portrait.onerror = () => {
-    portrait.onerror = null;
-    portrait.src = `/static/assets/portraits/${cast.id}-bust.png`;
-  };
   const sceneArt = sceneArtFor(data, cast);
-  portrait.src = sceneArt;
-  portrait.alt = `${cast.name} portrait`;
+  if (portrait) {
+    portrait.onerror = () => {
+      portrait.onerror = null;
+      portrait.src = `/static/assets/portraits/${cast.id}-bust.png`;
+    };
+    portrait.src = sceneArt;
+    portrait.alt = `${cast.name} portrait`;
+    portrait.classList.toggle("is-absent", selectedAbsent);
+  }
   if (backdrop) {
     backdrop.onerror = () => {
       backdrop.onerror = null;
@@ -360,59 +645,46 @@ function renderStory(data) {
     };
     backdrop.src = sceneArt;
   }
-  $("#scene-name").textContent = line ? line.name : cast.name;
-  $("#scene-jp").textContent = line && line.name === "You" ? "" : cast.route;
-  $("#scene-mood").textContent = line && line.name === "You" ? "in the room" : cast.mood;
+  $("#scene-name").textContent = firstName(cast.name);
+  $("#scene-jp").textContent = cast.route;
+  $("#scene-mood").textContent = selectedAbsent ? "absent · left the scene" : cast.mood;
   $("#scene-stamp").textContent = beat ? `SCENE · ${beat.title.toUpperCase()}` : "SCENE · THE CAFÉ";
   $("#scene-caption").textContent = beat
-    ? `${formatTime(data.clock.now)} · ${beat.place || beat.title}`
+    ? `${formatTime(data.clock && data.clock.now)} · ${beat.place || beat.title}`
     : "18:30 · a Tuesday in late autumn";
 
-  const text = line ? line.text : cast.quote;
-  typeLine($("#scene-line"), text, line ? `line:${line.id}` : `quote:${cast.id}`);
-
-  renderSceneCast(present);
-  renderChoices(beat);
-  const sayInput = $("#scene-say-input");
-  if (sayInput) {
-    sayInput.placeholder = present.length > 1
-      ? "Say something to the room…"
-      : `Say something to ${present.length ? firstName(CAST[present[0]].name) : "them"}…`;
-  }
+  renderTranscript(data, absent);
+  renderChoices(beat, present);
+  renderSayBar(beatCast, present, absent);
+  renderBoundary(data, absent);
+  renderSceneCast(beatCast, absent);
+  renderBacklog(data);
 
   const status = $("#scene-status");
   if (status) {
     if (state.group.sending) {
       status.textContent = present.length
-        ? `${present.map((id) => firstName(CAST[id].name)).join(", ")} ${present.length === 1 ? "is" : "are"} listening…`
+        ? `${nameList(present)} ${present.length === 1 ? "is" : "are"} listening…`
         : "The room is listening…";
-    } else if (state.performance) {
-      status.textContent = `Line ${state.performance.index + 1} of ${state.performance.items.length} · Next line to continue`;
+    } else if (state.turn) {
+      const total = (state.turn.lines || []).length;
+      let line;
+      if (!total) line = "The turn is still forming…";
+      else if (state.turn.done) line = `Turn complete · ${total} beat${total === 1 ? "" : "s"}.`;
+      else line = `Beat ${state.turn.index} of ${total} · press Next to play the next beat.`;
+      if (state.turn.transport === "staged") {
+        line += " Whisper transport: staged — delivered locally, not through a private room.";
+      } else if (state.turn.userPrivate && !state.turn.transport) {
+        line += " Whisper · private lines stay in your log.";
+      }
+      status.textContent = [line, state.groupStatus].filter(Boolean).join(" ");
     } else {
       status.textContent = state.groupStatus || "";
     }
   }
 
-  const rail = $("#scene-rail");
-  const railSig = lines.map((item) => item.id).join(",") + "|" + (line ? line.id : "");
-  if (rail.dataset.sig !== railSig) {
-  rail.dataset.sig = railSig;
-  rail.replaceChildren();
-  lines.forEach((item) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "scene-chip" + ((line && line.id === item.id) ? " is-active" : "");
-    button.textContent = `${firstName(item.name)}: ${item.text}`;
-    button.title = item.text;
-    button.addEventListener("click", () => {
-      state.lineId = item.id;
-      state.performance = null;
-      if (item.castId) state.selected = item.castId;
-      renderStory(state.data);
-    });
-    rail.appendChild(button);
-  });
-  }
+  const next = $("#scene-next");
+  if (next) next.disabled = state.group.sending;
 
   renderHero(data);
   renderCast(data);
@@ -420,21 +692,356 @@ function renderStory(data) {
   renderPhone(data);
 }
 
-function renderSceneCast(present) {
+/* ---- scene transcript ------------------------------------------------- */
+
+function isSpeechBeat(entry) {
+  return SPEECH_MODES.has(entry.mode) && !entry.chorus && !entry.silent && !entry.boundary;
+}
+
+function optimisticEntryKey(turn, position) {
+  return `opt-${turn.id}-${position}`;
+}
+
+function sameOptimisticBeat(entry, turn) {
+  if (!turn || turn.source !== "optimistic") return false;
+  if (entry.turnId && entry.turnId === turn.id) return true;
+  if (entry.boundary && turn.boundary) {
+    const created = entry.ts ? Date.parse(entry.ts) : NaN;
+    if (!Number.isFinite(created) || created >= (turn.startedAt || 0) - 10000) return true;
+  }
+  const ts = entry.ts ? Date.parse(entry.ts) : NaN;
+  if (Number.isFinite(ts) && turn.startedAt && ts < turn.startedAt - 10000) return false;
+  const key = normalizeText(entry.text);
+  if (entry.isUser) return key === normalizeText(turn.userText);
+  return (turn.lines || []).some((line) =>
+    normalizeText(line.text) === key && (!entry.castId || line.character === entry.castId));
+}
+
+function hiddenByPlayback(entry, turn) {
+  if (!turn || turn.source !== "events") return false;
+  if (entry.turnId !== turn.id || entry.isUser) return false;
+  return entry.beatIndex >= turn.index;
+}
+
+function transcriptSignature(rows, turn, absent) {
+  const rowSig = rows.map((entry) => [
+    entry.key, entry.mode || "", entry.private ? "p" : "", entry.boundary ? "b" : "",
+    entry.silent ? "s" : "", entry.chorus ? "c" : "", entry.direction ? "d" : "",
+    entry.castId || "", entry.text ? entry.text.length : 0,
+  ].join(":")).join("|");
+  const lineSig = turn
+    ? (turn.lines || []).map((line) =>
+      `${line.character || line.speaker || ""}:${line.mode}:${line.text.length}:${line.text.slice(0, 16)}`).join("~")
+    : "";
+  const turnSig = turn
+    ? `${turn.id}:${turn.source}:${turn.index}:${turn.done ? 1 : 0}:${turn.boundary ? 1 : 0}:${turn.transport || ""}`
+    : "-";
+  return `${rowSig}#${turnSig}#${lineSig}#${[...absent].sort().join(",")}`;
+}
+
+function currentBeatKey() {
+  const turn = state.turn;
+  if (!turn || turn.done || turn.index <= 0) return null;
+  const line = (turn.lines || [])[turn.index - 1];
+  if (!line || !isSpeechBeat(line)) return null;
+  if (turn.source === "optimistic") return optimisticEntryKey(turn, turn.index - 1);
+  return line.key || null;
+}
+
+function avatarElement(entry, absent) {
+  const span = document.createElement("span");
+  span.className = "speaker-avatar";
+  if (!entry.castId) {
+    span.classList.add(entry.isUser ? "is-user" : "is-room");
+    span.textContent = entry.isUser ? "Y" : (entry.boundary ? "!" : "·");
+    return span;
+  }
+  const cast = CAST[entry.castId];
+  const img = document.createElement("img");
+  img.alt = "";
+  img.loading = "lazy";
+  img.onerror = () => {
+    img.onerror = null;
+    img.src = `/static/assets/portraits/${entry.castId}-avatar.svg`;
+  };
+  img.src = cast ? cast.avatar : `/static/assets/portraits/${entry.castId}-avatar.svg`;
+  if (absent.has(entry.castId) || entry.silent) span.classList.add("is-dim");
+  span.appendChild(img);
+  return span;
+}
+
+function speakerPlate(entry, absent) {
+  const wrap = document.createElement("div");
+  wrap.className = "turn-speaker";
+  wrap.appendChild(avatarElement(entry, absent));
+  const plate = document.createElement("span");
+  plate.className = "speaker-plate";
+  const name = document.createElement("span");
+  name.className = "speaker-name";
+  name.textContent = entry.isUser ? "You" : firstName(entry.speaker || "The room");
+  plate.appendChild(name);
+  wrap.appendChild(plate);
+  if (entry.expression) {
+    const expression = document.createElement("span");
+    expression.className = "turn-expression";
+    expression.textContent = entry.expression;
+    wrap.appendChild(expression);
+  }
+  if (entry.private) {
+    const lock = document.createElement("span");
+    lock.className = "turn-lock";
+    lock.textContent = "Private";
+    lock.setAttribute("aria-label", "Private line, visible only to you");
+    wrap.appendChild(lock);
+  }
+  if (entry.boundary) {
+    const tag = document.createElement("span");
+    tag.className = "turn-tag";
+    tag.textContent = "Boundary";
+    wrap.appendChild(tag);
+  }
+  return wrap;
+}
+
+function entryRow(entry, absent, activeKey) {
+  const row = document.createElement("div");
+  row.className = "turn-entry";
+  row.dataset.key = entry.key;
+
+  if (entry.direction) {
+    row.classList.add("turn-direction");
+    const label = document.createElement("span");
+    label.className = "turn-direction-label";
+    label.textContent = "stage direction";
+    const text = document.createElement("p");
+    text.className = "turn-text";
+    text.textContent = entry.text;
+    row.append(label, text);
+    return row;
+  }
+
+  if (entry.isUser) row.classList.add("is-user");
+  if (entry.boundary) row.classList.add("is-boundary");
+  if (entry.private) row.classList.add("is-private");
+  if (entry.silent) row.classList.add("is-caption", "is-silence");
+  if (!entry.boundary && (entry.mode === "action" || entry.mode === "reaction")) {
+    row.classList.add("is-caption", `is-${entry.mode}`);
+  }
+
+  row.appendChild(speakerPlate(entry, absent));
+
+  if (entry.boundary) {
+    const body = document.createElement("div");
+    body.className = "turn-boundary-body";
+    const title = document.createElement("strong");
+    title.textContent = "A line was crossed";
+    const text = document.createElement("p");
+    text.className = "turn-text";
+    text.textContent = entry.text || "The scene cuts on the consequence.";
+    const note = document.createElement("span");
+    note.className = "turn-note";
+    note.textContent = "No act details are shown. Only the consequence is.";
+    body.append(title, text, note);
+    row.appendChild(body);
+    return row;
+  }
+
+  const text = document.createElement("p");
+  text.className = "turn-text";
+  text.textContent = entry.text;
+  if (entry.mode === "action" || entry.mode === "reaction" || entry.silent) {
+    text.classList.add("is-italic");
+  }
+  if (entry.key === activeKey) {
+    row.classList.add("is-current");
+    typeLine(text, entry.text, `beat:${entry.key}`);
+  } else {
+    text.classList.add("is-done");
+  }
+  row.appendChild(text);
+  if (entry.private) {
+    const note = document.createElement("span");
+    note.className = "turn-note";
+    if (entry.isUser) {
+      const target = entry.target && CAST[entry.target] ? firstNameOf(entry.target) : "one character";
+      note.textContent = `Whispered to ${target} · visible only in your log.`;
+    } else {
+      note.textContent = "Private line · visible only in your log.";
+    }
+    row.appendChild(note);
+  }
+  return row;
+}
+
+function chorusRow(group, absent) {
+  const row = document.createElement("div");
+  row.className = "turn-entry is-chorus";
+  row.dataset.key = group[0].key;
+  const names = document.createElement("div");
+  names.className = "chorus-names";
+  group.forEach((entry) => {
+    const line = document.createElement("div");
+    line.className = "chorus-name";
+    line.appendChild(avatarElement(entry, absent));
+    const plate = document.createElement("span");
+    plate.className = "speaker-plate";
+    const name = document.createElement("span");
+    name.className = "speaker-name";
+    name.textContent = firstName(entry.speaker);
+    plate.appendChild(name);
+    line.appendChild(plate);
+    names.appendChild(line);
+  });
+  const body = document.createElement("div");
+  body.className = "chorus-body";
+  group.forEach((entry) => {
+    const text = document.createElement("p");
+    text.className = "turn-text";
+    text.textContent = entry.text;
+    body.appendChild(text);
+  });
+  row.append(names, body);
+  return row;
+}
+
+function renderTranscript(data, absent) {
+  const host = $("#turn-log");
+  if (!host) return;
+  const turn = state.turn;
+  let entries = buildEventEntries(data);
+  if (turn && turn.source === "optimistic") {
+    entries = entries.filter((entry) => !sameOptimisticBeat(entry, turn));
+  }
+  const rows = entries.filter((entry) => !hiddenByPlayback(entry, turn));
+
+  if (turn && turn.source === "optimistic") {
+    if (turn.userText && !turn.userHidden) {
+      rows.push({
+        key: `user-${turn.id}`,
+        isUser: true,
+        mode: turn.userPrivate ? "whisper" : "speech",
+        speaker: "You",
+        text: turn.userText,
+        private: Boolean(turn.userPrivate),
+        target: (turn.plan && turn.plan.target) || turn.whisperTo || null,
+        boundary: false,
+        chorus: false,
+        silent: false,
+        turnId: turn.id,
+      });
+    }
+    const direction = directionText(turn);
+    if (direction) rows.push({ key: `dir-${turn.id}`, direction: true, text: direction });
+    if (turn.boundary) {
+      rows.push({
+        key: `boundary-${turn.id}`,
+        mode: "boundary",
+        boundary: true,
+        speaker: "Boundary",
+        text: turn.boundaryText
+          || `A physical boundary was crossed with ${turn.boundaryTarget ? firstNameOf(turn.boundaryTarget) : "another character"}. The act is cut; only the consequence is shown.`,
+        private: false,
+        chorus: false,
+        silent: false,
+        turnId: turn.id,
+      });
+    }
+    (turn.lines || []).forEach((line, position) => {
+      if (!turn.done && position >= turn.index) return;
+      rows.push({
+        ...line,
+        key: optimisticEntryKey(turn, position),
+        castId: line.castId || (line.character && CAST[line.character] ? line.character : null),
+        isUser: false,
+        boundary: false,
+        turnId: turn.id,
+        position,
+      });
+    });
+  }
+
+  const sig = transcriptSignature(rows, turn, absent);
+  if (host.dataset.sig === sig) return;
+  host.dataset.sig = sig;
+  cancelTyping();
+  const nearBottom = host.scrollHeight - host.scrollTop - host.clientHeight < 72;
+  const activeKey = currentBeatKey();
+  host.replaceChildren();
+
+  let index = 0;
+  while (index < rows.length) {
+    const entry = rows[index];
+    if (entry.chorus && !entry.isUser) {
+      const group = [entry];
+      let next = index + 1;
+      while (next < rows.length && rows[next].chorus && !rows[next].isUser
+        && rows[next].turnId === entry.turnId) {
+        group.push(rows[next]);
+        next += 1;
+      }
+      host.appendChild(chorusRow(group, absent));
+      index = next;
+      continue;
+    }
+    host.appendChild(entryRow(entry, absent, activeKey));
+    index += 1;
+  }
+  if (!rows.length) {
+    const empty = document.createElement("p");
+    empty.className = "turn-empty";
+    empty.textContent = "The scene is quiet. Say something to the room.";
+    host.appendChild(empty);
+  }
+  if (nearBottom || activeKey) host.scrollTop = host.scrollHeight;
+}
+
+function renderBacklog(data) {
+  const rail = $("#scene-rail");
+  if (!rail) return;
+  const entries = buildEventEntries(data)
+    .filter((entry) => !entry.boundary && !entry.private && entry.text)
+    .slice(-8);
+  const sig = entries.map((entry) => entry.key).join(",");
+  if (rail.dataset.sig === sig) return;
+  rail.dataset.sig = sig;
+  rail.replaceChildren();
+  entries.forEach((entry) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "scene-chip";
+    button.textContent = `${entry.isUser ? "You" : firstName(entry.speaker)}: ${entry.text}`;
+    button.title = entry.text;
+    button.addEventListener("click", () => {
+      if (entry.castId) state.selected = entry.castId;
+      if (state.data) renderStory(state.data);
+      const target = document.querySelector(`.turn-entry[data-key="${entry.key}"]`);
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        target.classList.add("is-flash");
+        setTimeout(() => target.classList.remove("is-flash"), 1200);
+      }
+    });
+    rail.appendChild(button);
+  });
+}
+
+function renderSceneCast(ids, absent) {
   const row = $("#scene-cast");
   if (!row) return;
-  const sig = present.join(",") + "|" + state.selected;
+  const list = ids.length ? ids : ORDER.slice();
+  const sig = `${list.join(",")}|${state.selected}|${[...absent].sort().join(",")}`;
   if (row.dataset.sig === sig) return;
   row.dataset.sig = sig;
   row.replaceChildren();
-  present.forEach((id) => {
+  list.forEach((id) => {
     const cast = CAST[id];
     if (!cast) return;
+    const isAbsent = absent.has(id);
     const button = document.createElement("button");
     button.type = "button";
-    button.className = "scene-member" + (state.selected === id ? " is-active" : "");
-    button.title = `${cast.name} — ${cast.role}`;
-    button.setAttribute("aria-label", `${cast.name}, ${cast.role}`);
+    button.className = `scene-member${state.selected === id ? " is-active" : ""}${isAbsent ? " is-absent" : ""}`;
+    button.title = isAbsent ? `${cast.name} — absent (left the scene)` : `${cast.name} — ${cast.role}`;
+    button.setAttribute("aria-label", `${cast.name}, ${isAbsent ? "absent" : cast.role}`);
     const img = document.createElement("img");
     img.src = cast.avatar;
     img.alt = "";
@@ -446,19 +1053,22 @@ function renderSceneCast(present) {
     const label = document.createElement("span");
     label.textContent = firstName(cast.name);
     button.appendChild(label);
-    button.addEventListener("click", () => {
-      state.performance = null;
-      selectCast(id);
-    });
+    if (isAbsent) {
+      const tag = document.createElement("span");
+      tag.className = "scene-member-tag";
+      tag.textContent = "absent";
+      button.appendChild(tag);
+    }
+    button.addEventListener("click", () => selectCast(id));
     row.appendChild(button);
   });
 }
 
-function renderChoices(beat) {
+function renderChoices(beat, present) {
   const box = $("#scene-choices");
   if (!box) return;
   const choices = (beat && beat.choices) || [];
-  const sig = `${beat ? beat.id : ""}|${state.group.sending}|${choices.join("|")}`;
+  const sig = `${beat ? beat.id : ""}|${state.group.sending}|${present.join(",")}|${choices.join("|")}`;
   if (box.dataset.sig === sig) return;
   box.dataset.sig = sig;
   box.replaceChildren();
@@ -467,54 +1077,199 @@ function renderChoices(beat) {
     button.type = "button";
     button.className = "scene-choice";
     button.textContent = text;
-    button.disabled = state.group.sending;
-    button.addEventListener("click", () => sendGroup(text));
+    button.disabled = state.group.sending || !present.length;
+    button.addEventListener("click", () => sendScene(text));
     box.appendChild(button);
   });
   box.hidden = choices.length === 0;
 }
 
-async function sendGroup(text) {
-  text = String(text || "").trim();
-  if (!text || state.group.sending) return;
-  const present = presentCharacters(state.data);
-  state.group.sending = true;
-  state.groupStatus = "";
-  state.performance = { items: [{ character: "user", text }], index: 0 };
-  renderStory(state.data);
+function renderSayBar(beatCast, present, absent) {
+  const toggle = $("#whisper-toggle");
+  if (toggle) toggle.checked = Boolean(state.whisper);
+  const form = $("#scene-say-form");
+  if (form) form.classList.toggle("is-whisper", Boolean(state.whisper));
+
+  const select = $("#whisper-target");
+  if (select) {
+    const ids = beatCast.length ? beatCast : ORDER.slice();
+    const sig = `${ids.join(",")}|${[...absent].sort().join(",")}`;
+    if (select.dataset.sig !== sig) {
+      select.dataset.sig = sig;
+      const previous = state.whisperTarget || select.value;
+      select.replaceChildren();
+      ids.forEach((id) => {
+        const cast = CAST[id];
+        if (!cast) return;
+        const option = document.createElement("option");
+        option.value = id;
+        option.textContent = absent.has(id) ? `${firstName(cast.name)} (absent)` : firstName(cast.name);
+        option.disabled = absent.has(id);
+        select.appendChild(option);
+      });
+      const available = ids.filter((id) => CAST[id] && !absent.has(id));
+      const chosen = available.includes(previous)
+        ? previous
+        : (available.includes(state.selected) ? state.selected : (available[0] || ""));
+      state.whisperTarget = chosen || null;
+    }
+    if (state.whisperTarget && CAST[state.whisperTarget] && !absent.has(state.whisperTarget)) {
+      select.value = state.whisperTarget;
+    }
+    select.disabled = !state.whisper || !present.length;
+  }
 
   const input = $("#scene-say-input");
+  if (input) {
+    input.disabled = state.group.sending || !present.length;
+    const target = state.whisperTarget ? firstNameOf(state.whisperTarget) : "them";
+    input.placeholder = state.whisper
+      ? `Whisper to ${target}…`
+      : (present.length > 1
+        ? "Say something to the room…"
+        : `Say something to ${present.length ? firstName(CAST[present[0]].name) : "them"}…`);
+  }
   const send = $("#scene-say-send");
-  if (input) input.disabled = true;
-  if (send) send.disabled = true;
+  if (send) send.disabled = state.group.sending || !present.length;
+}
+
+function renderBoundary(data, absent) {
+  const box = $("#scene-boundary");
+  const scene = $(".scene");
+  if (!box) return;
+  const event = latestBoundary(data);
+  const optimistic = Boolean(state.turn && state.turn.boundary);
+  if (!event && !optimistic) {
+    box.hidden = true;
+    box.replaceChildren();
+    if (scene) scene.classList.remove("has-boundary");
+    return;
+  }
+  let target = null;
+  if (event) {
+    const meta = eventMeta(event);
+    target = meta.target || (event.participants || []).find((id) => String(id).toLowerCase() !== "user");
+  }
+  if (!target && state.turn && state.turn.boundaryTarget) target = state.turn.boundaryTarget;
+  const id = asCastId(target);
+  const name = id && CAST[id] ? firstNameOf(id) : "";
+  box.hidden = false;
+  box.replaceChildren();
+  const title = document.createElement("strong");
+  title.textContent = "A boundary was crossed";
+  const text = document.createElement("p");
+  text.textContent = name
+    ? `${name} has left the scene. The act is cut; only the consequence and the room's reaction are shown.`
+    : "A physical boundary was crossed. The act is cut; only the consequence and the room's reaction are shown.";
+  const note = document.createElement("span");
+  note.className = "turn-note";
+  note.textContent = "Wording stays non-explicit. The scene continues from the consequence.";
+  box.append(title, text, note);
+  if (scene) scene.classList.toggle("has-boundary", Boolean(id && absent.has(id)));
+}
+
+async function sendScene(text, options = {}) {
+  text = String(text || "").trim();
+  if (!text || state.group.sending) return;
+  const whisper = Boolean(options.whisper);
+  const data = state.data || {};
+  const absent = absentSet(data);
+  const present = sceneCharacters(data).filter((id) => !absent.has(id));
+  if (!present.length) {
+    state.groupStatus = "No one is present. Advance the beat or reset the demo.";
+    renderStory(state.data);
+    return;
+  }
+  const target = whisper
+    ? (CAST[options.to] ? options.to : (present.includes(state.whisperTarget) ? state.whisperTarget : present[0]))
+    : null;
+  if (whisper && (!target || absent.has(target))) {
+    state.groupStatus = "Pick a present character to whisper to.";
+    renderStory(state.data);
+    return;
+  }
+
+  const startedAt = Date.now();
+  state.group.sending = true;
+  state.groupStatus = "";
+  state.turn = {
+    id: `local-${startedAt}`,
+    source: "optimistic",
+    plan: whisper ? { whisper: true, target } : {},
+    userText: text,
+    userPrivate: whisper,
+    whisperTo: target,
+    lines: [],
+    index: 0,
+    done: false,
+    startedAt,
+    transport: null,
+    boundary: false,
+    boundaryTarget: null,
+  };
+  renderStory(state.data);
 
   try {
-    const result = await api("/api/group/say", {
-      method: "POST",
-      body: JSON.stringify({ message: text, characters: present, timeout: 50 }),
-    });
+    const result = whisper
+      ? await api("/api/group/whisper", {
+        method: "POST",
+        body: JSON.stringify({ to: target, message: text, timeout: 50 }),
+      })
+      : await api("/api/group/say", {
+        method: "POST",
+        body: JSON.stringify({ message: text, characters: present, timeout: 50 }),
+      });
     state.group.sending = false;
-    if (result.replies && result.replies.length) {
-      state.performance = {
-        items: result.replies.map((reply) => ({ character: reply.character, text: reply.text })),
-        index: 0,
-      };
-    } else {
-      state.performance = null;
+    const turn = result && result.turn ? result.turn : {};
+    state.turn.id = turn.id || state.turn.id;
+    state.turn.plan = turn.plan || state.turn.plan;
+    state.turn.lines = extractTurnLines(result, whisper, state.turn.plan);
+    state.turn.lines.forEach((line) => { line.turnId = state.turn.id; });
+    state.turn.done = !state.turn.lines.length;
+    state.turn.transport = (result && result.transport) || null;
+
+    const boundaryValue = (result && result.boundary)
+      || turn.boundary
+      || (turn.plan && turn.plan.boundary);
+    state.turn.boundary = Boolean(boundaryValue && boundaryValue !== "none");
+    state.turn.boundaryTarget = (result && result.boundary_target)
+      || (turn.plan && (turn.plan.target || turn.plan.primary))
+      || (result && result.boundary && Array.isArray(result.boundary.participants)
+        ? result.boundary.participants[0] : null)
+      || null;
+
+    if (state.turn.boundary) {
+      // The act itself is cut from the log; only the consequence remains.
+      state.turn.userHidden = true;
+      if (state.turn.boundaryTarget && CAST[state.turn.boundaryTarget]) {
+        state.selected = state.turn.boundaryTarget;
+      }
+    }
+    if (state.turn.boundary && state.turn.boundaryTarget) {
+      state.turn.boundaryText = `A physical boundary was crossed with ${firstNameOf(state.turn.boundaryTarget)}. The act is cut; only the consequence is shown.`;
+    }
+    if (state.turn.boundary) {
+      // A boundary cuts the act; show the refusal and witnesses immediately.
+      state.turn.index = state.turn.lines.length;
+      state.turn.done = true;
+    }
+    if (whisper) {
+      // The staged label is rendered from turn.transport in renderStory; keep
+      // groupStatus for a verified non-staged transport only.
+      state.groupStatus = state.turn.transport && state.turn.transport !== "staged"
+        ? `Whisper transport: ${state.turn.transport}.`
+        : "";
+    } else if (result && result.missing && result.missing.length) {
+      state.groupStatus = `No reply yet from ${nameList(result.missing)}. The room may be quiet.`;
     }
     await refresh();
-    if (result.missing && result.missing.length) {
-      state.groupStatus = `No reply yet from ${result.missing.map((id) => firstName((CAST[id] || {}).name || id)).join(", ")}. The room may be quiet.`;
-    }
   } catch (error) {
     state.group.sending = false;
-    state.performance = null;
+    state.turn = null;
     state.groupStatus = `The room didn't answer: ${error.message}`;
     renderStory(state.data);
   } finally {
     state.group.sending = false;
-    if (input) input.disabled = false;
-    if (send) send.disabled = false;
     if (state.data) renderStory(state.data);
   }
 }
@@ -566,9 +1321,9 @@ function affinityFor(data, id) {
 }
 
 function selectCast(id) {
+  if (!CAST[id]) return;
   state.selected = id;
-  state.lineId = null;
-  renderStory(state.data);
+  if (state.data) renderStory(state.data);
 }
 
 function makeCastAction(label, onClick) {
@@ -1783,10 +2538,302 @@ function renderSettings(data) {
 
 /* ---- shell ------------------------------------------------------------ */
 
+/* ---- studio ----------------------------------------------------------- */
+
+const STUDIO_HEALTH = ["world", "switch", "mattermost", "gateway", "bifrost"];
+const STUDIO_REFRESH_MS = 5000;
+const STUDIO_RETRY_MS = 15000;
+
+function maybeLoadStudio() {
+  const retry = state.studio.error ? STUDIO_RETRY_MS : STUDIO_REFRESH_MS;
+  if (!state.studio.fetchedAt || Date.now() - state.studio.fetchedAt >= retry) loadStudio();
+  else renderStudio();
+}
+
+async function loadStudio(force = false) {
+  if (state.studio.loading) return;
+  const now = Date.now();
+  const retry = state.studio.error ? STUDIO_RETRY_MS : STUDIO_REFRESH_MS;
+  if (!force && state.studio.fetchedAt && now - state.studio.fetchedAt < retry) {
+    renderStudio();
+    return;
+  }
+  state.studio.loading = true;
+  renderStudio();
+  try {
+    const data = await api("/api/studio/summary");
+    state.studio.data = data;
+    state.studio.error = "";
+    state.studio.fetchedAt = Date.now();
+  } catch (error) {
+    state.studio.error = error.message || "not connected";
+    state.studio.fetchedAt = Date.now();
+  } finally {
+    state.studio.loading = false;
+    renderStudio();
+  }
+}
+
+function renderStudioHealth(health) {
+  const host = $("#studio-health");
+  if (!host) return;
+  host.replaceChildren();
+  if (!health) {
+    const chip = document.createElement("span");
+    chip.className = "health-chip is-unknown";
+    chip.textContent = "health unavailable";
+    host.appendChild(chip);
+    return;
+  }
+  const keys = [...new Set([...STUDIO_HEALTH, ...Object.keys(health)])];
+  keys.forEach((key) => {
+    const on = Boolean(health[key]);
+    const chip = document.createElement("span");
+    chip.className = `health-chip ${on ? "is-on" : "is-off"}`;
+    const dot = document.createElement("i");
+    dot.setAttribute("aria-hidden", "true");
+    chip.appendChild(dot);
+    const label = document.createElement("span");
+    label.textContent = key.replaceAll("_", " ");
+    chip.appendChild(label);
+    const stateLabel = document.createElement("em");
+    stateLabel.textContent = on ? "up" : "down";
+    chip.appendChild(stateLabel);
+    host.appendChild(chip);
+  });
+}
+
+function studioBeatCard(label, beat, className) {
+  const item = document.createElement("div");
+  item.className = `studio-beat-card ${className}`;
+  const eyebrow = document.createElement("span");
+  eyebrow.className = "eyebrow";
+  eyebrow.textContent = label;
+  item.appendChild(eyebrow);
+  const title = document.createElement("strong");
+  title.textContent = beat ? (beat.title || beat.id || "—") : "—";
+  item.appendChild(title);
+  const meta = document.createElement("span");
+  meta.className = "studio-beat-meta";
+  meta.textContent = beat
+    ? [beat.time, beat.id].filter(Boolean).join(" · ")
+    : "not reported";
+  item.appendChild(meta);
+  return item;
+}
+
+function renderStudioBeats(data) {
+  const host = $("#studio-beats");
+  if (!host) return;
+  host.replaceChildren();
+  const clock = (data && data.clock) || (state.data && state.data.clock) || {};
+  const scene = (state.data && state.data.scene) || {};
+  const current = (data && data.current_beat) || scene.current_beat || null;
+  const next = (data && data.next_beat) || scene.next_beat || null;
+  const mode = $("#studio-clock-mode");
+  if (mode) {
+    mode.textContent = `${clock.mode || "mock"} · ${clock.now ? formatTime(clock.now) : "—"}`;
+  }
+  host.append(
+    studioBeatCard("current beat", current, "is-current"),
+    studioBeatCard("next beat", next, "is-next"),
+  );
+  if (data && data.arc_complete) {
+    const done = document.createElement("div");
+    done.className = "studio-beat-card is-done";
+    const eyebrow = document.createElement("span");
+    eyebrow.className = "eyebrow";
+    eyebrow.textContent = "arc";
+    const title = document.createElement("strong");
+    title.textContent = "complete";
+    done.append(eyebrow, title);
+    host.appendChild(done);
+  }
+}
+
+function renderStudioAgents(data) {
+  const host = $("#studio-agents");
+  if (!host) return;
+  host.replaceChildren();
+  const absent = absentSet(state.data || {});
+  let agents = data && Array.isArray(data.agents) ? data.agents : null;
+  if (!agents) {
+    agents = ORDER.map((id) => ({
+      id,
+      name: CAST[id].name,
+      role: CAST[id].role,
+      friend: isFriend(state.data, id),
+      absent: absent.has(id),
+      last_event: "",
+    }));
+  }
+  if (!agents.length) {
+    const empty = document.createElement("p");
+    empty.className = "tiny";
+    empty.textContent = "No agents reported.";
+    host.appendChild(empty);
+    return;
+  }
+  agents.forEach((agent) => {
+    const id = asCastId(agent.id || agent.character || agent.name);
+    const cast = id && CAST[id] ? CAST[id] : null;
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "studio-agent";
+    if (cast) {
+      const img = document.createElement("img");
+      img.src = cast.avatar;
+      img.alt = "";
+      img.onerror = () => {
+        img.onerror = null;
+        img.src = `/static/assets/portraits/${cast.id}-avatar.svg`;
+      };
+      row.appendChild(img);
+    }
+    const copy = document.createElement("div");
+    copy.className = "studio-agent-copy";
+    const name = document.createElement("strong");
+    name.textContent = agent.name || (cast && cast.name) || agent.id || "agent";
+    copy.appendChild(name);
+    const role = document.createElement("span");
+    role.textContent = agent.role || (cast && cast.role) || "character";
+    copy.appendChild(role);
+    const last = document.createElement("em");
+    last.textContent = agent.last_event || "no recent event";
+    copy.appendChild(last);
+    row.appendChild(copy);
+
+    const flags = document.createElement("div");
+    flags.className = "studio-flags";
+    const friend = agent.friend !== undefined ? Boolean(agent.friend) : isFriend(state.data, id);
+    const gone = agent.absent !== undefined ? Boolean(agent.absent) : absent.has(id);
+    const friendFlag = document.createElement("span");
+    friendFlag.className = `agent-flag ${friend ? "is-friend" : "is-muted"}`;
+    friendFlag.textContent = friend ? "friend" : "locked";
+    flags.appendChild(friendFlag);
+    const absentFlag = document.createElement("span");
+    absentFlag.className = `agent-flag ${gone ? "is-absent" : "is-muted"}`;
+    absentFlag.textContent = gone ? "absent" : "present";
+    flags.appendChild(absentFlag);
+    row.appendChild(flags);
+
+    if (cast) row.addEventListener("click", () => openProfile(cast.id));
+    host.appendChild(row);
+  });
+}
+
+function renderStudioRooms(data) {
+  const host = $("#studio-rooms");
+  if (!host) return;
+  host.replaceChildren();
+  const rooms = data && Array.isArray(data.rooms) ? data.rooms : [];
+  if (!rooms.length) {
+    const empty = document.createElement("p");
+    empty.className = "tiny";
+    empty.textContent = data ? "No rooms reported." : "Not connected — rooms will appear here.";
+    host.appendChild(empty);
+    return;
+  }
+  rooms.forEach((room) => {
+    const row = document.createElement("div");
+    row.className = "studio-room";
+    const name = document.createElement("strong");
+    name.textContent = room.name || room.room || "room";
+    row.appendChild(name);
+    const code = document.createElement("code");
+    code.textContent = room.room_id || room.id || "—";
+    row.appendChild(code);
+    host.appendChild(row);
+  });
+}
+
+function renderStudioRecent(data) {
+  const host = $("#studio-recent");
+  if (!host) return;
+  host.replaceChildren();
+  const recent = data && Array.isArray(data.recent) ? data.recent : [];
+  if (!recent.length) {
+    const empty = document.createElement("li");
+    empty.className = "studio-feed-empty";
+    empty.textContent = data ? "No recent activity." : "Not connected — recent events will appear here.";
+    host.appendChild(empty);
+    return;
+  }
+  recent.slice(0, 24).forEach((item) => {
+    const li = document.createElement("li");
+    const kind = document.createElement("span");
+    kind.className = "studio-feed-kind";
+    kind.textContent = String(item.kind || "event").replaceAll("_", " ");
+    li.appendChild(kind);
+    const text = document.createElement("span");
+    text.textContent = item.summary || item.text || "";
+    li.appendChild(text);
+    host.appendChild(li);
+  });
+}
+
+function renderStudio() {
+  const data = state.studio.data;
+  const conn = $("#studio-conn");
+  if (conn) {
+    conn.textContent = state.studio.loading ? "connecting…" : (data ? "connected" : "not connected");
+    conn.className = `studio-conn${data ? " is-on" : " is-off"}${state.studio.loading ? " is-loading" : ""}`;
+  }
+  const status = $("#studio-status");
+  if (status) {
+    if (state.studio.loading) {
+      status.hidden = false;
+      status.textContent = "Trying the studio summary…";
+    } else if (!data) {
+      status.hidden = false;
+      status.textContent = `Studio summary not connected${state.studio.error ? ` (${state.studio.error})` : ""}. The scene keeps working; retry when the backend ships GET /api/studio/summary.`;
+    } else if (state.studio.error) {
+      status.hidden = false;
+      status.textContent = `Showing the last summary — reconnecting (${state.studio.error}).`;
+    } else {
+      status.hidden = true;
+      status.textContent = "";
+    }
+  }
+  renderStudioHealth(data && data.health ? data.health : null);
+  renderStudioBeats(data);
+  renderStudioAgents(data);
+  renderStudioRooms(data);
+  renderStudioRecent(data);
+}
+
+async function studioAdvance() {
+  const button = $("#studio-advance");
+  const note = $("#studio-advance-status");
+  if (!button || button.disabled) return;
+  button.disabled = true;
+  if (note) note.textContent = "Advancing and playing the next beat…";
+  try {
+    const result = await api("/api/clock/advance", {
+      method: "POST",
+      body: JSON.stringify({ run: true }),
+    });
+    if (note) {
+      note.textContent = result.arc_complete
+        ? "Arc complete — every authored beat has run."
+        : `Played ${(result.view && result.view.current_beat && result.view.current_beat.title)
+          || (result.beat && result.beat.title) || "the next beat"}.`;
+    }
+    state.turn = null;
+    await refresh();
+    await loadStudio(true);
+  } catch (error) {
+    if (note) note.textContent = `Advance failed: ${error.message}`;
+  } finally {
+    button.disabled = false;
+  }
+}
+
 const VIEW_META = {
   story: { eyebrow: "Tonight at the café", title: "Story" },
   tree: { eyebrow: "The shape of the secret", title: "World Tree" },
   ledger: { eyebrow: "The god view", title: "Secret Ledger" },
+  studio: { eyebrow: "The control room", title: "Studio" },
   settings: { eyebrow: "The stage", title: "Settings" },
 };
 
@@ -1805,6 +2852,7 @@ function setView(view) {
   $("#view-title").textContent = meta.title;
   if (state.data) render(state.data);
   if (view === "story" && state.data) loadPhoneHistory(phoneTarget());
+  if (view === "studio") loadStudio(true);
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -1814,6 +2862,7 @@ function render(data) {
   if (state.view === "story") renderStory(data);
   if (state.view === "tree") renderTree(data);
   if (state.view === "ledger") renderLedger(data);
+  if (state.view === "studio") maybeLoadStudio();
   if (state.view === "settings") renderSettings(data);
 }
 
@@ -1866,6 +2915,7 @@ async function tellAlice() {
   try {
     await api("/api/dev/tell-alice", { method: "POST", body: JSON.stringify({ secret, key: SECRET_KEY }) });
     $("#status").textContent = "Alice recorded the secret. Check the ledger.";
+    state.turn = null;
     await refresh();
   } catch (error) {
     $("#status").textContent = `Tell Alice failed: ${error.message}`;
@@ -1889,6 +2939,7 @@ async function runBifrost() {
       .reduce((sum, item) => sum + Number(item.used_tokens || 0), 0);
     const branch = result.branch ? ` · ${result.branch.label} (${result.branch.id})` : "";
     status.textContent = `Bifrost beat: ${result.beat.title}${branch} · ${used} tokens logged · log: data/logs/bifrost.jsonl`;
+    state.turn = null;
     await refresh();
     await loadSceneCard();
   } catch (error) {
@@ -1960,8 +3011,7 @@ async function advanceClock(run) {
       state.clockStatus = `Now ${result.view.current_beat.title} at ${formatClock(result.clock.now)}${played}.`;
     }
     if (status) status.textContent = state.clockStatus;
-    state.performance = null;
-    state.lineId = null;
+    state.turn = null;
     await refresh();
     if (run) await loadSceneCard();
   } catch (error) {
@@ -1981,6 +3031,7 @@ async function runLocalBeat() {
     });
     const branch = result.branch ? ` · ${result.branch.label} (${result.branch.id})` : "";
     $("#status").textContent = `Local beat: ${result.beat.title}${branch}.`;
+    state.turn = null;
     await refresh();
     await loadSceneCard();
   } catch (error) {
@@ -1996,6 +3047,7 @@ async function runArc() {
   try {
     const result = await api("/api/dev/run-arc", { method: "POST", body: "{}" });
     $("#status").textContent = `Local arc complete: five beats · ${result.branch.label} (${result.branch.id}).`;
+    state.turn = null;
     await refresh();
     await loadSceneCard();
   } catch (error) {
@@ -2014,6 +3066,10 @@ async function resetWorld() {
     $("#card-preview").hidden = true;
     $("#card-preview").textContent = "";
     $("#card-path").textContent = "No card loaded yet.";
+    state.turn = null;
+    state.studio.data = null;
+    state.studio.error = "";
+    state.studio.fetchedAt = 0;
     await refresh();
   } catch (error) {
     $("#status").textContent = `Reset failed: ${error.message}`;
@@ -2048,26 +3104,78 @@ async function copyLiveCommand() {
   }
 }
 
-function nextLine() {
-  if (state.performance) {
-    if (state.performance.index < state.performance.items.length - 1) {
-      state.performance.index += 1;
+function nextBeat() {
+  const turn = state.turn;
+  if (!turn) {
+    startLatestTurnPlayback();
+    return;
+  }
+  if (turn.done) {
+    if (turn.source === "events") {
+      state.turn = null;
       renderStory(state.data);
       return;
     }
-    const last = state.performance.items[state.performance.items.length - 1];
-    if (last && last.character !== "user" && CAST[last.character]) state.selected = last.character;
-    state.performance = null;
+    state.groupStatus = "Turn complete. Say something else to start a new turn.";
     renderStory(state.data);
     return;
   }
-  const lines = dialogueEvents(state.data || {}).slice(-8);
-  if (!lines.length) return;
-  const index = lines.findIndex((line) => line.id === state.lineId);
-  const next = lines[(index + 1 + lines.length) % lines.length];
-  state.lineId = next.id;
-  if (next.castId) state.selected = next.castId;
+  const lines = turn.lines || [];
+  if (!lines.length) {
+    turn.done = true;
+    renderStory(state.data);
+    return;
+  }
+  if (turn.index < lines.length) {
+    if (state.groupStatus === "Replaying the latest turn.") state.groupStatus = "";
+    let next = turn.index + 1;
+    if (lines[turn.index] && lines[turn.index].chorus) {
+      while (next < lines.length && lines[next].chorus
+        && (lines[next].turnId || null) === (lines[turn.index].turnId || null)) {
+        next += 1;
+      }
+    }
+    turn.index = next;
+    const revealed = lines[Math.min(next, lines.length) - 1];
+    if (revealed) {
+      const castId = revealed.castId || asCastId(revealed.character);
+      if (castId && CAST[castId] && !absentSet(state.data).has(castId)) state.selected = castId;
+    }
+    if (next >= lines.length) turn.done = true;
+    renderStory(state.data);
+    return;
+  }
+  turn.done = true;
   renderStory(state.data);
+}
+
+/* On a fresh page, or after a completed turn, Next replays the latest turn
+   recorded with turn metadata from the start. */
+function startLatestTurnPlayback() {
+  const data = state.data || {};
+  const entries = buildEventEntries(data).filter((entry) => entry.turnId && !entry.isUser);
+  if (!entries.length) {
+    state.groupStatus = "Nothing to replay yet. Say something to the room.";
+    renderStory(data);
+    return;
+  }
+  const lastTurnId = entries[entries.length - 1].turnId;
+  const lines = entries.filter((entry) => entry.turnId === lastTurnId);
+  state.turn = {
+    id: lastTurnId,
+    source: "events",
+    plan: null,
+    userText: null,
+    lines,
+    index: 0,
+    done: false,
+    startedAt: 0,
+    transport: null,
+    boundary: false,
+    boundaryTarget: null,
+  };
+  state.groupStatus = "Replaying the latest turn.";
+  renderStory(data);
 }
 
 /* ---- wiring ----------------------------------------------------------- */
@@ -2142,15 +3250,28 @@ document.addEventListener("keydown", (event) => {
   }
   closeProfile();
 });
-$("#scene-next").addEventListener("click", nextLine);
+$("#scene-next").addEventListener("click", nextBeat);
 $("#scene-say-form").addEventListener("submit", (event) => {
   event.preventDefault();
   const input = $("#scene-say-input");
   const text = input.value.trim();
   if (!text) return;
   input.value = "";
-  sendGroup(text);
+  sendScene(text, {
+    whisper: Boolean($("#whisper-toggle") && $("#whisper-toggle").checked),
+    to: $("#whisper-target") ? $("#whisper-target").value : null,
+  });
 });
+$("#whisper-toggle").addEventListener("change", (event) => {
+  state.whisper = event.target.checked;
+  if (state.data) renderStory(state.data);
+});
+$("#whisper-target").addEventListener("change", (event) => {
+  state.whisperTarget = event.target.value || null;
+  if (state.data) renderStory(state.data);
+});
+$("#studio-refresh").addEventListener("click", () => loadStudio(true));
+$("#studio-advance").addEventListener("click", studioAdvance);
 $("#scene-dm").addEventListener("click", () => {
   const cast = CAST[state.selected];
   if (cast && !isFriend(state.data, cast.id)) {

@@ -158,6 +158,107 @@ def test_phone_is_locked_until_friendship(client):
     assert state["friends"] == ["alice"]
 
 
+def test_studio_summary_health_and_shape(client, monkeypatch):
+    from world_engine import studio
+
+    probed = []
+
+    def fake_probe(url):
+        probed.append(url)
+        return url == studio.MATTERMOST_PING_URL
+
+    monkeypatch.setattr(studio, "probe", fake_probe)
+    response = client.get("/api/studio/summary")
+    assert response.status_code == 200
+    data = response.json()
+
+    assert data["health"] == {
+        "world": True,
+        "switch": False,
+        "mattermost": True,
+        "gateway": False,
+        "bifrost": False,
+    }
+    assert len(probed) == 4
+    assert data["clock"]["mode"] == "mock"
+    assert data["current_beat"]["id"] == "morning-shop"
+    assert data["next_beat"]["id"] == "morning-shop"
+    assert data["current_beat"]["title"]
+    assert len(data["agents"]) == 4
+    assert {
+        "id", "name", "role", "friend", "absent", "last_event"
+    } <= set(data["agents"][0])
+    assert data["rooms"][0]["name"] == "world"
+    assert data["recent"] and set(data["recent"][0]) == {"kind", "summary"}
+    assert data["done_beats"] == []
+    assert data["arc_complete"] is False
+
+
+def test_studio_summary_never_fails_when_probes_are_down(client):
+    response = client.get("/api/studio/summary")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["health"]["world"] is True
+    assert len(body["agents"]) == 4
+
+
+def test_group_say_endpoint_returns_a_turn(client, monkeypatch):
+    class FakeSwitch:
+        def find_room(self, name="world"):
+            return {"room_id": "room-world", "name": name}
+
+        def post(self, room_id, content):
+            return {}
+
+        def history(self, room_id):
+            return [
+                {
+                    "event_id": "evt-alice",
+                    "sender_name": "alice",
+                    "timestamp": 10 ** 15,
+                    "body": "I'm here.",
+                }
+            ]
+
+    monkeypatch.setattr("director.group.SwitchClient", lambda: FakeSwitch())
+    response = client.post(
+        "/api/group/say", json={"message": "Alice, are we still on?", "timeout": 1}
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["turn"]["id"].startswith("t-")
+    assert body["turn"]["plan"]["primary"] == "alice"
+    assert body["replies"][0]["character"] == "alice"
+
+
+def test_group_whisper_endpoint_is_staged(client, monkeypatch):
+    class FakeBifrost:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def chat_json(self, character, messages, **kwargs):
+            return {"reply": "Okay.", "memory": None, "relationships": []}
+
+        def usage_summary(self):
+            return {}
+
+    monkeypatch.setattr("gateway.bifrost.BifrostClient", FakeBifrost)
+    response = client.post(
+        "/api/group/whisper",
+        json={"to": "alice", "message": "meet me after closing"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["transport"] == "staged"
+    assert body["target"] == "alice"
+    assert body["turn"]["plan"]["primary"] == "alice"
+
+    unknown = client.post(
+        "/api/group/whisper", json={"to": "nobody", "message": "hi"}
+    )
+    assert unknown.status_code == 400
+
+
 def test_clock_endpoints(client):
     view = client.get("/api/clock").json()
     assert view["mode"] == "mock"

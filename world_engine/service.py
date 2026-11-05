@@ -345,6 +345,44 @@ class WorldService:
                 break
         return {"actor": actor, "query": query, "memories": out}
 
+    # ---- presence ---------------------------------------------------------
+    ABSENT_PREFIX = "absent:"
+
+    def mark_absent(self, character: str, reason: str = "") -> dict:
+        """Take a character out of the scene until it ends or `reset` clears presence.
+
+        Presence lives in the generic `meta` table, so a reset (which recreates the
+        database) restores the whole cast without a separate migration.
+        """
+        with self._conn() as conn:
+            if not self._character_exists(conn, character):
+                raise ValueError("unknown character: " + character)
+            value = (reason or "out of scene").strip() or "out of scene"
+            conn.execute(
+                "INSERT INTO meta(key, value) VALUES (?, ?) "
+                "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                (self.ABSENT_PREFIX + character, value),
+            )
+        return {"character": character, "absent": True, "reason": value}
+
+    def is_absent(self, character: str) -> bool:
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT 1 FROM meta WHERE key = ?", (self.ABSENT_PREFIX + character,)
+            ).fetchone()
+            return row is not None
+
+    def absent_characters(self) -> list[str]:
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT key FROM meta WHERE key LIKE ?", (self.ABSENT_PREFIX + "%",)
+            ).fetchall()
+        ids = {str(row["key"]).split(":", 1)[1] for row in rows}
+        return sorted(
+            (cid for cid in ids if cid in CHARACTER_ORDER),
+            key=lambda cid: CHARACTER_ORDER[cid],
+        )
+
     # ---- relationships ----------------------------------------------------
 
     def relationship(self, actor: str, other: str) -> dict:
@@ -427,6 +465,18 @@ class WorldService:
 
     # ---- events -----------------------------------------------------------
 
+    @staticmethod
+    def _event_dict(row: sqlite3.Row) -> dict:
+        """One event row in API shape: participants and metadata are decoded."""
+        event = dict(row)
+        event["participants"] = json.loads(event.pop("participants_json", None) or "[]")
+        raw = event.pop("metadata_json", None)
+        try:
+            event["metadata"] = json.loads(raw or "{}")
+        except (TypeError, ValueError):
+            event["metadata"] = {}
+        return event
+
     def _canonical_participant(self, conn: sqlite3.Connection, value: str) -> str:
         """Normalise a participant when it is a known actor; leave unknown labels alone."""
         try:
@@ -443,23 +493,28 @@ class WorldService:
         visibility: str = "public",
         room_id: str | None = None,
         message_id: str | None = None,
+        metadata: Mapping[str, Any] | None = None,
     ) -> dict:
         if visibility not in VISIBILITIES:
             raise ValueError("visibility must be one of " + ", ".join(VISIBILITIES))
         participants = list(participants or [])
+        meta = dict(metadata or {})
         with self._conn() as conn:
             participants = [self._canonical_participant(conn, p) for p in participants]
             now = self._now(conn)
             cur = conn.execute(
                 """INSERT INTO events(kind, summary, participants_json, visibility,
-                                     created_at, room_id, message_id)
-                   VALUES (?,?,?,?,?,?,?)""",
-                (kind, summary, json.dumps(participants), visibility, now, room_id, message_id),
+                                     created_at, room_id, message_id, metadata_json)
+                   VALUES (?,?,?,?,?,?,?,?)""",
+                (
+                    kind, summary, json.dumps(participants), visibility, now,
+                    room_id, message_id, json.dumps(meta, ensure_ascii=False),
+                ),
             )
             return {
                 "id": cur.lastrowid, "kind": kind, "summary": summary,
                 "participants": participants, "visibility": visibility, "created_at": now,
-                "room_id": room_id, "message_id": message_id,
+                "room_id": room_id, "message_id": message_id, "metadata": meta,
             }
 
     def events(self, kind: str | None = None) -> list[dict]:
@@ -470,12 +525,7 @@ class WorldService:
                 "SELECT * FROM events WHERE (? IS NULL OR kind = ?) ORDER BY id",
                 (kind, kind),
             ).fetchall()
-        result = []
-        for row in rows:
-            event = dict(row)
-            event["participants"] = json.loads(event.pop("participants_json") or "[]")
-            result.append(event)
-        return result
+        return [self._event_dict(row) for row in rows]
 
     def event_by_message_id(self, message_id: str) -> dict | None:
         if not message_id:
@@ -485,22 +535,14 @@ class WorldService:
                 "SELECT * FROM events WHERE message_id = ? ORDER BY id DESC LIMIT 1",
                 (message_id,),
             ).fetchone()
-        if not row:
-            return None
-        event = dict(row)
-        event["participants"] = json.loads(event.pop("participants_json") or "[]")
-        return event
+        return self._event_dict(row) if row else None
 
     def latest_event(self, kind: str) -> dict | None:
         with self._conn() as conn:
             row = conn.execute(
                 "SELECT * FROM events WHERE kind = ? ORDER BY id DESC LIMIT 1", (kind,)
             ).fetchone()
-        if not row:
-            return None
-        event = dict(row)
-        event["participants"] = json.loads(event.pop("participants_json") or "[]")
-        return event
+        return self._event_dict(row) if row else None
 
     def completed_beats(self) -> list[str]:
         with self._conn() as conn:
@@ -651,8 +693,7 @@ class WorldService:
                     "SELECT character FROM friends ORDER BY since, character"
                 )
             ]
-        for e in events:
-            e["participants"] = json.loads(e.pop("participants_json") or "[]")
+        events = [self._event_dict(row) for row in events]
         return {
             "clock": clock,
             "characters": characters,
@@ -660,6 +701,7 @@ class WorldService:
             "relationships": relationships,
             "events": list(reversed(events)),
             "friends": friends,
+            "absent_characters": self.absent_characters(),
             "done_beats": self.completed_beats(),
             "branch": self.latest_event("branch"),
             "matrix": self.matrix(),

@@ -267,6 +267,29 @@ def create_app(service: WorldService | None = None) -> FastAPI:
         except Exception as exc:
             raise HTTPException(502, f"group scene failed: {exc}") from exc
 
+    @app.post("/api/group/whisper")
+    def group_whisper(payload: dict | None = None):
+        from director.whisper import whisper_to_character
+
+        payload = payload or {}
+        try:
+            return whisper_to_character(
+                service,
+                to=str(payload.get("to") or ""),
+                message=str(payload.get("message") or ""),
+                timeout=float(payload.get("timeout") or 35.0),
+            )
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        except Exception as exc:
+            raise HTTPException(502, f"whisper failed: {exc}") from exc
+
+    @app.get("/api/studio/summary")
+    def studio_summary_endpoint():
+        from .studio import studio_summary
+
+        return studio_summary(service)
+
     @app.post("/api/dev/run-beat")
     def run_beat_endpoint(payload: dict | None = None):
         if not config.DEV_MODE:

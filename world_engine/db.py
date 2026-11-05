@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS events (
     created_at TEXT NOT NULL,
     room_id TEXT,
     message_id TEXT,
+    metadata_json TEXT NOT NULL DEFAULT '{}',
     supersedes INTEGER REFERENCES events(id)
 );
 CREATE INDEX IF NOT EXISTS events_created ON events(created_at);
@@ -108,8 +109,8 @@ def init_db(db_path: Path | str, state_dir: Path = config.STATE_DIR) -> None:
         conn.executescript(SCHEMA)
         _migrate(conn)
         conn.execute(
-            "INSERT INTO meta(key, value) VALUES ('schema_version', '2') "
-            "ON CONFLICT(key) DO UPDATE SET value = '2'"
+            "INSERT INTO meta(key, value) VALUES ('schema_version', '3') "
+            "ON CONFLICT(key) DO UPDATE SET value = '3'"
         )
         conn.execute(
             "INSERT OR IGNORE INTO clock(id, now, day) VALUES (1, ?, ?)",
@@ -131,6 +132,13 @@ def _migrate(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE clock ADD COLUMN mode TEXT NOT NULL DEFAULT 'mock'")
     if "anchor_real" not in columns:
         conn.execute("ALTER TABLE clock ADD COLUMN anchor_real TEXT")
+
+    # Scene protocol: every beat may carry a JSON metadata blob (mode, role, turn_id).
+    event_columns = {row["name"] for row in conn.execute("PRAGMA table_info(events)")}
+    if "metadata_json" not in event_columns:
+        conn.execute(
+            "ALTER TABLE events ADD COLUMN metadata_json TEXT NOT NULL DEFAULT '{}'"
+        )
 
 
 def _seed(conn: sqlite3.Connection, state_dir: Path) -> None:

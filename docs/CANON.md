@@ -124,3 +124,11 @@ The canon is read-only state. To change it:
 3. Add or update a test if the branch rules changed.
 4. Do not change it mid-run; start a new world (`uv run director --reset`) so the ledger
    and the canon begin together.
+
+
+## Social events
+
+`social_verdict` is a director event, not a character belief: it records the topic tier,
+the character's ceiling and the chosen stance (`answer`, `tease`, `deflect`, `refuse`,
+`hard_refuse`). It never contains the user's message. Implemented in `director/social.py`
+from `world/social.json`; see the README's "Affinity and topic boundaries".

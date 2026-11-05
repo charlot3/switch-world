@@ -182,6 +182,27 @@ Settings → **Time machine** card is the UI, and the rail clock shows `· MOCK`
 Friend state is a small `friends` table in the world DB. It gates the phone endpoints
 (`/api/dm*` returns 403 until `POST /api/friends/<id>`), not the public room.
 
+### Affinity and topic boundaries
+
+Affinity is not a cosmetic meter. Every DM and group prompt receives the live
+trust/closeness/tension edge, a tier name (`Wary`, `Cordial`, `Friendly`, `Close`,
+`Intimate`) and a concrete open/closed contract. `world/social.json` maps topics to tiers
+(small talk, daily life, private feelings, body/appearance, physical contact), sets each
+character's ceiling and authored deflection/refusal lines, and records the relationship
+deltas. `director/social.py` classifies the incoming line before the model call:
+
+- an intimate topic above the current ceiling gets a constrained deflect/refuse prompt;
+- a refusal that leaks the topic is replaced with the character's authored line;
+- uninvited contact is a hard refusal at any affinity, with a large trust/tension
+  consequence and a public `social_verdict` event;
+- group turns post a separate contract to each character, so the same question can get
+  four different answers instead of four copies.
+
+The verdict and its reason are in the world feed (and the god view), so a refusal is a
+recorded social event, not a silent failure. This is deterministic and network-free; a
+smaller LLM classifier for ambiguous lines is deliberately deferred until after the Flip
+submission.
+
 The header's **Open #world** link points at the verified public Mattermost channel
 (`switch/world`). It opens in the same tab because embedded previews and some popup
 blockers swallow `target="_blank"`; use browser Back to return, or Cmd/Ctrl-click for a new
@@ -745,6 +766,7 @@ the scene card above: the user and the cast co-produce a scene and its provenanc
 | `world/characters/` | the four character sheets |
 | `world/canon.json` | the authored story bible: facts, beats, branches, invariants |
 | `world/models.json` | per-character Bifrost model, fallbacks, temperature and token budget |
+| `world/social.json` | affinity tiers, topic ceilings, refusal lines and relationship deltas |
 | `gateway/` | Bifrost client, Tavily client, offline fixture |
 | `world/state/` | seed characters, relationship graph and beliefs |
 | `world/rooms.json` | surface ↔ character ↔ channel/DM mapping |
@@ -754,7 +776,7 @@ the scene card above: the user and the cast co-produce a scene and its provenanc
 | `tests/` | pytest for the service, API, canon and café beat |
 | `agents/<name>/` | per-character working directories: `AGENTS.md`, `IDENTITY.md`, `CLAUDE.md`, generated `opencode.json` / `.mcp.json` |
 | `mcp/` | the world engine's MCP tool surface (design notes) |
-| `director/` | authored beat runners (local/Bifrost/Switch), the phone DM, group chat (`group.py`), the time machine (`clock.py`), and `canon.py` |
+| `director/` | authored beat runners (local/Bifrost/Switch), the phone DM, group chat (`group.py`), the time machine (`clock.py`), the social gate (`social.py`), and `canon.py` |
 | `scripts/fetch-switch.sh` | pull the pinned Switch compose artifact |
 | `scripts/generate-cast-art.py` | one flow for the bust/full-body/avatar/café-CG set |
 | `scripts/generate-beat-cg.py` | bookshop and food-truck location CGs |

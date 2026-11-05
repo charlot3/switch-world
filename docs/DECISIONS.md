@@ -315,3 +315,18 @@ midnight.
 **Ruled out:** a full calendar/event-scheduler model; auto-running a beat from a timer
 (the arc still moves only when the showrunner runs it); mirroring phone DMs into a public
 channel.
+
+
+## 2026-11-05 — Affinity is a gate, not a decoration
+
+The relationship ledger was write-only: agents updated trust/closeness/tension, but no
+prompt ever read the result, and `dm.py` explicitly ordered a plain answer to every direct
+question. A two-star character therefore had no reason to refuse an intimate question.
+We added a deterministic social appraisal before prose: live edge, tier, topic ladder,
+per-character ceiling, authored refusal lines, and a hard refusal for uninvited physical
+contact. The model still writes the line; the gate decides whether it may answer, deflect
+or refuse, and the ledger records the reason and the delta.
+
+**Ruled out:** relying on a stronger prompt alone (it leaks under pressure); a second LLM
+classifier on the critical path (latency and non-determinism); making the meter a
+cosmetic UI value with no prompt read path.

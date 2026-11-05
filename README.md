@@ -796,6 +796,11 @@ per-character different provider models and failover chains are a config change
 (`world/models.json` + `deploy/bifrost/data/config.json`). Live Tavily needs
 `TAVILY_API_KEY`; the offline fixture is explicitly labelled in the event text.
 
+## License
+
+MIT — see [`LICENSE`](LICENSE). The hackathon does not require an open-source license;
+this one makes the demo easy to clone, reuse and judge.
+
 ## Sources
 
 - Inbox proposal: `hackathon-idea-ai-social-life-simulator-20261103.md`

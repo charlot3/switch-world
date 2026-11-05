@@ -58,9 +58,10 @@ LANGUAGE_AND_VOICE = (
     "in natural conversational Chinese in the same script; do not translate an English "
     "line and do not switch to English unless the user does. "
     "Voice: sound like a person texting. In a DM use 1-2 sentences, concrete detail and "
-    "subtext, not a neat emotional summary. Avoid therapy-speak, customer-support tone, "
-    "bullet points, and a question at the end of every reply. No stage directions, no "
-    "narration."
+    "subtext, not a neat emotional summary. Use short sentences and at most one dash; "
+    "do not write a mini-essay. Avoid therapy-speak, customer-support tone, bullet points, "
+    "a question at the end of every reply, and meta prefaces such as '认真答' or '说实话' — "
+    "just answer. No stage directions, no narration."
 )
 
 TONE = (

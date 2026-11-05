@@ -1,0 +1,47 @@
+{
+  "id": "w3-quiet-route",
+  "title": "The Quiet Route",
+  "seed": 3003,
+  "clock": {"now": "2026-11-03T19:10:00+09:00", "mode": "mock", "scale": 1.0},
+  "cast": ["alice"],
+  "friends": ["alice"],
+  "absent": [],
+  "outfits": {
+    "alice": {
+      "id": "date-skirt",
+      "label": "the burgundy skirt",
+      "art": "/static/assets/portraits/outfits/alice-date-skirt.jpg",
+      "reason": "because you said you like short skirts",
+      "source_belief": "user-prefers-short-skirt"
+    }
+  },
+  "cast_art": {
+    "alice": "/static/assets/portraits/outfits/alice-date-skirt.jpg"
+  },
+  "scene_art": "/static/assets/scenes/beat-date-alice.jpg",
+  "place": "the café, after close",
+  "item": null,
+  "relationships": [
+    {"a": "alice", "b": "user", "trust": 0.78, "closeness": 0.72, "tension": 0.08}
+  ],
+  "beliefs": [
+    {
+      "holder": "alice",
+      "proposition": "The user prefers short skirts.",
+      "key": "user-prefers-short-skirt",
+      "source": "user",
+      "confidence": 0.90,
+      "visibility": "private"
+    }
+  ],
+  "opening": {
+    "title": "The window seat",
+    "line": "You came. I saved the window seat.",
+    "choices": [
+      "You said Friday. I listened.",
+      "That skirt is unfair.",
+      "Tell me about the book."
+    ]
+  },
+  "notes": "One live Alice session; date outfit; memory → outfit callback."
+}

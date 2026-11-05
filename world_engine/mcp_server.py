@@ -148,6 +148,46 @@ def create_mcp(service: WorldService) -> MCPServer:
         return service.who_knows(proposition_key)
 
     @mcp.tool()
+    def world__set_outfit(
+        ctx: Context,
+        outfit_id: str,
+        reason: str = "",
+        source_belief_id: str = "",
+    ) -> dict:
+        """Change into an outfit declared by the current scenario, citing the memory."""
+        who = actor(ctx)
+        source = source_belief_id.strip() or None
+        return service.set_outfit(
+            who, outfit_id, reason=reason, source_belief_id=source
+        )
+
+    @mcp.tool()
+    def world__give_item(ctx: Context, item_id: str, to: str, note: str = "") -> dict:
+        """Hand an item to another person; the hand-off is recorded as an event."""
+        return service.give_item(item_id, to, label=note or None)
+
+    @mcp.tool()
+    def world__allowed_looks(ctx: Context) -> dict:
+        """The outfits the current scenario declares for this character."""
+        who = actor(ctx)
+        scenario = service.current_scenario() or {}
+        return {
+            "character": who,
+            "outfits": (scenario.get("outfits") or {}).get(who),
+        }
+
+    @mcp.tool()
+    def world__connections(ctx: Context) -> dict:
+        """The cast-to-cast relationship graph, not just the user-centred star."""
+        return {"connections": service.connections()}
+
+    @mcp.tool()
+    def world__ending_status(ctx: Context) -> dict:
+        """The current scenario's ending card, if one is loaded."""
+        scenario = service.current_scenario() or {}
+        return {"scenario": scenario.get("id"), "ending": scenario.get("ending")}
+
+    @mcp.tool()
     def world__advance_time(minutes: int, ctx: Context) -> dict:
         """Director-only: move the simulated world clock."""
         director(ctx)

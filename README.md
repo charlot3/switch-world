@@ -188,6 +188,15 @@ every other present character records a private `user-crossed-a-line` belief wit
 distinct confidence. The social deltas (trust/closeness/tension) come from the authored
 `world/social.json`. The act itself is never rendered.
 
+### Worlds
+
+The **Worlds** rail view loads the recordable demo presets: the gift, two clocks, the
+quiet solo route (remembered preference → outfit → date), the three-person night market,
+the good/bad ending forks and the original long Tuesday. A world is a reset + seed of the
+same engine, not a second server. `GET /api/scenarios` lists them; `POST
+/api/scenarios/{id}/load` loads one; `/api/state` exposes `scenario`, `outfits`,
+`cast_art`, `scene_art`, `item` and `connections`. See [`docs/WORLDS.md`](docs/WORLDS.md).
+
 ### Studio
 
 The **Studio** rail view reads `GET /api/studio/summary`: five health chips (world, Switch,
@@ -422,7 +431,7 @@ character's private beliefs through the API, even if it asks.
 | **Server** | `switch-world` — the local world engine |
 | **Transport** | Streamable HTTP at `http://127.0.0.1:8890/mcp` |
 | **Resources** | `world://characters/<id>` · `world://beliefs/<holder>` · `world://relationships/<from>/<to>` · `world://events` |
-| **Tools** | `world__recall` · `world__remember` · `world__relationship` · `world__update_relationship` · `world__record_event` · `world__who_knows` · `world__advance_time` |
+| **Tools** | `world__recall` · `world__remember` · `world__relationship` · `world__update_relationship` · `world__record_event` · `world__who_knows` · `world__advance_time` · `world__set_outfit` · `world__give_item` · `world__allowed_looks` · `world__connections` · `world__ending_status` |
 
 Tool surface (implemented in [`world_engine/mcp_server.py`](world_engine/mcp_server.py)):
 
@@ -436,6 +445,11 @@ Tool surface (implemented in [`world_engine/mcp_server.py`](world_engine/mcp_ser
 | `world__search_web(query, max_results=5, topic=news)` | character | Tavily search for the present; use it before answering a current-events/fact question rather than guessing |
 | `world__who_knows(proposition_key)` | director | the full matrix with provenance; the dashboard reads `GET /api/who-knows/<key>` instead |
 | `world__advance_time(minutes)` | director | moves the world clock and enqueues the next beat |
+| `world__set_outfit(outfit_id, reason, source_belief_id?)` | character | changes into a scenario-declared outfit, citing the memory that motivated it |
+| `world__give_item(item_id, to, note?)` | character | hands over a gift/prop and records the hand-off |
+| `world__allowed_looks()` | character | the outfits the current scenario declares for this character |
+| `world__connections()` | any | the cast↔cast relationship projection |
+| `world__ending_status()` | any | the active scenario's ending card |
 
 The dashboard also reads `GET /api/canon` (the read-only story bible) and
 `GET /api/state` (which includes the canon). The director loads `world/canon.json`
@@ -792,6 +806,8 @@ the scene card above: the user and the cast co-produce a scene and its provenanc
 | `world/canon.json` | the authored story bible: facts, beats, branches, invariants |
 | `world/models.json` | per-character Bifrost model, fallbacks, temperature and token budget |
 | `world/social.json` | affinity tiers, topic ceilings, refusal lines and relationship deltas |
+| `world/scenarios/` | loadable demo worlds: clock, cast, edges, beliefs, outfits, items, art, ending |
+| `world/demo-assets.json` | prompt/seed/size manifest for the demo plates |
 | `gateway/` | Bifrost client, Tavily client, offline fixture |
 | `world/state/` | seed characters, relationship graph and beliefs |
 | `world/rooms.json` | surface ↔ character ↔ channel/DM mapping |
@@ -805,6 +821,7 @@ the scene card above: the user and the cast co-produce a scene and its provenanc
 | `scripts/fetch-switch.sh` | pull the pinned Switch compose artifact |
 | `scripts/generate-cast-art.py` | one flow for the bust/full-body/avatar/café-CG set |
 | `scripts/generate-beat-cg.py` | bookshop and food-truck location CGs |
+| `scripts/generate-demo-assets.py` | demo plates + outfit/prop renders, with studio cleanup |
 | `scripts/update-mattermost-avatars.sh` | push the square crops to the four bot accounts |
 | `scripts/normalize-relationships.py` | repair name-keyed relationship rows from older databases |
 | `scripts/run-bifrost.sh` | start the OpenCode adapter + Bifrost gateway |

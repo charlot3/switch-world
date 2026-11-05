@@ -78,12 +78,32 @@ CREATE TABLE IF NOT EXISTS clock (
     now TEXT NOT NULL,
     day TEXT NOT NULL,
     mode TEXT NOT NULL DEFAULT 'mock',
-    anchor_real TEXT
+    anchor_real TEXT,
+    scale REAL NOT NULL DEFAULT 1.0
 );
 
 CREATE TABLE IF NOT EXISTS friends (
     character TEXT PRIMARY KEY REFERENCES characters(id),
     since TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS outfits (
+    character TEXT PRIMARY KEY REFERENCES characters(id),
+    outfit_id TEXT NOT NULL,
+    label TEXT NOT NULL,
+    art TEXT NOT NULL DEFAULT '',
+    reason TEXT NOT NULL DEFAULT '',
+    source_belief_id INTEGER REFERENCES beliefs(id),
+    changed_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS items (
+    id TEXT PRIMARY KEY,
+    label TEXT NOT NULL,
+    holder TEXT NOT NULL DEFAULT '',
+    owner TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'carried',
+    created_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS meta (
@@ -109,8 +129,8 @@ def init_db(db_path: Path | str, state_dir: Path = config.STATE_DIR) -> None:
         conn.executescript(SCHEMA)
         _migrate(conn)
         conn.execute(
-            "INSERT INTO meta(key, value) VALUES ('schema_version', '3') "
-            "ON CONFLICT(key) DO UPDATE SET value = '3'"
+            "INSERT INTO meta(key, value) VALUES ('schema_version', '4') "
+            "ON CONFLICT(key) DO UPDATE SET value = '4'"
         )
         conn.execute(
             "INSERT OR IGNORE INTO clock(id, now, day) VALUES (1, ?, ?)",
@@ -132,6 +152,9 @@ def _migrate(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE clock ADD COLUMN mode TEXT NOT NULL DEFAULT 'mock'")
     if "anchor_real" not in columns:
         conn.execute("ALTER TABLE clock ADD COLUMN anchor_real TEXT")
+    # Scenario protocol: realtime can run at a faster-than-wall-clock scale.
+    if "scale" not in columns:
+        conn.execute("ALTER TABLE clock ADD COLUMN scale REAL NOT NULL DEFAULT 1.0")
 
     # Scene protocol: every beat may carry a JSON metadata blob (mode, role, turn_id).
     event_columns = {row["name"] for row in conn.execute("PRAGMA table_info(events)")}

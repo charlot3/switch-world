@@ -1,0 +1,53 @@
+{
+  "id": "w4-three-of-us",
+  "title": "Three of Us",
+  "seed": 4004,
+  "clock": {"now": "2026-11-03T20:00:00+09:00", "mode": "mock", "scale": 1.0},
+  "cast": ["alice", "emily", "mia"],
+  "friends": ["alice", "emily"],
+  "absent": [],
+  "outfits": {},
+  "cast_art": {
+    "alice": "/static/assets/portraits/alice-cg.jpg",
+    "emily": "/static/assets/portraits/emily-cg.jpg",
+    "mia": "/static/assets/portraits/mia-cg.jpg"
+  },
+  "scene_art": "/static/assets/scenes/beat-group-outing.jpg",
+  "place": "the night market",
+  "item": null,
+  "relationships": [
+    {"a": "alice", "b": "user", "trust": 0.74, "closeness": 0.68, "tension": 0.10},
+    {"a": "emily", "b": "user", "trust": 0.60, "closeness": 0.55, "tension": 0.12},
+    {"a": "mia", "b": "user", "trust": 0.50, "closeness": 0.45, "tension": 0.10},
+    {"a": "alice", "b": "emily", "trust": 0.62, "closeness": 0.55, "tension": 0.42},
+    {"a": "emily", "b": "alice", "trust": 0.50, "closeness": 0.46, "tension": 0.50}
+  ],
+  "beliefs": [
+    {
+      "holder": "alice",
+      "proposition": "Emily and I still haven't made up after the fight.",
+      "key": "alice-emily-fight",
+      "source": "observation",
+      "confidence": 0.80,
+      "visibility": "private"
+    },
+    {
+      "holder": "emily",
+      "proposition": "The user is closer to Alice than to me.",
+      "key": "user-close-to-alice",
+      "source": "observation",
+      "confidence": 0.80,
+      "visibility": "private"
+    }
+  ],
+  "opening": {
+    "title": "The night market",
+    "line": "Three of them, one of you, and a hundred ways this could go.",
+    "choices": [
+      "@emily Okay, honest — who's been avoiding who?",
+      "Mia, what do you think?",
+      "Nobody has to answer that."
+    ]
+  },
+  "notes": "Three-person scene with a cast↔cast tension lens; Sophia is offstage."
+}

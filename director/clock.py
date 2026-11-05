@@ -78,11 +78,12 @@ def advance_to_beat(service: WorldService, canon: dict, beat_id: str) -> dict:
     raise ValueError("unknown beat: " + beat_id)
 
 
-def align_realtime(service: WorldService, canon: dict) -> dict:
+def align_realtime(service: WorldService, canon: dict, scale: float | None = None) -> dict:
     """Enter realtime at the next point where story time and wall time line up.
 
-    If it is 14:00, the story jumps to 18:30 (the café) and then runs at 1x. If the last
-    beat of the day has passed, it aligns to the first beat tomorrow.
+    If it is 14:00, the story jumps to 18:30 (the café) and then runs at `scale` times
+    the wall clock (1x unless a demo asks for a faster clock). If the last beat of the
+    day has passed, it aligns to the first beat tomorrow.
     """
     current = datetime.fromisoformat(service.clock()["now"])
     real = datetime.now(current.tzinfo)
@@ -96,5 +97,7 @@ def align_realtime(service: WorldService, canon: dict) -> dict:
     if target is None:
         beat = beats_in_order(canon)[0]
         target = _at(real.date() + timedelta(days=1), beat["time"], real.tzinfo)
-    clock = service.set_clock_mode("realtime", now=target.isoformat(timespec="seconds"))
+    clock = service.set_clock_mode(
+        "realtime", now=target.isoformat(timespec="seconds"), scale=scale
+    )
     return {"beat": beat, "clock": clock, "target": target.isoformat(timespec="seconds")}

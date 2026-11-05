@@ -1,0 +1,65 @@
+{
+  "id": "w5-good",
+  "title": "The Confession",
+  "seed": 5005,
+  "clock": {"now": "2026-11-03T21:30:00+09:00", "mode": "mock", "scale": 1.0},
+  "cast": ["alice", "emily", "sophia", "mia"],
+  "friends": ["alice", "emily", "sophia", "mia"],
+  "absent": [],
+  "outfits": {},
+  "cast_art": {
+    "alice": "/static/assets/portraits/alice-cg.jpg",
+    "emily": "/static/assets/portraits/emily-cg.jpg",
+    "sophia": "/static/assets/portraits/sophia-cg.jpg",
+    "mia": "/static/assets/portraits/mia-cg.jpg"
+  },
+  "scene_art": "/static/assets/scenes/ending-good.jpg",
+  "place": "the station platform, 21:30",
+  "item": {"id": "train-ticket", "label": "a train ticket", "holder": "user", "owner": "user"},
+  "relationships": [
+    {"a": "alice", "b": "user", "trust": 0.82, "closeness": 0.76, "tension": 0.08},
+    {"a": "emily", "b": "user", "trust": 0.58, "closeness": 0.50, "tension": 0.18},
+    {"a": "alice", "b": "emily", "trust": 0.55, "closeness": 0.50, "tension": 0.35},
+    {"a": "emily", "b": "alice", "trust": 0.58, "closeness": 0.52, "tension": 0.28},
+    {"a": "sophia", "b": "user", "trust": 0.40, "closeness": 0.38, "tension": 0.25},
+    {"a": "mia", "b": "user", "trust": 0.52, "closeness": 0.50, "tension": 0.20}
+  ],
+  "beliefs": [
+    {
+      "holder": "alice",
+      "proposition": "The user is staying in the city.",
+      "key": "user-staying",
+      "source": "user",
+      "confidence": 0.95,
+      "visibility": "private"
+    },
+    {
+      "holder": "emily",
+      "proposition": "The user is leaving the city at the end of the month.",
+      "key": "user-leaving-city",
+      "source": "character:alice",
+      "confidence": 0.80,
+      "visibility": "private"
+    }
+  ],
+  "opening": {
+    "title": "The late train",
+    "line": "The platform clock says 21:30. The train is late, and nobody is leaving.",
+    "choices": [
+      "Alice, I'm staying.",
+      "Emily, there's something you should hear from me.",
+      "Let's not do this on a platform."
+    ]
+  },
+  "ending": {
+    "id": "good-confession",
+    "label": "GOOD END — The Confession",
+    "tone": "good",
+    "evidence": [
+      "Alice closeness >= 0.65",
+      "Emily holds the secret from Alice",
+      "no boundary"
+    ]
+  },
+  "notes": "The good fork: Alice already knows the user is staying, and Emily hears the truth from her."
+}

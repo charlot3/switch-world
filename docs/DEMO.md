@@ -35,7 +35,25 @@ the preferred connector; Console 0.40.1's check is blocked, so the live cast use
 - [ ] Screen recording at 1440p or higher; notifications off; browser zoom 110%.
 - [ ] Fallback: the recorded rehearsal video is on disk.
 
-## Shot list
+
+## Worlds cut — 4:40, six takes
+
+Use the **Worlds** shelf; each load is a reset + seed, not a replay.
+
+| Time | World | What the audience sees |
+| --- | --- | --- |
+| 0:00–0:15 | — | Switch Console: five sessions, one room; a director line and Alice's reply. |
+| 0:15–1:00 | `w1-gift` | Wrapped first edition on the bookshop counter; one primary (Alice); the gift becomes a belief; cut to the café and a primary + two reactors + one silent. |
+| 1:00–1:30 | `w2-two-clocks` | Mock: clock jumps 17:40→18:30. Real: `REAL xN` badge, the beat fires from wall time. The day plate becomes the evening plate. |
+| 1:30–2:35 | `w3-quiet-route` | Solo Alice; the preference belief appears; the outfit card opens the memory chain; the date CG swaps to the burgundy skirt; Alice says “You said Friday. I listened.”; the body/appearance verdict is tease at Close. |
+| 2:35–3:35 | `w4-three-of-us` | Three-person night market; Emily answers, Alice pushes back, Mia is a recorded silence; the cast↔cast lens highlights the strained edge. |
+| 3:35–4:25 | `w5-good` → `w5-bad` | Same cue, two pre-seeded ledgers; the ending cards show the evidence. The model writes only the epilogue inside the authored ending. |
+| 4:25–4:40 | — | Scene card export; Worlds shelf; optional `docker compose down` remove test. |
+
+Fallbacks: every scene has the authored fallback path; load `w6-long-tuesday` if a new
+world fails validation. Do not debug live. Keep the recording clip on disk.
+
+## Shot list (original café arc)
 
 ### 0:00–0:30 — Switch is the world
 

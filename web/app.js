@@ -35,6 +35,16 @@ const state = {
   groupStatus: "",
   clockStatus: "",
   beatId: null,
+  treeLens: "user",
+  worlds: {
+    scenarios: null,
+    current: null,
+    loading: false,
+    loadingScenario: null,
+    error: "",
+    fetchedAt: 0,
+    status: "",
+  },
   studio: { data: null, error: "", loading: false, fetchedAt: 0 },
 };
 
@@ -58,7 +68,7 @@ function initialMotion() {
 
 function initialView() {
   const param = new URLSearchParams(location.search).get("view");
-  return ["story", "tree", "ledger", "studio", "settings"].includes(param) ? param : "story";
+  return ["story", "worlds", "tree", "ledger", "studio", "settings"].includes(param) ? param : "story";
 }
 
 function shellMode() {
@@ -179,7 +189,123 @@ function currentBeat(data) {
   return beats[0] || null;
 }
 
+/* ---- scenarios --------------------------------------------------------- */
+
+/* GET /api/state carries `scenario` when a preset is active. The Worlds view
+   also keeps the last loaded preset so the UI can render before the next poll.
+   Every helper degrades to the base canon when the backend has no scenarios. */
+function currentScenario(data) {
+  const source = data === undefined ? state.data : data;
+  if (source && Object.prototype.hasOwnProperty.call(source, "scenario")) {
+    const value = source.scenario;
+    if (value && typeof value === "object" && (value.id || value.title)) return value;
+    if (value === null) return null;
+  }
+  return state.worlds.current || null;
+}
+
+function scenarioCastIds(data) {
+  const scenario = currentScenario(data);
+  const list = scenario && Array.isArray(scenario.cast) ? scenario.cast : null;
+  if (!list || !list.length) return null;
+  const ids = list.map((id) => asCastId(id)).filter((id) => id && CAST[id]);
+  return ids.length ? ids : null;
+}
+
+function scenarioOutfits(data) {
+  const direct = data && data.outfits;
+  if (direct && typeof direct === "object" && Object.keys(direct).length) return direct;
+  const scenario = currentScenario(data);
+  return scenario && scenario.outfits && typeof scenario.outfits === "object"
+    ? scenario.outfits
+    : {};
+}
+
+function outfitFor(data, id) {
+  const row = scenarioOutfits(data)[id];
+  const scenario = currentScenario(data);
+  const spec = scenario && scenario.outfits && typeof scenario.outfits === "object"
+    ? scenario.outfits[id]
+    : null;
+  if (!row && !spec) return null;
+  if (typeof row === "string") return { id: row, label: row };
+  const base = (spec && typeof spec === "object") ? spec : {};
+  const stored = (row && typeof row === "object") ? row : {};
+  return {
+    ...base,
+    ...stored,
+    id: stored.id || stored.outfit_id || base.id || null,
+    label: stored.label || base.label || stored.outfit_id || base.id || null,
+    art: stored.art || base.art || "",
+    reason: stored.reason || base.reason || "",
+    source_belief: stored.source_belief || stored.source_belief_key
+      || base.source_belief || null,
+  };
+}
+
+function outfitArtFor(data, id) {
+  const outfit = outfitFor(data, id);
+  if (!outfit) return null;
+  if (outfit.art) return outfit.art;
+  if (outfit.id) {
+    return `/static/assets/portraits/outfits/${id}-${outfit.id}.jpg`;
+  }
+  return null;
+}
+
+function scenarioCastArt(data) {
+  const direct = data && data.cast_art;
+  if (direct && typeof direct === "object" && Object.keys(direct).length) return direct;
+  const scenario = currentScenario(data);
+  return (scenario && scenario.cast_art && typeof scenario.cast_art === "object")
+    ? scenario.cast_art
+    : {};
+}
+
+function castArtFor(data, id) {
+  const value = scenarioCastArt(data)[id];
+  if (!value) return null;
+  return typeof value === "string" ? value : (value.art || null);
+}
+
+function scenarioSceneArt(data) {
+  const scenario = currentScenario(data);
+  const evening = scenario && scenario.scene_art_evening;
+  let hour = null;
+  try { hour = new Date(data && data.clock && data.clock.now).getHours(); } catch { hour = null; }
+  if (evening && hour !== null && hour >= 17) return evening;
+  const direct = data && data.scene_art;
+  if (direct) return typeof direct === "string" ? direct : (direct.art || null);
+  const value = scenario && scenario.scene_art;
+  if (!value) return null;
+  return typeof value === "string" ? value : (value.art || null);
+}
+
+function scenarioItem(data) {
+  const item = (data && data.item) || ((currentScenario(data) || {}).item);
+  if (!item) return null;
+  if (typeof item === "string") return { id: item, label: item };
+  return item;
+}
+
+function connectionList(value) {
+  if (Array.isArray(value)) return value;
+  if (value && typeof value === "object") return Object.values(value).filter(Boolean);
+  return [];
+}
+
+function scenarioConnections(data) {
+  const direct = data && data.connections;
+  if (Array.isArray(direct) || (direct && typeof direct === "object")) {
+    return connectionList(direct);
+  }
+  const scenario = currentScenario(data);
+  return scenario ? connectionList(scenario.connections) : [];
+}
+
 function sceneCharacters(data) {
+  const scenarioCast = scenarioCastIds(data);
+  if (scenarioCast) return scenarioCast;
   const beat = currentBeat(data);
   if (!beat || !beat.characters || !beat.characters.length) return ORDER.slice();
   return beat.characters.map((id) => String(id).toLowerCase()).filter((id) => CAST[id]);
@@ -290,13 +416,49 @@ const BEAT_ART = {
   "truck-lunch": "/static/assets/portraits/beat-truck-lunch.jpg",
 };
 
-function sceneArtFor(data, cast) {
+function beatArtFor(data, cast) {
   const beat = currentBeat(data);
   return (beat && BEAT_ART[beat.id]) || cast.scene || cast.full || cast.portrait;
 }
 
+/* The portrait is the selected character: outfit art wins over cast art, then
+   the scenario scene CG, then the authored beat CG. The backdrop is the scene
+   CG so the stage still reads as the place, not only the person. */
+function sceneArtFor(data, cast) {
+  return scenarioSceneArt(data)
+    || outfitArtFor(data, cast.id)
+    || castArtFor(data, cast.id)
+    || beatArtFor(data, cast);
+}
+
+function sceneBackdropFor(data, cast) {
+  return scenarioSceneArt(data) || sceneArtFor(data, cast);
+}
+
+/* A small fallback chain keeps a planned art path honest: if the new CG has
+   not shipped yet, the stage falls back to the existing character art. */
+function setArtWithFallback(img, candidates, alt) {
+  if (!img) return;
+  const list = [...new Set(candidates.filter((value) => typeof value === "string" && value))];
+  if (!list.length) return;
+  let index = 0;
+  img.onerror = () => {
+    index += 1;
+    if (index < list.length) {
+      img.src = list[index];
+      return;
+    }
+    img.onerror = null;
+  };
+  img.src = list[0];
+  if (alt !== undefined) img.alt = alt;
+}
+
 function isFriend(data, id) {
-  return Boolean(data && (data.friends || []).includes(id));
+  if (data && (data.friends || []).includes(id)) return true;
+  const scenario = currentScenario(data);
+  if (!scenario || !Array.isArray(scenario.friends)) return false;
+  return scenario.friends.map((friend) => asCastId(friend)).includes(id);
 }
 
 function phoneTarget() {
@@ -600,6 +762,317 @@ function typeLine(element, text, key) {
   }, 16);
 }
 
+/* ---- scenario story surfaces ------------------------------------------ */
+
+function itemHolderLabel(holder) {
+  if (!holder) return "";
+  if (String(holder).toLowerCase() === "user") return "with you";
+  const id = asCastId(holder);
+  if (id && CAST[id]) return `with ${firstNameOf(id)}`;
+  return `with ${holder}`;
+}
+
+function renderScenarioItem(data) {
+  const box = $("#scene-item");
+  if (!box) return;
+  const item = scenarioItem(data);
+  if (!item) {
+    box.hidden = true;
+    box.replaceChildren();
+    return;
+  }
+  box.hidden = false;
+  box.replaceChildren();
+  const label = document.createElement("span");
+  label.className = "scene-item-label";
+  label.textContent = "Item";
+  const name = document.createElement("strong");
+  name.textContent = item.label || item.id || "carried item";
+  box.append(label, name);
+  const holder = itemHolderLabel(item.holder);
+  if (holder) {
+    const who = document.createElement("span");
+    who.className = "scene-item-holder";
+    who.textContent = holder;
+    box.appendChild(who);
+  }
+  if (item.id) box.title = `Item · ${item.id}`;
+}
+
+function renderScenarioOpening(scenario) {
+  const box = $("#scenario-opening");
+  if (!box) return;
+  const opening = scenario && scenario.opening ? scenario.opening : null;
+  const title = opening && opening.title;
+  const line = opening && opening.line;
+  if (!scenario || (!title && !line)) {
+    box.hidden = true;
+    box.replaceChildren();
+    return;
+  }
+  box.hidden = false;
+  $("#scenario-opening-title").textContent = title || scenario.title || "Opening";
+  $("#scenario-opening-line").textContent = line || "";
+}
+
+/* ---- memory → outfit card --------------------------------------------- */
+
+let outfitReturnFocus = null;
+let endingReturnFocus = null;
+
+function findScenarioBelief(data, holder, key) {
+  if (!key) return null;
+  const scenario = currentScenario(data);
+  const beliefs = scenario && Array.isArray(scenario.beliefs) ? scenario.beliefs : [];
+  const match = beliefs.find((belief) => belief && belief.key === key
+    && (!belief.holder || asCastId(belief.holder) === holder || belief.holder === holder));
+  if (match) return match;
+  const stored = ((data && data.beliefs) || []).find((belief) => belief
+    && (belief.proposition_key === key || belief.key === key)
+    && (!belief.holder || belief.holder === holder));
+  if (stored) return stored;
+  const row = ((data && data.matrix) || []).find((item) => item.key === key);
+  const cell = row && row.holders ? row.holders[holder] : null;
+  return cell ? { proposition: cell.proposition, key, holder, confidence: cell.confidence, source: cell.source } : null;
+}
+
+function openOverlay(modal) {
+  if (!modal) return;
+  closePhone();
+  closeProfile();
+  closeEnding();
+  closeOutfit();
+  modal.hidden = false;
+  const app = $(".app");
+  if (app) app.inert = true;
+  document.body.classList.add("modal-open");
+}
+
+function closeOverlay(modal) {
+  if (!modal || modal.hidden) return;
+  modal.hidden = true;
+  const app = $(".app");
+  if (app) app.inert = false;
+  document.body.classList.remove("modal-open");
+}
+
+function openOutfit(id) {
+  const cast = CAST[id];
+  const data = state.data || {};
+  const outfit = outfitFor(data, id);
+  if (!cast || !outfit) return;
+  const modal = $("#outfit-modal");
+  if (!modal) return;
+  outfitReturnFocus = document.activeElement;
+  $("#outfit-title").textContent = `${firstName(cast.name)} · ${outfit.label || outfit.id || "outfit"}`;
+  setArtWithFallback(
+    $("#outfit-art"),
+    [outfit.art, outfitArtFor(data, id), castArtFor(data, id), cast.scene, cast.portrait],
+    `${cast.name} outfit`,
+  );
+
+  const belief = findScenarioBelief(data, id, outfit.source_belief);
+  const steps = [];
+  if (belief) {
+    const source = belief.source
+      || (belief.source_kind
+        ? (belief.source_kind === "character"
+          ? `character:${belief.source_id}`
+          : belief.source_kind)
+        : "");
+    const meta = [
+      belief.key || belief.proposition_key,
+      belief.confidence !== undefined ? Number(belief.confidence).toFixed(2) : "",
+      belief.visibility || "",
+      source ? `source ${source}` : "",
+    ].filter(Boolean).join(" · ");
+    steps.push({ label: "source belief", title: belief.proposition || belief.key || "recorded belief", meta });
+  } else if (outfit.source_belief) {
+    steps.push({ label: "source belief", title: outfit.source_belief, meta: "not reported by the world yet" });
+  }
+  steps.push({
+    label: "became",
+    title: outfit.label || outfit.id || "outfit",
+    meta: outfit.id ? `outfit · ${outfit.id}` : "outfit",
+  });
+
+  const chain = $("#outfit-chain");
+  chain.replaceChildren();
+  steps.forEach((step, index) => {
+    const item = document.createElement("div");
+    item.className = "outfit-step";
+    const badge = document.createElement("span");
+    badge.className = "outfit-step-index";
+    badge.textContent = String(index + 1);
+    const copy = document.createElement("div");
+    const label = document.createElement("span");
+    label.className = "eyebrow";
+    label.textContent = step.label;
+    const title = document.createElement("p");
+    title.textContent = step.title;
+    copy.append(label, title);
+    if (step.meta) {
+      const meta = document.createElement("span");
+      meta.className = "outfit-step-meta";
+      meta.textContent = step.meta;
+      copy.appendChild(meta);
+    }
+    item.append(badge, copy);
+    chain.appendChild(item);
+  });
+  const reason = $("#outfit-reason");
+  reason.textContent = outfit.reason || "";
+  reason.hidden = !outfit.reason;
+
+  openOverlay(modal);
+  $("#outfit-close").focus();
+}
+
+function closeOutfit() {
+  const modal = $("#outfit-modal");
+  if (!modal || modal.hidden) return;
+  closeOverlay(modal);
+  if (outfitReturnFocus && typeof outfitReturnFocus.focus === "function") outfitReturnFocus.focus();
+  outfitReturnFocus = null;
+}
+
+/* ---- ending card ------------------------------------------------------ */
+
+const ENDING_ART = {
+  good: "/static/assets/scenes/ending-good.jpg",
+  bad: "/static/assets/scenes/ending-bad.jpg",
+};
+
+function normalizeEnding(raw) {
+  if (!raw) return null;
+  if (typeof raw === "string") {
+    return {
+      id: raw,
+      label: raw,
+      tone: /bad|fail/i.test(raw) ? "bad" : (/good|true/i.test(raw) ? "good" : "neutral"),
+      evidence: [],
+    };
+  }
+  const toneRaw = String(raw.tone || raw.kind || "").toLowerCase();
+  const tone = toneRaw.includes("bad")
+    ? "bad"
+    : (toneRaw.includes("good") ? "good" : "neutral");
+  return {
+    id: raw.id || "",
+    label: raw.label || raw.title || raw.id || "Ending",
+    tone,
+    evidence: Array.isArray(raw.evidence) ? raw.evidence : [],
+  };
+}
+
+function endingEvidenceList(evidence) {
+  if (Array.isArray(evidence)) return evidence;
+  if (evidence && typeof evidence === "object") {
+    return Object.entries(evidence).map(([key, value]) => `${key.replaceAll("_", " ")}: ${value}`);
+  }
+  return evidence ? [String(evidence)] : [];
+}
+
+function showEnding(rawEnding, evidence, options = {}) {
+  const ending = normalizeEnding(rawEnding);
+  if (!ending) return;
+  const modal = $("#ending-modal");
+  if (!modal) return;
+  endingReturnFocus = document.activeElement;
+  const items = endingEvidenceList(
+    evidence && evidence.length ? evidence : (options.evidence || ending.evidence),
+  );
+  modal.dataset.tone = ending.tone;
+  $("#ending-eyebrow").textContent = ending.tone === "good"
+    ? "good end"
+    : (ending.tone === "bad" ? "bad end" : "ending");
+  $("#ending-title").textContent = ending.label || "The end";
+  $("#ending-sub").textContent = options.subtitle
+    || (ending.id ? `Scenario ending · ${ending.id}` : "The world has reached an ending card.");
+  $("#ending-art-tag").textContent = ending.tone === "good"
+    ? "Ending · good"
+    : (ending.tone === "bad" ? "Ending · bad" : "Ending card");
+
+  const data = state.data || {};
+  const cast = CAST[state.selected] || CAST[ORDER[0]];
+  const fallback = scenarioSceneArt(data) || (cast ? (cast.scene || cast.portrait) : null);
+  const primary = ENDING_ART[ending.tone] || fallback;
+  setArtWithFallback($("#ending-art"), [primary, fallback, cast && cast.portrait], `${ending.label} art`);
+
+  const host = $("#ending-evidence");
+  host.replaceChildren();
+  items.forEach((entry) => {
+    const chip = document.createElement("span");
+    chip.className = "ending-evidence-chip";
+    let text = "";
+    let meta = "";
+    if (entry && typeof entry === "object") {
+      text = entry.label || entry.text || entry.proposition || entry.key || "";
+      meta = entry.meta || entry.value || "";
+      if (!text && entry.reason) text = entry.reason;
+    } else {
+      text = String(entry);
+    }
+    if (!text && !meta) return;
+    chip.textContent = text || String(meta);
+    if (text && meta) {
+      const em = document.createElement("em");
+      em.textContent = ` ${meta}`;
+      chip.appendChild(em);
+    }
+    host.appendChild(chip);
+  });
+  if (!items.length) {
+    const note = document.createElement("p");
+    note.className = "tiny";
+    note.textContent = "No evidence reported for this ending card.";
+    host.appendChild(note);
+  }
+
+  state.ending = { ending, evidence: items };
+  openOverlay(modal);
+  $("#ending-close").focus();
+}
+
+function closeEnding() {
+  const modal = $("#ending-modal");
+  if (!modal || modal.hidden) return;
+  closeOverlay(modal);
+  if (endingReturnFocus && typeof endingReturnFocus.focus === "function") endingReturnFocus.focus();
+  endingReturnFocus = null;
+}
+
+function scenarioEndingIsFork(scenario) {
+  const id = String((scenario && scenario.id) || "").toLowerCase();
+  return /^w5-(good|bad)/.test(id);
+}
+
+async function evaluateEnding() {
+  const buttons = [$("#scene-ending"), $("#worlds-evaluate")];
+  buttons.forEach((button) => { if (button) button.disabled = true; });
+  state.worlds.status = "Evaluating the ending with the world engine…";
+  const statusBox = $("#worlds-status");
+  if (statusBox) statusBox.textContent = state.worlds.status;
+  try {
+    const result = await api("/api/endings/evaluate", { method: "POST", body: "{}" });
+    const ending = (result && result.ending)
+      || (result && result.scenario && result.scenario.ending)
+      || (currentScenario(state.data) || {}).ending;
+    const evidence = (result && result.evidence) || (ending && ending.evidence) || [];
+    if (!ending) {
+      state.worlds.status = "The world has not reported an ending for this scenario yet.";
+      return;
+    }
+    state.worlds.status = "Ending card opened.";
+    showEnding(ending, evidence);
+  } catch (error) {
+    state.worlds.status = `Ending not available yet: ${error.message}`;
+  } finally {
+    buttons.forEach((button) => { if (button) button.disabled = false; });
+    renderWorlds();
+  }
+}
+
 function renderStory(data) {
   data = data || {};
   const beat = currentBeat(data);
@@ -628,37 +1101,43 @@ function renderStory(data) {
   }
   const portrait = $("#scene-portrait");
   const backdrop = $("#scene-backdrop");
-  const sceneArt = sceneArtFor(data, cast);
+  const fallbackArt = [
+    cast.scene,
+    cast.full,
+    `/static/assets/portraits/${cast.id}-bust.png`,
+  ];
   if (portrait) {
-    portrait.onerror = () => {
-      portrait.onerror = null;
-      portrait.src = `/static/assets/portraits/${cast.id}-bust.png`;
-    };
-    portrait.src = sceneArt;
-    portrait.alt = `${cast.name} portrait`;
+    setArtWithFallback(portrait, [sceneArtFor(data, cast), ...fallbackArt], `${cast.name} portrait`);
     portrait.classList.toggle("is-absent", selectedAbsent);
   }
   if (backdrop) {
-    backdrop.onerror = () => {
-      backdrop.onerror = null;
-      backdrop.src = `/static/assets/portraits/${cast.id}-bust.png`;
-    };
-    backdrop.src = sceneArt;
+    setArtWithFallback(backdrop, [sceneBackdropFor(data, cast), ...fallbackArt], "");
   }
+  const scenario = currentScenario(data);
+  const opening = scenario && scenario.opening ? scenario.opening : null;
   $("#scene-name").textContent = firstName(cast.name);
   $("#scene-jp").textContent = cast.route;
   $("#scene-mood").textContent = selectedAbsent ? "absent · left the scene" : cast.mood;
-  $("#scene-stamp").textContent = beat ? `SCENE · ${beat.title.toUpperCase()}` : "SCENE · THE CAFÉ";
-  $("#scene-caption").textContent = beat
-    ? `${formatTime(data.clock && data.clock.now)} · ${beat.place || beat.title}`
-    : "18:30 · a Tuesday in late autumn";
+  $("#scene-stamp").textContent = scenario
+    ? `SCENE · ${String(scenario.title || scenario.id || "SCENARIO").toUpperCase()}`
+    : (beat ? `SCENE · ${beat.title.toUpperCase()}` : "SCENE · THE CAFÉ");
+  $("#scene-caption").textContent = scenario
+    ? `${formatTime(data.clock && data.clock.now)} · ${scenario.place || (opening && opening.title) || scenario.title || "the scene"}`
+    : (beat
+      ? `${formatTime(data.clock && data.clock.now)} · ${beat.place || beat.title}`
+      : "18:30 · a Tuesday in late autumn");
 
+  renderScenarioItem(data);
+  renderScenarioOpening(scenario);
   renderTranscript(data, absent);
   renderChoices(beat, present);
   renderSayBar(beatCast, present, absent);
   renderBoundary(data, absent);
   renderSceneCast(beatCast, absent);
   renderBacklog(data);
+
+  const endingButton = $("#scene-ending");
+  if (endingButton) endingButton.hidden = !scenario;
 
   const status = $("#scene-status");
   if (status) {
@@ -1029,7 +1508,8 @@ function renderSceneCast(ids, absent) {
   const row = $("#scene-cast");
   if (!row) return;
   const list = ids.length ? ids : ORDER.slice();
-  const sig = `${list.join(",")}|${state.selected}|${[...absent].sort().join(",")}`;
+  const outfit = outfitFor(state.data, state.selected);
+  const sig = `${list.join(",")}|${state.selected}|${[...absent].sort().join(",")}|${outfit ? `${outfit.id || ""}:${outfit.label || ""}` : ""}`;
   if (row.dataset.sig === sig) return;
   row.dataset.sig = sig;
   row.replaceChildren();
@@ -1062,13 +1542,38 @@ function renderSceneCast(ids, absent) {
     button.addEventListener("click", () => selectCast(id));
     row.appendChild(button);
   });
+  if (outfit) {
+    const badge = document.createElement("button");
+    badge.type = "button";
+    badge.className = "scene-outfit";
+    badge.title = outfit.reason
+      ? `Outfit: ${outfit.label || outfit.id} — ${outfit.reason}`
+      : `Outfit: ${outfit.label || outfit.id}`;
+    badge.setAttribute("aria-label", `Open the memory chain for ${firstNameOf(state.selected)}'s ${outfit.label || outfit.id}`);
+    const label = document.createElement("span");
+    label.className = "scene-outfit-label";
+    label.textContent = "Outfit";
+    const name = document.createElement("strong");
+    name.textContent = outfit.label || outfit.id || "outfit";
+    badge.append(label, name);
+    badge.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openOutfit(state.selected);
+    });
+    row.appendChild(badge);
+  }
 }
 
 function renderChoices(beat, present) {
   const box = $("#scene-choices");
   if (!box) return;
-  const choices = (beat && beat.choices) || [];
-  const sig = `${beat ? beat.id : ""}|${state.group.sending}|${present.join(",")}|${choices.join("|")}`;
+  const scenario = currentScenario(state.data);
+  const opening = scenario && scenario.opening ? scenario.opening : null;
+  const openingChoices = opening && Array.isArray(opening.choices)
+    ? opening.choices.filter((choice) => typeof choice === "string" && choice.trim())
+    : [];
+  const choices = openingChoices.length ? openingChoices : ((beat && beat.choices) || []);
+  const sig = `${scenario ? scenario.id : ""}|${beat ? beat.id : ""}|${state.group.sending}|${present.join(",")}|${choices.join("|")}`;
   if (box.dataset.sig === sig) return;
   box.dataset.sig = sig;
   box.replaceChildren();
@@ -1340,7 +1845,7 @@ function makeCastAction(label, onClick) {
 
 function renderCast(data) {
   const grid = $("#cast-grid");
-  const sig = ORDER.map((id) => `${id}:${Math.round(affinityFor(data, id) * 5)}:${isFriend(data, id)}`).join("|") + `|${state.selected}`;
+  const sig = ORDER.map((id) => `${id}:${Math.round(affinityFor(data, id) * 5)}:${isFriend(data, id)}:${outfitArtFor(data, id) || castArtFor(data, id) || ""}`).join("|") + `|${state.selected}`;
   if (grid.dataset.sig === sig) return;
   grid.dataset.sig = sig;
   grid.replaceChildren();
@@ -1355,12 +1860,11 @@ function renderCast(data) {
     const art = document.createElement("div");
     art.className = "cast-art";
     const img = document.createElement("img");
-    img.onerror = () => {
-      img.onerror = null;
-      img.src = `/static/assets/portraits/${cast.id}.svg`;
-    };
-    img.src = cast.portrait;
-    img.alt = `${cast.name} portrait`;
+    setArtWithFallback(
+      img,
+      [outfitArtFor(data, id), castArtFor(data, id), cast.portrait, `/static/assets/portraits/${cast.id}.svg`],
+      `${cast.name} portrait`,
+    );
     img.loading = "lazy";
     art.appendChild(img);
     const role = document.createElement("span");
@@ -1801,6 +2305,324 @@ function renderArc(data) {
   });
 }
 
+/* ---- worlds ----------------------------------------------------------- */
+
+function castIdsFromScenario(scenario) {
+  const list = scenario && Array.isArray(scenario.cast) ? scenario.cast : [];
+  return list
+    .map((value) => asCastId(value && typeof value === "object" ? (value.id || value.name) : value))
+    .filter((id) => id && CAST[id]);
+}
+
+function scenarioEndingMeta(ending) {
+  if (!ending) return null;
+  const raw = typeof ending === "string" ? { label: ending, tone: ending } : ending;
+  const toneRaw = String(raw.tone || raw.kind || "").toLowerCase();
+  const tone = toneRaw.includes("bad")
+    ? "bad"
+    : (toneRaw.includes("good") ? "good" : "neutral");
+  return {
+    label: raw.label || raw.title || raw.id || "Ending card",
+    tone,
+  };
+}
+
+function scenarioCard(scenario) {
+  const current = currentScenario(state.data);
+  const isCurrent = Boolean(current && current.id === scenario.id);
+  const ending = scenarioEndingMeta(scenario.ending);
+  const castIds = castIdsFromScenario(scenario);
+  const card = document.createElement("article");
+  card.className = `scenario-card${isCurrent ? " is-current" : ""}`;
+  card.setAttribute("aria-label", `${scenario.title || scenario.id || "Scenario"} scenario`);
+
+  const head = document.createElement("header");
+  head.className = "scenario-card-head";
+  const title = document.createElement("h3");
+  title.textContent = scenario.title || scenario.id || "Untitled scenario";
+  head.appendChild(title);
+  const badge = document.createElement("span");
+  badge.className = `ending-badge ${ending ? ending.tone : "neutral"}`;
+  badge.textContent = ending ? ending.label : "No ending card";
+  head.appendChild(badge);
+  card.appendChild(head);
+
+  const meta = document.createElement("div");
+  meta.className = "scenario-meta";
+  const seed = document.createElement("span");
+  seed.className = "scenario-seed";
+  seed.textContent = scenario.seed !== undefined && scenario.seed !== null
+    ? `seed ${scenario.seed}`
+    : "seed not reported";
+  meta.appendChild(seed);
+  const id = document.createElement("code");
+  id.textContent = scenario.id || "—";
+  meta.appendChild(id);
+  if (isCurrent) {
+    const now = document.createElement("span");
+    now.className = "scenario-current-tag";
+    now.textContent = "current";
+    meta.appendChild(now);
+  }
+  card.appendChild(meta);
+
+  const cast = document.createElement("div");
+  cast.className = "scenario-cast";
+  if (!castIds.length) {
+    const empty = document.createElement("span");
+    empty.className = "scenario-cast-empty";
+    empty.textContent = "cast not reported";
+    cast.appendChild(empty);
+  } else {
+    castIds.forEach((castId) => {
+      const member = CAST[castId];
+      const chip = document.createElement("span");
+      chip.className = "scenario-cast-chip";
+      chip.title = member.name;
+      const dot = document.createElement("i");
+      dot.className = "cast-dot";
+      dot.style.background = member.color;
+      const name = document.createElement("span");
+      name.textContent = firstName(member.name);
+      chip.append(dot, name);
+      cast.appendChild(chip);
+    });
+  }
+  card.appendChild(cast);
+
+  if (scenario.notes) {
+    const notes = document.createElement("p");
+    notes.className = "scenario-notes";
+    notes.textContent = scenario.notes;
+    card.appendChild(notes);
+  }
+
+  const foot = document.createElement("div");
+  foot.className = "scenario-foot";
+  const load = document.createElement("button");
+  load.type = "button";
+  load.className = "btn primary";
+  load.textContent = isCurrent ? "Reload & play" : "Load & play";
+  load.disabled = Boolean(state.worlds.loadingScenario);
+  load.addEventListener("click", () => loadScenario(scenario.id));
+  foot.appendChild(load);
+  card.appendChild(foot);
+  return card;
+}
+
+function renderWorlds() {
+  const current = currentScenario(state.data);
+  const name = $("#worlds-current-name");
+  if (name) {
+    name.textContent = current
+      ? (current.title || current.id || "Loaded scenario")
+      : "No scenario loaded";
+  }
+  const meta = $("#worlds-current-meta");
+  if (meta) {
+    if (current) {
+      const cast = castIdsFromScenario(current);
+      const pieces = [
+        current.id,
+        current.seed !== undefined && current.seed !== null ? `seed ${current.seed}` : "",
+        cast.length ? cast.map(firstNameOf).join(", ") : "",
+        current.place || "",
+      ].filter(Boolean);
+      meta.textContent = pieces.join(" · ") || "Scenario loaded.";
+    } else {
+      meta.textContent = "The base café canon is active.";
+    }
+  }
+  const reset = $("#worlds-reset");
+  if (reset) reset.textContent = current ? "Reset scenario" : "Reset demo";
+  const evaluate = $("#worlds-evaluate");
+  if (evaluate) evaluate.disabled = Boolean(state.worlds.loadingScenario);
+
+  const status = $("#worlds-status");
+  if (status) {
+    status.textContent = state.worlds.status
+      || (state.worlds.error ? `Scenarios unavailable: ${state.worlds.error}` : "");
+  }
+
+  const grid = $("#worlds-grid");
+  if (!grid) return;
+  grid.replaceChildren();
+  const scenarios = state.worlds.scenarios;
+  if (state.worlds.loading && !scenarios) {
+    const loading = document.createElement("p");
+    loading.className = "worlds-empty-line";
+    loading.textContent = "Loading scenarios…";
+    grid.appendChild(loading);
+    return;
+  }
+  if (state.worlds.error && !scenarios) {
+    const empty = document.createElement("article");
+    empty.className = "card worlds-empty";
+    const title = document.createElement("h3");
+    title.textContent = "Scenarios not connected";
+    const note = document.createElement("p");
+    note.className = "card-sub";
+    note.textContent = "The backend has not shipped GET /api/scenarios yet. The Story keeps working with the base canon.";
+    const retry = document.createElement("button");
+    retry.type = "button";
+    retry.className = "btn";
+    retry.textContent = "Retry";
+    retry.addEventListener("click", () => loadScenarios(true));
+    empty.append(title, note, retry);
+    grid.appendChild(empty);
+    const detail = document.createElement("p");
+    detail.className = "tiny";
+    detail.textContent = state.worlds.error;
+    empty.appendChild(detail);
+    return;
+  }
+  if (!scenarios || !scenarios.length) {
+    const empty = document.createElement("article");
+    empty.className = "card worlds-empty";
+    const title = document.createElement("h3");
+    title.textContent = scenarios ? "No scenarios on disk" : "Scenarios not loaded";
+    const note = document.createElement("p");
+    note.className = "card-sub";
+    note.textContent = scenarios
+      ? "Add a JSON preset under world/scenarios/ and refresh."
+      : "Open Worlds again to fetch the scenario list.";
+    empty.append(title, note);
+    grid.appendChild(empty);
+    return;
+  }
+  scenarios.forEach((scenario) => {
+    if (scenario && (scenario.id || scenario.title)) grid.appendChild(scenarioCard(scenario));
+  });
+}
+
+async function loadScenarios(force = false) {
+  if (state.worlds.loading) return;
+  if (!force && state.worlds.scenarios && Date.now() - state.worlds.fetchedAt < 5000) {
+    renderWorlds();
+    return;
+  }
+  state.worlds.loading = true;
+  renderWorlds();
+  try {
+    const result = await api("/api/scenarios");
+    state.worlds.scenarios = Array.isArray(result) ? result : ((result && result.scenarios) || []);
+    state.worlds.error = "";
+  } catch (error) {
+    state.worlds.error = error.message || "not connected";
+  } finally {
+    state.worlds.loading = false;
+    state.worlds.fetchedAt = Date.now();
+    renderWorlds();
+  }
+}
+
+/* A switch is a reset + seed: clear the dashboard's phone thread, selected
+   cast and turn playback before the next state poll repaints the world. */
+function clearScenarioRuntime(scenario) {
+  state.turn = null;
+  state.groupStatus = "";
+  state.beatId = null;
+  state.whisper = false;
+  state.whisperTarget = null;
+  state.phone.character = null;
+  state.phone.messages = [];
+  state.phone.hasMore = false;
+  state.phone.oldestId = null;
+  state.phone.loading = false;
+  state.phone.sending = false;
+  state.phone.loadedFor = null;
+  state.phone.error = "";
+  state.phone.paintSig = null;
+  cancelTyping();
+  closePhone();
+  closeProfile();
+  const thread = $("#phone-thread");
+  if (thread) thread.replaceChildren();
+  const typing = $("#phone-typing");
+  if (typing) typing.hidden = true;
+  ["#turn-log", "#scene-cast", "#scene-choices", "#scene-rail"].forEach((selector) => {
+    const node = $(selector);
+    if (node) node.dataset.sig = "";
+  });
+  const say = $("#scene-say-input");
+  if (say) say.value = "";
+  const ids = castIdsFromScenario(scenario || {});
+  state.selected = ids[0] || ORDER[0];
+}
+
+async function loadScenario(id, options = {}) {
+  if (!id || state.worlds.loadingScenario) return false;
+  let ok = false;
+  state.worlds.loadingScenario = id;
+  state.worlds.status = `Loading ${id}…`;
+  renderWorlds();
+  try {
+    const result = await api(`/api/scenarios/${encodeURIComponent(id)}/load`, {
+      method: "POST",
+      body: "{}",
+    });
+    const scenario = (result && result.scenario) || { id };
+    state.worlds.current = scenario;
+    state.worlds.status = `Loaded ${scenario.title || scenario.id || id}.`;
+    clearScenarioRuntime(scenario);
+    if (result && result.state) {
+      state.data = result.state;
+      if (!state.data.scenario) state.data.scenario = scenario;
+      render(state.data);
+    } else if (state.data) {
+      state.data.scenario = scenario;
+    }
+    await refresh();
+    if (options.view !== false) setView("story");
+    if (options.autoEnding !== false && scenarioEndingIsFork(scenario)) {
+      const forkId = String(scenario.id || id);
+      const bad = /bad/i.test(forkId);
+      const ending = scenario.ending || {
+        id: forkId,
+        label: bad ? "BAD END" : "GOOD END",
+        tone: bad ? "bad" : "good",
+        evidence: [],
+      };
+      showEnding(ending, (ending && ending.evidence) || [], {
+        subtitle: `${scenario.title || forkId} · loaded`,
+      });
+    }
+    ok = true;
+  } catch (error) {
+    state.worlds.status = `Could not load ${id}: ${error.message}`;
+  } finally {
+    state.worlds.loadingScenario = null;
+    renderWorlds();
+  }
+  return ok;
+}
+
+async function resetCurrentScenario() {
+  if (state.worlds.loadingScenario) return;
+  const scenario = currentScenario(state.data);
+  const label = scenario ? (scenario.title || scenario.id) : "the base canon";
+  if (!window.confirm(`Reset ${label}? Phone DMs and the scene reset; Switch room history stays.`)) return;
+  if (scenario && scenario.id) {
+    state.worlds.status = `Resetting ${label}…`;
+    const ok = await loadScenario(scenario.id, { autoEnding: false, view: false });
+    if (ok) state.worlds.status = `Reset ${label} to its seed.`;
+    renderWorlds();
+    return;
+  }
+  state.worlds.status = "Resetting the base canon…";
+  renderWorlds();
+  try {
+    await api("/api/dev/reset", { method: "POST", body: "{}" });
+    state.worlds.current = null;
+    clearScenarioRuntime(null);
+    await refresh();
+    state.worlds.status = "Demo world reset to the base canon.";
+  } catch (error) {
+    state.worlds.status = `Reset failed: ${error.message}`;
+  }
+  renderWorlds();
+}
+
 /* ---- world tree ------------------------------------------------------- */
 
 function svgEl(name, attrs = {}) {
@@ -1824,7 +2646,75 @@ function edgeClass(trust) {
   return "is-low";
 }
 
+function connectionLabelFor(affinity, tension) {
+  if (tension > 0.55) return "rival";
+  if (affinity >= 0.7) return "close";
+  if (affinity >= 0.42) return "steady";
+  if (affinity >= 0.24) return "strained";
+  return "distant";
+}
+
+function normalizeConnection(raw) {
+  if (!raw) return null;
+  const a = asCastId(raw.a || raw.from || raw.source || raw.character_a);
+  const b = asCastId(raw.b || raw.to || raw.target || raw.character_b);
+  const affinityValue = raw.affinity !== undefined
+    ? raw.affinity
+    : (raw.closeness !== undefined ? raw.closeness : raw.trust);
+  const affinity = Number(affinityValue);
+  const tension = Number(raw.tension);
+  return {
+    a,
+    b,
+    affinity: Number.isFinite(affinity) ? Math.max(0, Math.min(1, affinity)) : 0,
+    tension: Number.isFinite(tension) ? Math.max(0, Math.min(1, tension)) : 0,
+    label: String(raw.label || "").toLowerCase() || connectionLabelFor(affinity, tension),
+    shared_secret_count: Number(raw.shared_secret_count || raw.secrets || 0),
+  };
+}
+
+function renderCastConnectionsLayer(layer, positions, connections) {
+  const seen = new Set();
+  let drawn = 0;
+  (Array.isArray(connections) ? connections : []).forEach((raw) => {
+    const conn = normalizeConnection(raw);
+    if (!conn || !conn.a || !conn.b || conn.a === conn.b) return;
+    if (!CAST[conn.a] || !CAST[conn.b]) return;
+    const key = [conn.a, conn.b].sort().join("|");
+    if (seen.has(key)) return;
+    seen.add(key);
+    const from = positions[conn.a];
+    const to = positions[conn.b];
+    if (!from || !to) return;
+    const midX = (from.x + to.x) / 2;
+    const midY = (from.y + to.y) / 2;
+    const lift = Math.abs(from.x - to.x) > 220 ? 70 : 112;
+    const path = svgEl("path", {
+      d: `M ${from.x} ${from.y} Q ${midX} ${midY - lift} ${to.x} ${to.y}`,
+      class: `tree-edge ${edgeClass(conn.affinity)}`,
+      "stroke-width": 2 + conn.affinity * 6,
+      "stroke-dasharray": conn.tension > 0.35 ? "6 7" : null,
+      tabindex: "0",
+      role: "img",
+      "aria-label": `${firstNameOf(conn.a)} and ${firstNameOf(conn.b)}: ${conn.label}, affinity ${conn.affinity.toFixed(2)}, tension ${conn.tension.toFixed(2)}`,
+    });
+    bindTip(path, [
+      { value: conn.affinity.toFixed(2), label: "affinity" },
+      { label: "edge", sub: `${firstNameOf(conn.a)} ↔ ${firstNameOf(conn.b)}` },
+      { label: "label", sub: conn.label },
+      { label: "tension", sub: conn.tension.toFixed(2) },
+      { label: "shared secrets", sub: String(conn.shared_secret_count || 0) },
+    ]);
+    layer.appendChild(path);
+    addText(layer, midX, midY - lift * 0.45, conn.label, "tree-sub");
+    drawn += 1;
+  });
+  if (!drawn) addText(layer, 500, 300, "No cast connections reported yet", "tree-sub");
+}
+
 function renderTree(data) {
+  const lens = state.treeLens === "cast" ? "cast" : "user";
+  const connections = scenarioConnections(data);
   const svg = $("#world-tree");
   svg.replaceChildren();
   const defs = svgEl("defs");
@@ -1850,67 +2740,74 @@ function renderTree(data) {
   glow.appendChild(blur);
   defs.appendChild(glow);
 
-  const edges = svgEl("g");
-  svg.appendChild(edges);
-  ORDER.forEach((id) => {
-    const pos = positions[id];
-    const edge = (data.relationships || []).find((e) => e.a === id && e.b === "user") || {
-      trust: 0.4, closeness: 0.4, tension: 0,
-    };
-    const trust = Number(edge.trust);
-    const closeness = Number(edge.closeness);
-    const tension = Number(edge.tension);
-    const path = svgEl("path", {
-      d: `M ${user.x} ${user.y} C ${user.x} ${user.y - 120}, ${pos.x} ${pos.y + 170}, ${pos.x} ${pos.y + 54}`,
-      class: `tree-edge ${edgeClass(trust)}`,
-      "stroke-width": 2 + closeness * 6,
-      "stroke-dasharray": tension > 0.35 ? "6 7" : null,
-      tabindex: "0",
-      role: "img",
-      "aria-label": `${firstName(CAST[id].name)} to you: trust ${trust.toFixed(2)}, closeness ${closeness.toFixed(2)}, tension ${tension.toFixed(2)}`,
-    });
-    bindTip(path, [
-      { value: trust.toFixed(2), label: "trust" },
-      { label: "edge", sub: `${firstName(CAST[id].name)} → you` },
-      { label: "closeness", sub: closeness.toFixed(2) },
-      { label: "tension", sub: tension.toFixed(2) },
-    ]);
-    edges.appendChild(path);
-  });
-
   const row = (data.matrix || []).find((item) => item.key === SECRET_KEY);
   const holders = row ? row.holders : {};
-  Object.entries(holders).forEach(([id, cell]) => {
-    const pos = positions[id];
-    if (!pos) return;
-    const path = svgEl("path", {
-      d: `M ${secret.x} ${secret.y + 35} C ${secret.x} ${secret.y + 130}, ${pos.x} ${pos.y - 160}, ${pos.x} ${pos.y - 54}`,
-      class: "tree-edge is-secret",
-      "stroke-width": 2,
-      tabindex: "0",
-      role: "img",
-      "aria-label": `the secret reaches ${firstName(CAST[id].name)} with confidence ${Number(cell.confidence).toFixed(2)}`,
+
+  const edges = svgEl("g");
+  svg.appendChild(edges);
+  if (lens === "cast") {
+    renderCastConnectionsLayer(edges, positions, connections);
+  } else {
+    ORDER.forEach((id) => {
+      const pos = positions[id];
+      const edge = (data.relationships || []).find((e) => e.a === id && e.b === "user") || {
+        trust: 0.4, closeness: 0.4, tension: 0,
+      };
+      const trust = Number(edge.trust);
+      const closeness = Number(edge.closeness);
+      const tension = Number(edge.tension);
+      const path = svgEl("path", {
+        d: `M ${user.x} ${user.y} C ${user.x} ${user.y - 120}, ${pos.x} ${pos.y + 170}, ${pos.x} ${pos.y + 54}`,
+        class: `tree-edge ${edgeClass(trust)}`,
+        "stroke-width": 2 + closeness * 6,
+        "stroke-dasharray": tension > 0.35 ? "6 7" : null,
+        tabindex: "0",
+        role: "img",
+        "aria-label": `${firstName(CAST[id].name)} to you: trust ${trust.toFixed(2)}, closeness ${closeness.toFixed(2)}, tension ${tension.toFixed(2)}`,
+      });
+      bindTip(path, [
+        { value: trust.toFixed(2), label: "trust" },
+        { label: "edge", sub: `${firstName(CAST[id].name)} → you` },
+        { label: "closeness", sub: closeness.toFixed(2) },
+        { label: "tension", sub: tension.toFixed(2) },
+      ]);
+      edges.appendChild(path);
     });
-    bindTip(path, [
-      { value: Number(cell.confidence).toFixed(2), label: "confidence" },
-      { label: "secret →", sub: firstName(CAST[id].name) },
-      { label: "source", sub: sourceLabel(cell) },
-    ]);
-    edges.appendChild(path);
-    addText(edges, (secret.x + pos.x) / 2, (secret.y + pos.y) / 2 - 6, Number(cell.confidence).toFixed(2), "tree-sub");
-  });
+
+    Object.entries(holders).forEach(([id, cell]) => {
+      const pos = positions[id];
+      if (!pos) return;
+      const path = svgEl("path", {
+        d: `M ${secret.x} ${secret.y + 35} C ${secret.x} ${secret.y + 130}, ${pos.x} ${pos.y - 160}, ${pos.x} ${pos.y - 54}`,
+        class: "tree-edge is-secret",
+        "stroke-width": 2,
+        tabindex: "0",
+        role: "img",
+        "aria-label": `the secret reaches ${firstName(CAST[id].name)} with confidence ${Number(cell.confidence).toFixed(2)}`,
+      });
+      bindTip(path, [
+        { value: Number(cell.confidence).toFixed(2), label: "confidence" },
+        { label: "secret →", sub: firstName(CAST[id].name) },
+        { label: "source", sub: sourceLabel(cell) },
+      ]);
+      edges.appendChild(path);
+      addText(edges, (secret.x + pos.x) / 2, (secret.y + pos.y) / 2 - 6, Number(cell.confidence).toFixed(2), "tree-sub");
+    });
+  }
 
   const nodes = svgEl("g");
   svg.appendChild(nodes);
 
-  const userGroup = svgEl("g", { class: "tree-node" });
-  const userGlow = svgEl("circle", { cx: user.x, cy: user.y, r: 54, fill: "var(--rose)", opacity: "0.12", filter: "url(#node-glow)" });
-  userGroup.appendChild(userGlow);
-  userGroup.appendChild(svgEl("circle", { cx: user.x, cy: user.y, r: 40, fill: "var(--surface-2)", stroke: "var(--rose)", "stroke-width": "2" }));
-  const you = addText(userGroup, user.x, user.y + 6, "you", "tree-user-label");
-  you.setAttribute("fill", "var(--ink)");
-  addText(userGroup, user.x, user.y + 64, "the fifth person", "tree-sub");
-  nodes.appendChild(userGroup);
+  if (lens === "user") {
+    const userGroup = svgEl("g", { class: "tree-node" });
+    const userGlow = svgEl("circle", { cx: user.x, cy: user.y, r: 54, fill: "var(--rose)", opacity: "0.12", filter: "url(#node-glow)" });
+    userGroup.appendChild(userGlow);
+    userGroup.appendChild(svgEl("circle", { cx: user.x, cy: user.y, r: 40, fill: "var(--surface-2)", stroke: "var(--rose)", "stroke-width": "2" }));
+    const you = addText(userGroup, user.x, user.y + 6, "you", "tree-user-label");
+    you.setAttribute("fill", "var(--ink)");
+    addText(userGroup, user.x, user.y + 64, "the fifth person", "tree-sub");
+    nodes.appendChild(userGroup);
+  }
 
   ORDER.forEach((id) => {
     const cast = CAST[id];
@@ -1966,14 +2863,70 @@ function renderTree(data) {
     nodes.appendChild(group);
   });
 
-  const secretGroup = svgEl("g", { class: "tree-node" });
-  secretGroup.appendChild(svgEl("rect", { x: secret.x - 92, y: secret.y - 34, width: 184, height: 68, rx: 18, fill: "var(--surface-2)", stroke: "var(--lav)", "stroke-width": "1.5", opacity: "0.96" }));
-  addText(secretGroup, secret.x, secret.y - 8, "THE SECRET", "tree-secret-label");
-  addText(secretGroup, secret.x, secret.y + 22, `${Object.keys(holders).length} / 4 know`, "tree-secret-count");
-  nodes.appendChild(secretGroup);
+  if (lens === "user") {
+    const secretGroup = svgEl("g", { class: "tree-node" });
+    secretGroup.appendChild(svgEl("rect", { x: secret.x - 92, y: secret.y - 34, width: 184, height: 68, rx: 18, fill: "var(--surface-2)", stroke: "var(--lav)", "stroke-width": "1.5", opacity: "0.96" }));
+    addText(secretGroup, secret.x, secret.y - 8, "THE SECRET", "tree-secret-label");
+    addText(secretGroup, secret.x, secret.y + 22, `${Object.keys(holders).length} / 4 know`, "tree-secret-count");
+    nodes.appendChild(secretGroup);
+  }
+
+  const keyHigh = $("#tree-key-high");
+  const keyMid = $("#tree-key-mid");
+  const keyLow = $("#tree-key-low");
+  const keySecret = $("#tree-key-secret");
+  if (keyHigh) keyHigh.textContent = lens === "cast" ? "close" : "high trust";
+  if (keyMid) keyMid.textContent = lens === "cast" ? "steady" : "medium";
+  if (keyLow) keyLow.textContent = lens === "cast" ? "strained / distant" : "low / tense";
+  if (keySecret) keySecret.hidden = lens === "cast";
 
   renderTreePanel(data);
   renderTreeTable(data);
+}
+
+function renderConnectionsPanel(panel, data, cast) {
+  const title = document.createElement("p");
+  title.className = "eyebrow connection-title";
+  title.textContent = "cast connections";
+  panel.appendChild(title);
+  const connections = scenarioConnections(data)
+    .map(normalizeConnection)
+    .filter((conn) => conn && (conn.a === cast.id || conn.b === cast.id));
+  if (!connections.length) {
+    const empty = document.createElement("p");
+    empty.className = "tiny";
+    empty.textContent = "No cast connections reported. Load a scenario or connect the backend.";
+    panel.appendChild(empty);
+    return;
+  }
+  connections.forEach((conn) => {
+    const otherId = conn.a === cast.id ? conn.b : conn.a;
+    const other = CAST[otherId];
+    const card = document.createElement("div");
+    card.className = "connection-card";
+    const head = document.createElement("div");
+    head.className = "connection-head";
+    const name = document.createElement("strong");
+    name.textContent = other ? other.name : otherId;
+    head.appendChild(name);
+    const label = document.createElement("span");
+    label.className = `connection-label is-${conn.label}`;
+    label.textContent = conn.label;
+    head.appendChild(label);
+    card.appendChild(head);
+    const bars = document.createElement("div");
+    bars.className = "rel-bars";
+    bars.appendChild(relBar("affinity", conn.affinity));
+    bars.appendChild(relBar("tension", conn.tension));
+    card.appendChild(bars);
+    if (conn.shared_secret_count) {
+      const secrets = document.createElement("span");
+      secrets.className = "connection-secrets";
+      secrets.textContent = `${conn.shared_secret_count} shared secret${conn.shared_secret_count === 1 ? "" : "s"}`;
+      card.appendChild(secrets);
+    }
+    panel.appendChild(card);
+  });
 }
 
 function renderTreePanel(data) {
@@ -1999,57 +2952,61 @@ function renderTreePanel(data) {
   tagline.textContent = cast.tagline;
   panel.appendChild(tagline);
 
-  const beliefs = (data.matrix || [])
-    .map((row) => ({ row, cell: row.holders[state.selected] }))
-    .filter((item) => item.cell)
-    .slice(0, 6);
-  if (beliefs.length) {
-    beliefs.forEach(({ row, cell }) => {
-      const item = document.createElement("div");
-      item.className = "tree-belief";
-      const title = document.createElement("b");
-      title.textContent = row.label;
-      item.appendChild(title);
-      const meta = document.createElement("span");
-      meta.className = "meta";
-      meta.textContent = `${Number(cell.confidence).toFixed(2)} · ${sourceLabel(cell)} · ${cell.visibility}`;
-      item.appendChild(meta);
-      panel.appendChild(item);
-    });
+  if (state.treeLens === "cast") {
+    renderConnectionsPanel(panel, data, cast);
   } else {
-    const empty = document.createElement("p");
-    empty.className = "tiny";
-    empty.textContent = "No beliefs recorded for this character yet.";
-    panel.appendChild(empty);
-  }
+    const beliefs = (data.matrix || [])
+      .map((row) => ({ row, cell: row.holders[state.selected] }))
+      .filter((item) => item.cell)
+      .slice(0, 6);
+    if (beliefs.length) {
+      beliefs.forEach(({ row, cell }) => {
+        const item = document.createElement("div");
+        item.className = "tree-belief";
+        const title = document.createElement("b");
+        title.textContent = row.label;
+        item.appendChild(title);
+        const meta = document.createElement("span");
+        meta.className = "meta";
+        meta.textContent = `${Number(cell.confidence).toFixed(2)} · ${sourceLabel(cell)} · ${cell.visibility}`;
+        item.appendChild(meta);
+        panel.appendChild(item);
+      });
+    } else {
+      const empty = document.createElement("p");
+      empty.className = "tiny";
+      empty.textContent = "No beliefs recorded for this character yet.";
+      panel.appendChild(empty);
+    }
 
-  const rels = document.createElement("div");
-  rels.className = "rel-mini";
-  const others = ORDER.filter((id) => id !== state.selected).concat("user");
-  others.forEach((other) => {
-    const edge = (data.relationships || []).find((e) => e.a === state.selected && e.b === other) || {
-      trust: 0.5, closeness: 0.5, tension: 0,
-    };
-    const row = document.createElement("div");
-    row.className = "rel-bar";
-    const label = document.createElement("span");
-    label.className = "rel-label";
-    label.textContent = other === "user" ? "you" : firstName(CAST[other].name);
-    row.appendChild(label);
-    const track = document.createElement("div");
-    track.className = "track";
-    const fill = document.createElement("div");
-    fill.className = "fill trust";
-    fill.style.width = `${Math.max(0, Math.min(100, Number(edge.trust) * 100))}%`;
-    track.appendChild(fill);
-    row.appendChild(track);
-    const value = document.createElement("span");
-    value.className = "rel-value";
-    value.textContent = Number(edge.trust).toFixed(2);
-    row.appendChild(value);
-    rels.appendChild(row);
-  });
-  panel.appendChild(rels);
+    const rels = document.createElement("div");
+    rels.className = "rel-mini";
+    const others = ORDER.filter((id) => id !== state.selected).concat("user");
+    others.forEach((other) => {
+      const edge = (data.relationships || []).find((e) => e.a === state.selected && e.b === other) || {
+        trust: 0.5, closeness: 0.5, tension: 0,
+      };
+      const row = document.createElement("div");
+      row.className = "rel-bar";
+      const label = document.createElement("span");
+      label.className = "rel-label";
+      label.textContent = other === "user" ? "you" : firstName(CAST[other].name);
+      row.appendChild(label);
+      const track = document.createElement("div");
+      track.className = "track";
+      const fill = document.createElement("div");
+      fill.className = "fill trust";
+      fill.style.width = `${Math.max(0, Math.min(100, Number(edge.trust) * 100))}%`;
+      track.appendChild(fill);
+      row.appendChild(track);
+      const value = document.createElement("span");
+      value.className = "rel-value";
+      value.textContent = Number(edge.trust).toFixed(2);
+      row.appendChild(value);
+      rels.appendChild(row);
+    });
+    panel.appendChild(rels);
+  }
 
   const dm = document.createElement("a");
   dm.className = "btn ghost small";
@@ -2068,7 +3025,11 @@ function renderTreeTable(data) {
   table.className = "rel-table";
   const thead = document.createElement("thead");
   const headRow = document.createElement("tr");
-  ["from", "to", "trust", "closeness", "tension", "secrets"].forEach((label) => {
+  const castLens = state.treeLens === "cast";
+  const headings = castLens
+    ? ["from", "to", "label", "affinity", "tension", "secrets"]
+    : ["from", "to", "trust", "closeness", "tension", "secrets"];
+  headings.forEach((label) => {
     const th = document.createElement("th");
     th.textContent = label;
     headRow.appendChild(th);
@@ -2076,16 +3037,29 @@ function renderTreeTable(data) {
   thead.appendChild(headRow);
   table.appendChild(thead);
   const tbody = document.createElement("tbody");
-  (data.relationships || []).forEach((edge) => {
-    const tr = document.createElement("tr");
-    [edge.a, edge.b, Number(edge.trust).toFixed(2), Number(edge.closeness).toFixed(2), Number(edge.tension).toFixed(2), String(edge.shared_secret_count || 0)].forEach((value, index) => {
-      const cell = document.createElement(index === 0 ? "th" : "td");
-      if (index === 0) cell.scope = "row";
-      cell.textContent = value;
-      tr.appendChild(cell);
+  if (castLens) {
+    scenarioConnections(data).map(normalizeConnection).filter(Boolean).forEach((conn) => {
+      const tr = document.createElement("tr");
+      [conn.a, conn.b, conn.label, conn.affinity.toFixed(2), conn.tension.toFixed(2), String(conn.shared_secret_count || 0)].forEach((value, index) => {
+        const cell = document.createElement(index === 0 ? "th" : "td");
+        if (index === 0) cell.scope = "row";
+        cell.textContent = value;
+        tr.appendChild(cell);
+      });
+      tbody.appendChild(tr);
     });
-    tbody.appendChild(tr);
-  });
+  } else {
+    (data.relationships || []).forEach((edge) => {
+      const tr = document.createElement("tr");
+      [edge.a, edge.b, Number(edge.trust).toFixed(2), Number(edge.closeness).toFixed(2), Number(edge.tension).toFixed(2), String(edge.shared_secret_count || 0)].forEach((value, index) => {
+        const cell = document.createElement(index === 0 ? "th" : "td");
+        if (index === 0) cell.scope = "row";
+        cell.textContent = value;
+        tr.appendChild(cell);
+      });
+      tbody.appendChild(tr);
+    });
+  }
   table.appendChild(tbody);
   host.appendChild(table);
 }
@@ -2425,7 +3399,8 @@ function openProfile(id) {
     img.src = `/static/assets/portraits/${cast.id}.svg`;
   };
   const bg = $("#profile-art-bg");
-  const art = cast.scene || cast.full || cast.portrait;
+  const art = outfitArtFor(state.data, id) || castArtFor(state.data, id)
+    || cast.scene || cast.full || cast.portrait;
   if (bg) {
     bg.onerror = () => {
       bg.onerror = null;
@@ -2469,7 +3444,9 @@ function renderSettings(data) {
   if (clockNow) clockNow.textContent = formatClock(current.clock.now);
   const clockMode = $("#clock-mode");
   if (clockMode) {
-    clockMode.textContent = mode === "realtime" ? "real time · 1×" : "mock time";
+    clockMode.textContent = mode === "realtime"
+      ? `real time · ${scaleFactor(current.clock.scale)}`
+      : "mock time";
     clockMode.className = mode === "realtime" ? "is-real" : "";
   }
   const clockNext = $("#clock-next");
@@ -2632,7 +3609,7 @@ function renderStudioBeats(data) {
   const next = (data && data.next_beat) || scene.next_beat || null;
   const mode = $("#studio-clock-mode");
   if (mode) {
-    mode.textContent = `${clock.mode || "mock"} · ${clock.now ? formatTime(clock.now) : "—"}`;
+    mode.textContent = `${clock.mode || "mock"} · ${scaleFactor(clock.scale)} · ${clock.now ? formatTime(clock.now) : "—"}`;
   }
   host.append(
     studioBeatCard("current beat", current, "is-current"),
@@ -2829,8 +3806,40 @@ async function studioAdvance() {
   }
 }
 
+function scaleFactor(value) {
+  const scale = Number(value);
+  if (!Number.isFinite(scale) || scale === 1) return "x1";
+  const text = Number.isInteger(scale)
+    ? String(scale)
+    : String(Math.round(scale * 100) / 100);
+  return `x${text}`;
+}
+
+/* The clock badge is explicit about the time machine: a non-1 scale is real
+   time running faster, so it reads REAL x60; everything else reads MOCK. */
+function clockScaleLabel(clock) {
+  const scale = clock ? Number(clock.scale) : 1;
+  if (Number.isFinite(scale) && scale !== 1) return `REAL ${scaleFactor(scale)}`;
+  return "MOCK";
+}
+
+function renderClockScale(data) {
+  const clock = (data && data.clock) || {};
+  const label = clockScaleLabel(clock);
+  const badge = $("#clock-scale");
+  if (badge) {
+    badge.textContent = label;
+    badge.classList.toggle("is-real", label.startsWith("REAL"));
+    badge.title = label.startsWith("REAL")
+      ? `Real time · story clock runs ${scaleFactor(clock.scale)} wall time`
+      : "Mock time · the story waits for you";
+  }
+  return label;
+}
+
 const VIEW_META = {
   story: { eyebrow: "Tonight at the café", title: "Story" },
+  worlds: { eyebrow: "One reset, one seed", title: "Worlds" },
   tree: { eyebrow: "The shape of the secret", title: "World Tree" },
   ledger: { eyebrow: "The god view", title: "Secret Ledger" },
   studio: { eyebrow: "The control room", title: "Studio" },
@@ -2850,16 +3859,28 @@ function setView(view) {
   const meta = VIEW_META[view] || VIEW_META.story;
   $("#view-eyebrow").textContent = meta.eyebrow;
   $("#view-title").textContent = meta.title;
+  if (state.view === "worlds") loadScenarios();
   if (state.data) render(state.data);
   if (view === "story" && state.data) loadPhoneHistory(phoneTarget());
   if (view === "studio") loadStudio(true);
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
+function setTreeLens(lens) {
+  state.treeLens = lens === "cast" ? "cast" : "user";
+  $$("[data-tree-lens]").forEach((button) => {
+    const active = button.dataset.treeLens === state.treeLens;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-pressed", active ? "true" : "false");
+  });
+  if (state.data) renderTree(state.data);
+}
+
 function render(data) {
-  const mode = data.clock && data.clock.mode === "realtime" ? " · REAL" : " · MOCK";
-  $("#rail-clock").textContent = formatClock(data.clock.now) + mode;
+  const scale = renderClockScale(data);
+  $("#rail-clock").textContent = formatClock(data.clock.now) + ` · ${scale}`;
   if (state.view === "story") renderStory(data);
+  if (state.view === "worlds") renderWorlds();
   if (state.view === "tree") renderTree(data);
   if (state.view === "ledger") renderLedger(data);
   if (state.view === "studio") maybeLoadStudio();
@@ -2878,6 +3899,9 @@ async function refresh() {
   try {
     const data = await api("/api/state");
     state.data = data;
+    if (data && Object.prototype.hasOwnProperty.call(data, "scenario")) {
+      state.worlds.current = data.scenario || null;
+    }
     render(data);
     if (!initialProfileOpened) {
       initialProfileOpened = true;
@@ -3186,9 +4210,13 @@ shellMode();
 window.addEventListener("resize", shellMode);
 if (window.visualViewport) window.visualViewport.addEventListener("resize", shellMode);
 setView(state.view);
+setTreeLens(state.treeLens);
 
 $$(".rail-link").forEach((button) => {
   button.addEventListener("click", () => setView(button.dataset.view));
+});
+$$("[data-tree-lens]").forEach((button) => {
+  button.addEventListener("click", () => setTreeLens(button.dataset.treeLens));
 });
 $("#theme-toggle").addEventListener("click", () => setTheme(state.theme === "dark" ? "light" : "dark"));
 $("#theme-toggle-2").addEventListener("click", () => setTheme(state.theme === "dark" ? "light" : "dark"));
@@ -3242,8 +4270,33 @@ $("#profile-close-2").addEventListener("click", closeProfile);
 $("#profile-modal").addEventListener("click", (event) => {
   if (event.target.matches("[data-close-profile]")) closeProfile();
 });
+$("#ending-close").addEventListener("click", closeEnding);
+$("#ending-close-2").addEventListener("click", closeEnding);
+$("#ending-story").addEventListener("click", closeEnding);
+$("#ending-worlds").addEventListener("click", () => {
+  closeEnding();
+  setView("worlds");
+});
+$("#ending-modal").addEventListener("click", (event) => {
+  if (event.target.matches("[data-close-ending]")) closeEnding();
+});
+$("#outfit-close").addEventListener("click", closeOutfit);
+$("#outfit-close-2").addEventListener("click", closeOutfit);
+$("#outfit-modal").addEventListener("click", (event) => {
+  if (event.target.matches("[data-close-outfit]")) closeOutfit();
+});
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
+  const ending = $("#ending-modal");
+  if (ending && !ending.hidden) {
+    closeEnding();
+    return;
+  }
+  const outfit = $("#outfit-modal");
+  if (outfit && !outfit.hidden) {
+    closeOutfit();
+    return;
+  }
   if ($(".story-phone")?.classList.contains("is-open")) {
     closePhone();
     return;
@@ -3272,6 +4325,10 @@ $("#whisper-target").addEventListener("change", (event) => {
 });
 $("#studio-refresh").addEventListener("click", () => loadStudio(true));
 $("#studio-advance").addEventListener("click", studioAdvance);
+$("#worlds-refresh").addEventListener("click", () => loadScenarios(true));
+$("#worlds-reset").addEventListener("click", resetCurrentScenario);
+$("#worlds-evaluate").addEventListener("click", evaluateEnding);
+$("#scene-ending").addEventListener("click", evaluateEnding);
 $("#scene-dm").addEventListener("click", () => {
   const cast = CAST[state.selected];
   if (cast && !isFriend(state.data, cast.id)) {

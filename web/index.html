@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>switch-world — a small town, four hearts, one secret</title>
-  <link rel="stylesheet" href="/static/styles.css?v=20261106-01">
-  <script src="/static/cast.js?v=20261106-01" defer></script>
-  <script src="/static/app.js?v=20261106-01" defer></script>
+  <link rel="stylesheet" href="/static/styles.css?v=20261106-03">
+  <script src="/static/cast.js?v=20261106-03" defer></script>
+  <script src="/static/app.js?v=20261106-03" defer></script>
 </head>
 <body>
   <div class="petals" id="petals" aria-hidden="true"></div>
@@ -26,21 +26,25 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v17H6.5A2.5 2.5 0 0 0 4 22V5.5ZM20 5.5A2.5 2.5 0 0 0 17.5 3H13v17h4.5A2.5 2.5 0 0 1 20 22V5.5Z"/></svg>
           <span>Story</span><em>01</em>
         </button>
+        <button class="rail-link" data-view="worlds" type="button" aria-label="Worlds">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.2 3.9 5.1 3.9 8.5s-1.3 6.3-3.9 8.5c-2.6-2.2-3.9-5.1-3.9-8.5S9.4 5.7 12 3.5Z"/><circle cx="12" cy="12" r="1.6"/></svg>
+          <span>Worlds</span><em>02</em>
+        </button>
         <button class="rail-link" data-view="tree" type="button" aria-label="World Tree">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21V10M12 10 6 4M12 10l6-6M6 4v4M18 4v4"/><circle cx="12" cy="21" r="1.6"/><circle cx="6" cy="8" r="1.6"/><circle cx="18" cy="8" r="1.6"/></svg>
-          <span>World Tree</span><em>02</em>
+          <span>World Tree</span><em>03</em>
         </button>
         <button class="rail-link" data-view="ledger" type="button" aria-label="Secret Ledger">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="8" r="4"/><path d="M11 11l9 9M16 16l3-3"/></svg>
-          <span>Secret Ledger</span><em>03</em>
+          <span>Secret Ledger</span><em>04</em>
         </button>
         <button class="rail-link" data-view="studio" type="button" aria-label="Studio">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="8" cy="7" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="10" cy="17" r="2"/></svg>
-          <span>Studio</span><em>04</em>
+          <span>Studio</span><em>05</em>
         </button>
         <button class="rail-link" data-view="settings" type="button" aria-label="Settings">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>
-          <span>Settings</span><em>05</em>
+          <span>Settings</span><em>06</em>
         </button>
       </nav>
 
@@ -62,6 +66,7 @@
           <h1 id="view-title">Story</h1>
         </div>
         <div class="top-actions">
+          <span class="pill scale-pill" id="clock-scale" title="Story clock scale">MOCK</span>
           <a class="btn ghost" href="http://127.0.0.1:8065/switch/channels/world" title="Mattermost may ask you to log in; use MATTERMOST_USER / MATTERMOST_USER_PASSWORD from .env">Open #world ↗</a>
           <a class="btn ghost" href="http://127.0.0.1:3000" target="_blank" rel="noopener">Switch Gateway ↗</a>
         </div>
@@ -90,6 +95,11 @@
               </div>
               <span class="mood" id="scene-mood">warm · watchful</span>
             </div>
+            <div class="scene-item" id="scene-item" hidden></div>
+            <div class="scenario-opening" id="scenario-opening" hidden>
+              <span class="eyebrow" id="scenario-opening-title"></span>
+              <p class="scenario-opening-line" id="scenario-opening-line"></p>
+            </div>
             <div class="turn-log" id="turn-log" aria-label="Scene transcript" aria-live="polite"></div>
             <div class="scene-choices" id="scene-choices" aria-label="Things you could say"></div>
             <form class="scene-say" id="scene-say-form">
@@ -112,6 +122,7 @@
             <div class="scene-boundary" id="scene-boundary" role="note" hidden></div>
             <div class="scene-actions">
               <button class="btn primary" id="scene-next" type="button">Next beat <span class="kbd">→</span></button>
+              <button class="btn ghost" id="scene-ending" type="button" hidden>Ending</button>
               <button class="btn ghost" id="scene-dm" type="button">Open the phone</button>
             </div>
             <details class="scene-backlog">
@@ -180,17 +191,52 @@
         <div class="cast-grid" id="cast-grid"></div>
       </section>
 
+      <!-- WORLDS -->
+      <section id="view-worlds" class="view" aria-label="Worlds view">
+        <div class="section-head">
+          <div>
+            <h2>worlds</h2>
+            <span>loadable demo scenarios — one reset, one seed, one playable world</span>
+          </div>
+          <button class="btn ghost small" id="worlds-refresh" type="button">Refresh</button>
+        </div>
+
+        <div class="worlds-current scenario-chip" id="worlds-current">
+          <div class="worlds-current-copy">
+            <span class="eyebrow">current scenario</span>
+            <strong id="worlds-current-name">No scenario loaded</strong>
+            <span class="worlds-current-meta" id="worlds-current-meta">The base café canon is active.</span>
+          </div>
+          <div class="worlds-current-actions">
+            <button class="btn ghost small" id="worlds-evaluate" type="button">Evaluate ending</button>
+            <button class="btn ghost small" id="worlds-reset" type="button">Reset</button>
+          </div>
+        </div>
+        <p class="status" id="worlds-status" role="status"></p>
+
+        <div class="worlds-grid" id="worlds-grid" aria-live="polite"></div>
+      </section>
+
       <!-- WORLD TREE -->
       <section id="view-tree" class="view" aria-label="World Tree view">
-        <div class="section-head"><h2>world tree</h2><span>who is connected to whom — and who is holding the secret</span></div>
+        <div class="section-head">
+          <div>
+            <h2>world tree</h2>
+            <span>who is connected to whom — and who is holding the secret</span>
+          </div>
+          <div class="lens-toggle" role="group" aria-label="World Tree lens">
+            <button class="btn ghost small is-active" data-tree-lens="user" type="button" aria-pressed="true">You ↔ cast</button>
+            <button class="btn ghost small" data-tree-lens="cast" type="button" aria-pressed="false">Cast ↔ cast</button>
+          </div>
+        </div>
         <div class="tree-layout">
           <div class="tree-card">
             <svg id="world-tree" viewBox="0 0 1000 640" role="img" aria-label="Relationship and secret graph"></svg>
             <div class="tree-legend">
-              <span><i class="edge-key high"></i>high trust</span>
-              <span><i class="edge-key mid"></i>medium</span>
-              <span><i class="edge-key low"></i>low / tense</span>
-              <span><i class="edge-key secret"></i>secret flow</span>
+              <span><i class="edge-key high"></i><span id="tree-key-high">high trust</span></span>
+              <span><i class="edge-key mid"></i><span id="tree-key-mid">medium</span></span>
+              <span><i class="edge-key low"></i><span id="tree-key-low">low / tense</span></span>
+              <span id="tree-key-secret"><i class="edge-key secret"></i>secret flow</span>
             </div>
           </div>
           <aside class="tree-panel" id="tree-panel"></aside>
@@ -531,6 +577,48 @@
         <div class="profile-actions">
           <a class="btn primary" id="profile-dm" href="#" target="_blank" rel="noopener">DM this character</a>
           <button class="btn ghost" id="profile-close-2" type="button">Close</button>
+        </div>
+      </div>
+    </article>
+  </div>
+
+  <div id="ending-modal" class="ending-modal" hidden>
+    <div class="ending-backdrop" data-close-ending></div>
+    <article class="ending-card" role="dialog" aria-modal="true" aria-labelledby="ending-title">
+      <button class="ending-close" id="ending-close" type="button" aria-label="Close ending card">×</button>
+      <div class="ending-art">
+        <img id="ending-art" alt="">
+        <span class="ending-art-tag" id="ending-art-tag">Ending card</span>
+      </div>
+      <div class="ending-copy">
+        <p class="eyebrow" id="ending-eyebrow">Ending</p>
+        <h2 id="ending-title">The end</h2>
+        <p class="ending-sub" id="ending-sub"></p>
+        <div class="ending-evidence" id="ending-evidence" aria-label="Ending evidence"></div>
+        <div class="ending-actions">
+          <button class="btn primary" id="ending-story" type="button">Back to the story</button>
+          <button class="btn ghost" id="ending-worlds" type="button">Worlds</button>
+          <button class="btn ghost" id="ending-close-2" type="button">Close</button>
+        </div>
+      </div>
+    </article>
+  </div>
+
+  <div id="outfit-modal" class="outfit-modal" hidden>
+    <div class="outfit-backdrop" data-close-outfit></div>
+    <article class="outfit-sheet" role="dialog" aria-modal="true" aria-labelledby="outfit-title">
+      <button class="outfit-close" id="outfit-close" type="button" aria-label="Close outfit card">×</button>
+      <div class="outfit-art">
+        <img id="outfit-art" alt="">
+        <span class="outfit-art-tag">Outfit · scenario</span>
+      </div>
+      <div class="outfit-copy">
+        <p class="eyebrow">memory → outfit</p>
+        <h2 id="outfit-title">The outfit</h2>
+        <div class="outfit-chain" id="outfit-chain"></div>
+        <p class="outfit-reason" id="outfit-reason"></p>
+        <div class="ending-actions">
+          <button class="btn ghost" id="outfit-close-2" type="button">Close</button>
         </div>
       </div>
     </article>

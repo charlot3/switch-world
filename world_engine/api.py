@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from . import config
 from .mcp_server import create_mcp
 from datetime import datetime
+from .scenarios import evaluate_ending, list_scenarios, load_scenario
 from .service import WorldService
 
 CANON_PATH = config.ROOT / "world" / "canon.json"
@@ -64,6 +65,33 @@ def create_app(service: WorldService | None = None) -> FastAPI:
     def matrix():
         return {"matrix": service.matrix(), "clock": service.clock()}
 
+    # ---- scenarios (recordable demo worlds) ------------------------------
+
+    @app.get("/api/scenarios")
+    def scenarios():
+        return {"scenarios": list_scenarios()}
+
+    @app.get("/api/scenarios/current")
+    def current_scenario():
+        return {"scenario": service.current_scenario()}
+
+    @app.post("/api/scenarios/{scenario_id}/load")
+    def load_scenario_endpoint(scenario_id: str):
+        if not config.DEV_MODE:
+            raise HTTPException(404)
+        try:
+            scenario = load_scenario(service, scenario_id)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        state = service.state()
+        state["canon"] = load_canon()
+        state["scene"] = clock_view()
+        return {"scenario": scenario, "state": state}
+
+    @app.post("/api/endings/evaluate")
+    def endings_evaluate():
+        return evaluate_ending(service)
+
     def clock_view() -> dict:
         from director.clock import current_beat, next_beat
 
@@ -93,16 +121,19 @@ def create_app(service: WorldService | None = None) -> FastAPI:
             raise HTTPException(404)
         from director.clock import align_realtime
 
-        mode = str((payload or {}).get("mode") or "").strip()
+        payload = payload or {}
+        mode = str(payload.get("mode") or "").strip()
+        raw_scale = payload.get("scale")
         try:
+            scale = None if raw_scale is None else float(raw_scale)
             if mode == "realtime":
-                result = align_realtime(service, load_canon())
+                result = align_realtime(service, load_canon(), scale=scale)
                 return {**result, "clock": service.clock(), "view": clock_view()}
             if mode == "mock":
-                service.set_clock_mode("mock")
+                service.set_clock_mode("mock", scale=scale)
                 return {"clock": service.clock(), "view": clock_view()}
             raise ValueError("mode must be mock or realtime")
-        except ValueError as exc:
+        except (TypeError, ValueError) as exc:
             raise HTTPException(400, str(exc)) from exc
 
     @app.post("/api/clock/advance")

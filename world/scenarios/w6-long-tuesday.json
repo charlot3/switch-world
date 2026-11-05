@@ -1,0 +1,49 @@
+{
+  "id": "w6-long-tuesday",
+  "title": "A Long Tuesday",
+  "seed": 6006,
+  "clock": {
+    "now": "2026-11-03T08:00:00+09:00",
+    "mode": "mock",
+    "scale": 1.0
+  },
+  "cast": [
+    "alice",
+    "emily",
+    "sophia",
+    "mia"
+  ],
+  "friends": [],
+  "absent": [],
+  "outfits": {},
+  "cast_art": {
+    "alice": "/static/assets/portraits/alice-cg.jpg",
+    "emily": "/static/assets/portraits/emily-cg.jpg",
+    "sophia": "/static/assets/portraits/sophia-cg.jpg",
+    "mia": "/static/assets/portraits/mia-cg.jpg"
+  },
+  "scene_art": "/static/assets/portraits/beat-morning-shop.jpg",
+  "place": "the bookshop, 08:00",
+  "item": null,
+  "relationships": [],
+  "beliefs": [],
+  "opening": {
+    "title": "Morning, the bookshop",
+    "line": "You're early. The kettle hasn't decided what it's doing yet.",
+    "choices": [
+      "I wanted to see you before the day got loud.",
+      "You don't have to carry it alone, you know.",
+      "I'll make the tea. You finish opening up."
+    ]
+  },
+  "ending": {
+    "id": "neutral-long-tuesday",
+    "label": "END — A Long Tuesday",
+    "tone": "neutral",
+    "evidence": [
+      "The day ends where it began.",
+      "No secret changes hands."
+    ]
+  },
+  "notes": "The existing Tuesday arc, unchanged: the fallback world for a long demo."
+}

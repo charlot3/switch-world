@@ -1,0 +1,45 @@
+{
+  "id": "w1-gift",
+  "title": "The Gift",
+  "seed": 1001,
+  "clock": {"now": "2026-11-03T18:20:00+09:00", "mode": "mock", "scale": 1.0},
+  "cast": ["alice", "emily", "sophia", "mia"],
+  "friends": [],
+  "absent": [],
+  "outfits": {},
+  "cast_art": {
+    "alice": "/static/assets/portraits/alice-cg.jpg",
+    "emily": "/static/assets/portraits/emily-cg.jpg",
+    "sophia": "/static/assets/portraits/sophia-cg.jpg",
+    "mia": "/static/assets/portraits/mia-cg.jpg"
+  },
+  "scene_art": "/static/assets/scenes/beat-first-meeting.jpg",
+  "place": "the bookshop, before the group arrives",
+  "item": {"id": "gift-book", "label": "a wrapped first edition", "holder": "user", "owner": "user"},
+  "relationships": [
+    {"a": "alice", "b": "user", "trust": 0.42, "closeness": 0.36, "tension": 0.02},
+    {"a": "emily", "b": "user", "trust": 0.45, "closeness": 0.40, "tension": 0.03},
+    {"a": "sophia", "b": "user", "trust": 0.35, "closeness": 0.30, "tension": 0.04},
+    {"a": "mia", "b": "user", "trust": 0.50, "closeness": 0.45, "tension": 0.02}
+  ],
+  "beliefs": [
+    {
+      "holder": "alice",
+      "proposition": "The user brought me a wrapped first edition.",
+      "key": "gift-first-edition",
+      "source": "user",
+      "confidence": 1.0,
+      "visibility": "private"
+    }
+  ],
+  "opening": {
+    "title": "Early at the bookshop",
+    "line": "You came early. The kettle hasn't decided what it's doing yet.",
+    "choices": [
+      "@alice I brought you something.",
+      "I wanted you to have it before everyone got loud.",
+      "I can come back later."
+    ]
+  },
+  "notes": "One wrapped first edition on the counter; Alice is the first to know."
+}

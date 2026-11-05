@@ -1,0 +1,72 @@
+{
+  "id": "w2-two-clocks",
+  "title": "Two Clocks",
+  "seed": 2002,
+  "clock": {
+    "now": "2026-11-03T17:40:00+09:00",
+    "mode": "mock",
+    "scale": 1.0
+  },
+  "cast": [
+    "alice",
+    "emily",
+    "sophia",
+    "mia"
+  ],
+  "friends": [
+    "alice"
+  ],
+  "absent": [],
+  "outfits": {},
+  "cast_art": {
+    "alice": "/static/assets/portraits/alice-cg.jpg",
+    "emily": "/static/assets/portraits/emily-cg.jpg",
+    "sophia": "/static/assets/portraits/sophia-cg.jpg",
+    "mia": "/static/assets/portraits/mia-cg.jpg"
+  },
+  "scene_art": "/static/assets/scenes/beat-cafe-day.jpg",
+  "place": "the café on the corner, before six",
+  "item": null,
+  "relationships": [
+    {
+      "a": "alice",
+      "b": "user",
+      "trust": 0.55,
+      "closeness": 0.48,
+      "tension": 0.1
+    },
+    {
+      "a": "emily",
+      "b": "user",
+      "trust": 0.5,
+      "closeness": 0.44,
+      "tension": 0.18
+    },
+    {
+      "a": "alice",
+      "b": "emily",
+      "trust": 0.7,
+      "closeness": 0.62,
+      "tension": 0.22
+    },
+    {
+      "a": "emily",
+      "b": "alice",
+      "trust": 0.68,
+      "closeness": 0.6,
+      "tension": 0.24
+    }
+  ],
+  "beliefs": [],
+  "opening": {
+    "title": "Before six",
+    "line": "The café is nearly empty. Alice is early, and so are you.",
+    "choices": [
+      "You're early too.",
+      "I wanted a table before the crowd.",
+      "Is Emily coming?"
+    ]
+  },
+  "notes": "Two clocks in one afternoon: the café fills while Alice decides whether to stay.",
+  "scene_art_evening": "/static/assets/portraits/alice-cg.jpg"
+}

@@ -228,3 +228,14 @@ Profile actions. The profile sheet shows the full-body 立绘, age/height/birthd
 likes/dislikes, the private canon line (god view), a quote and outgoing relationship bars.
 The tone stays 17+ SFW; the product is interactive fiction with a provenance engine, not a
 dating sim.
+
+## 2026-11-05 — Five authorial beats, three ways to run them
+
+The project should be demonstrable in parts without turning into a free-roaming agent
+world. `world/canon.json` now carries authored local dialogue, prompts and branch-aware
+aftermath for all five beats; `director/beats.py` runs them locally, `bifrost_scene.py`
+runs them through Bifrost/OpenCode, and `run_switch.py` runs them through the live Switch
+room. The café remains the required beat and owns the branch; aftermath refuses to run
+before it. The dashboard adds a **Demo beats** selector and a full local arc; the story
+strip marks beats done from the immutable `beat` events. This is the "several partial
+demos" version for both the Flip and Geek Room editions.

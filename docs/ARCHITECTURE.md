@@ -80,8 +80,9 @@ reads room history to chain turns.
 A beat:
 
 1. Read the world state and the world clock.
-2. Run the required authored beat (the café; the canon lists four optional beats for a
-   longer run).
+2. Run one authored beat from `world/canon.json` — local, Bifrost or Switch. The café
+   is required and owns the branch; aftermath reads it; the other beats are partial
+   demos that can run on their own.
 3. Post a scene prompt into `#world`, addressed to one character:
    `@alice It is 18:30 at the café. Emily is here. You have something on your mind.`
 4. Read the room history for Alice's reply, then address Emily with it:
@@ -219,7 +220,7 @@ Emily ──world__recall() includes the belief and the changed relationship─�
 - A general agent framework.
 - Public multi-user signup.
 
-## Prototype status (2026-11-04)
+## Prototype status (2026-11-05)
 
 Runnable now, no Switch required:
 
@@ -234,6 +235,9 @@ Runnable now, no Switch required:
   event feed, the World Tree, and the dev harness.
 - **Cast art** (`scripts/generate-cast-art.py`): one shared prompt scaffold, fixed seeds,
   bust + full-body + avatar set, `PROMPTS.md` and contact sheets.
+- **Beat demos** (`director/beats.py`): all five authored beats run locally, through
+  Bifrost, or through the live Switch room; the café owns the branch and aftermath reads
+  it, while morning/lunch/roundup are independent partial demos.
 - **Local café beat** (`director/simulate.py`): authored dialogue that exercises the same
   state writes as the Switch-driven director, including the branch event.
 - **Tests** (`tests/`): `uv run pytest` covers the service, the API, the canon and the beat.

@@ -8,6 +8,12 @@ The demo must prove four things in this order: **Switch is the world**, **a secr
 **the UI shows why**, and **the artifact persists**. The official brief also requires one
 human + at least one AI agent + a real task; the scene card is that task's deliverable.
 
+**In this build:** the Story stage is the in-person scene (立绘, who is present, three
+authored choices, free text) and it posts to the live `#world` room. The phone is private
+and **locked until you add the character as a friend**. Settings → **Time machine** can
+jump to the next beat in mock time, or align the story to the wall clock. Phone DMs are
+deliberately not mirrored into Mattermost.
+
 ## Pre-demo checklist
 
 - [ ] Switch up: `docker compose --profile collab --profile gateway ps` shows API, gateway,
@@ -48,7 +54,8 @@ Say:
 
 ### 0:30–1:30 — The user tells Alice a secret
 
-Open the one-to-one DM with Alice (no `@` needed in a DM):
+Use the Story **phone**: add Alice as a friend from the lock panel first. This is the
+private channel; it does not appear in `#world`.
 
 ```
 I've decided to leave the city at the end of the month. I haven't told the others yet.

@@ -128,21 +128,29 @@ The character's rules tell it:
 
 ### 5. Dashboard
 
-A read-only projection of the world state, served by the world engine:
+A projection of the world state plus three write surfaces, served by the world engine:
 
+- the **scene**: the current beat's 立绘, who is present, the dialogue performance, three
+  authored choices and a free-text line. Sending posts to the live Switch room
+  (`/api/group/say`) and records the replies;
+- the **phone**: a friend-gated private DM (`/api/dm`, `/api/friends/<id>`), recorded as
+  `dm` events and never mirrored into the public room;
+- the **time machine**: mock/real clock mode and beat advance (`/api/clock/*`);
 - the belief matrix (characters × propositions), with source and confidence on hover;
 - the relationship graph (trust / closeness / tension);
 - the event feed, newest first;
 - a "provenance" drawer: for one belief, the chain `user → Alice → Emily`, with timestamps;
 - a download link for the latest scene card.
 
-The dashboard polls the world engine's read-only `/api/*` endpoints. The world engine is the
-only process that opens SQLite.
+The dashboard polls `/api/state` for the projection and writes only through those endpoints.
+The world engine is the only process that opens SQLite.
 
 ## Data model
 
 ```
 characters(id, name, role, goals, voice, status)
+friends(character, since)              -- phone gate
+clock(id=1, now, day, mode, anchor_real)  -- mock or 1x realtime
 beliefs(id, holder, proposition, proposition_key, source_kind, source_id,
         confidence, learned_at, visibility, superseded_by)
 relationships(a, b, trust, closeness, tension, last_interaction, shared_secret_count)

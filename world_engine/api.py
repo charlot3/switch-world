@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import config
 from .mcp_server import create_mcp
+from datetime import datetime
 from .service import WorldService
 
 CANON_PATH = config.ROOT / "world" / "canon.json"
@@ -52,6 +53,7 @@ def create_app(service: WorldService | None = None) -> FastAPI:
     def state():
         data = service.state()
         data["canon"] = load_canon()
+        data["scene"] = clock_view()
         return data
 
     @app.get("/api/canon")
@@ -61,6 +63,102 @@ def create_app(service: WorldService | None = None) -> FastAPI:
     @app.get("/api/matrix")
     def matrix():
         return {"matrix": service.matrix(), "clock": service.clock()}
+
+    def clock_view() -> dict:
+        from director.clock import current_beat, next_beat
+
+        canon_data = load_canon()
+        clock = service.clock()
+        now = datetime.fromisoformat(clock["now"])
+        current = current_beat(canon_data, now)
+        upcoming, target = next_beat(canon_data, now)
+        slim = lambda beat: {
+            key: beat.get(key)
+            for key in ("id", "title", "time", "place", "characters", "choices", "summary")
+        }
+        return {
+            **clock,
+            "current_beat": slim(current),
+            "next_beat": slim(upcoming),
+            "next_at": target.isoformat(timespec="seconds"),
+        }
+
+    @app.get("/api/clock")
+    def clock():
+        return clock_view()
+
+    @app.post("/api/clock/mode")
+    def clock_mode(payload: dict | None = None):
+        if not config.DEV_MODE:
+            raise HTTPException(404)
+        from director.clock import align_realtime
+
+        mode = str((payload or {}).get("mode") or "").strip()
+        try:
+            if mode == "realtime":
+                result = align_realtime(service, load_canon())
+                return {**result, "clock": service.clock(), "view": clock_view()}
+            if mode == "mock":
+                service.set_clock_mode("mock")
+                return {"clock": service.clock(), "view": clock_view()}
+            raise ValueError("mode must be mock or realtime")
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+
+    @app.post("/api/clock/advance")
+    def clock_advance(payload: dict | None = None):
+        if not config.DEV_MODE:
+            raise HTTPException(404)
+        from director.clock import advance_to_beat, advance_to_next, done_beats, next_unplayed
+        from director.beats import run_beat
+
+        payload = payload or {}
+        canon_data = load_canon()
+        try:
+            explicit = str(payload["beat"]) if payload.get("beat") else None
+            if payload.get("run") and not explicit:
+                # Fast-forward the arc: play the first beat that has not happened yet.
+                upcoming = next_unplayed(canon_data, done_beats(service))
+                explicit = upcoming["id"] if upcoming else None
+            if explicit:
+                moved = advance_to_beat(service, canon_data, explicit)
+            else:
+                moved = advance_to_next(service, canon_data)
+            beat_id = moved["beat"]["id"]
+            played = None
+            if payload.get("run") and explicit:
+                played = run_beat(service, beat_id, transport="local")
+            return {
+                "beat": moved["beat"],
+                "clock": service.clock(),
+                "view": clock_view(),
+                "played": played,
+            }
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        except Exception as exc:
+            raise HTTPException(502, f"clock advance failed: {exc}") from exc
+
+    @app.get("/api/friends")
+    def friends():
+        return {"friends": service.friends()}
+
+    @app.post("/api/friends/{character}")
+    def add_friend(character: str):
+        if not config.DEV_MODE:
+            raise HTTPException(404)
+        try:
+            friend = service.add_friend(character)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        service.record_event(
+            "user",
+            "friend",
+            f"You added {character.title()} as a friend. The phone is open.",
+            participants=[character],
+            visibility="public",
+        )
+        return {"friend": friend, "friends": service.friends(), "state": service.state()}
 
     @app.get("/api/who-knows/{key}")
     def who_knows(key: str):
@@ -109,6 +207,11 @@ def create_app(service: WorldService | None = None) -> FastAPI:
 
     @app.get("/api/dm/{character}")
     def dm_history(character: str, limit: int = 100, before_id: int | None = None):
+        if not service.is_friend(character):
+            raise HTTPException(
+                403,
+                f"Add {character.title()} as a friend before opening the phone.",
+            )
         return service.phone_history(character, limit=limit, before_id=before_id)
 
     @app.post("/api/dm")
@@ -116,16 +219,40 @@ def create_app(service: WorldService | None = None) -> FastAPI:
         from director.dm import reply_to_dm
 
         payload = payload or {}
+        character = str(payload.get("character") or "")
+        if not service.is_friend(character):
+            raise HTTPException(
+                403,
+                f"Add {character.title()} as a friend before messaging them.",
+            )
         try:
             return reply_to_dm(
                 service,
-                character=str(payload.get("character") or ""),
+                character=character,
                 message=str(payload.get("message") or ""),
             )
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from exc
         except Exception as exc:
             raise HTTPException(502, f"DM failed: {exc}") from exc
+
+    @app.post("/api/group/say")
+    def group_say(payload: dict | None = None):
+        from director.group import say_in_group
+
+        payload = payload or {}
+        characters = payload.get("characters")
+        try:
+            return say_in_group(
+                service,
+                str(payload.get("message") or ""),
+                characters=characters if isinstance(characters, list) else None,
+                timeout=float(payload.get("timeout") or 45.0),
+            )
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        except Exception as exc:
+            raise HTTPException(502, f"group scene failed: {exc}") from exc
 
     @app.post("/api/dev/run-beat")
     def run_beat_endpoint(payload: dict | None = None):

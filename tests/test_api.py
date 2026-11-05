@@ -138,10 +138,50 @@ def test_run_beat_and_arc_endpoints(client):
     ]
 
 
-def test_dm_history_endpoint(client):
+def test_phone_is_locked_until_friendship(client):
+    locked = client.get("/api/dm/alice?limit=100")
+    assert locked.status_code == 403
+    assert "friend" in locked.json()["detail"].lower()
+
+    added = client.post("/api/friends/alice")
+    assert added.status_code == 200
+    assert added.json()["friends"][0]["character"] == "alice"
+
     response = client.get("/api/dm/alice?limit=100")
     assert response.status_code == 200
     body = response.json()
     assert body["character"] == "alice"
     assert body["messages"] == []
     assert body["has_more"] is False
+
+    state = client.get("/api/state").json()
+    assert state["friends"] == ["alice"]
+
+
+def test_clock_endpoints(client):
+    view = client.get("/api/clock").json()
+    assert view["mode"] == "mock"
+    assert view["current_beat"]["id"] == "morning-shop"
+    assert view["next_beat"]["id"] == "morning-shop"
+
+    advanced = client.post("/api/clock/advance", json={})
+    assert advanced.status_code == 200
+    body = advanced.json()
+    assert body["beat"]["id"] == "morning-shop"
+    assert body["clock"]["now"].startswith("2026-11-03T09:10")
+
+    played = client.post("/api/clock/advance", json={"run": True})
+    assert played.status_code == 200
+    assert played.json()["beat"]["id"] == "morning-shop"
+    assert played.json()["played"]["beat"]["id"] == "morning-shop"
+
+    following = client.post("/api/clock/advance", json={"run": True})
+    assert following.json()["beat"]["id"] == "truck-lunch"
+    assert following.json()["played"]["beat"]["id"] == "truck-lunch"
+
+    realtime = client.post("/api/clock/mode", json={"mode": "realtime"})
+    assert realtime.status_code == 200
+    assert realtime.json()["clock"]["mode"] == "realtime"
+    mocked = client.post("/api/clock/mode", json={"mode": "mock"})
+    assert mocked.status_code == 200
+    assert mocked.json()["clock"]["mode"] == "mock"

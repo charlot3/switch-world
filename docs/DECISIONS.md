@@ -295,3 +295,23 @@ concrete detail/subtext, avoid therapy-speak and a question after every line. Ea
 `IDENTITY.md` has a short `中文口吻` register sample; `AGENTS.md`/`CLAUDE.md` carry the same
 rules for the live Switch agents. The DM prompt keeps current time, recent café context and
 100 DM history, but asks for a direct, human first sentence rather than a formal answer.
+
+## 2026-11-05 — Scene first, phone second; one story datetime
+
+The first build put the phone on the main screen and let the scene be a feed viewer. That
+inverted the fiction: people meet in a place before they text. The Story view now leads
+with an in-person scene — full-body 立绘, the people present, authored choices, free text —
+and the phone is a **friend-gated** second surface. Group lines go through the live Switch
+room (`/api/group/say`); private lines stay in the world DB as `dm` events and are
+deliberately not mirrored into Mattermost. `friends` is a small gating table, not an
+authorization system.
+
+The clock stores **one story datetime** and a mode. Mock time is the demo fast-forward:
+`Advance & play` jumps to the first unplayed beat and runs it. Real time aligns to the next
+beat whose time of day is ahead of the wall clock and then runs at 1× from that anchor.
+That avoids a second calendar model and keeps the story date honest when a demo crosses
+midnight.
+
+**Ruled out:** a full calendar/event-scheduler model; auto-running a beat from a timer
+(the arc still moves only when the showrunner runs it); mirroring phone DMs into a public
+channel.

@@ -89,9 +89,32 @@ class WorldService:
             raise PermissionError("missing bearer token")
         return self.actor_for_token(auth.split(" ", 1)[1].strip())
 
+    @staticmethod
+    def _real_now() -> datetime:
+        return datetime.now().astimezone()
+
+    @classmethod
+    def _clock_from_row(cls, row: sqlite3.Row) -> dict[str, Any]:
+        """Resolve the story clock. In `realtime` the stored `now` is an anchor and the
+        story advances at 1x from the real time recorded in `anchor_real`. That means the
+        database keeps one story datetime; the wall clock does the rest."""
+        now = cls._parse_time(row["now"])
+        mode = row["mode"] or "mock"
+        if mode == "realtime" and row["anchor_real"]:
+            anchor = cls._parse_time(row["anchor_real"])
+            now = now + (cls._real_now() - anchor)
+        return {
+            "now": now.isoformat(timespec="seconds"),
+            "day": now.date().isoformat(),
+            "mode": mode,
+        }
+
+    def _clock(self, conn: sqlite3.Connection) -> dict[str, Any]:
+        row = conn.execute("SELECT now, day, mode, anchor_real FROM clock WHERE id = 1").fetchone()
+        return self._clock_from_row(row)
+
     def _now(self, conn: sqlite3.Connection) -> str:
-        row = conn.execute("SELECT now FROM clock WHERE id = 1").fetchone()
-        return row["now"]
+        return self._clock(conn)["now"]
 
     def _character_exists(self, conn: sqlite3.Connection, cid: str) -> bool:
         return conn.execute("SELECT 1 FROM characters WHERE id = ?", (cid,)).fetchone() is not None
@@ -119,10 +142,60 @@ class WorldService:
             return row["id"]
         raise ValueError("unknown character: " + raw)
 
-    def clock(self) -> dict[str, str]:
+    def clock(self) -> dict[str, Any]:
         with self._conn() as conn:
-            row = conn.execute("SELECT now, day FROM clock WHERE id = 1").fetchone()
-            return {"now": row["now"], "day": row["day"]}
+            return self._clock(conn)
+
+    def set_clock_mode(self, mode: str, now: str | None = None) -> dict[str, Any]:
+        """Switch between the mock time machine and a 1x real-time clock.
+
+        `now` is the alignment point used when entering realtime: the story jumps to the
+        next authored beat and then runs with the wall clock from that anchor.
+        """
+        if mode not in {"mock", "realtime"}:
+            raise ValueError("clock mode must be mock or realtime")
+        with self._conn() as conn:
+            current = self._clock(conn)
+            target = (
+                self._parse_time(now) if now
+                else self._parse_time(current["now"])
+            )
+            anchor = self._real_now().isoformat(timespec="seconds") if mode == "realtime" else None
+            conn.execute(
+                "UPDATE clock SET now = ?, day = ?, mode = ?, anchor_real = ? WHERE id = 1",
+                (target.isoformat(timespec="seconds"), target.date().isoformat(), mode, anchor),
+            )
+        return self.clock()
+
+    # ---- friends (phone gating) ------------------------------------------
+
+    def friends(self) -> list[dict[str, str]]:
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT character, since FROM friends ORDER BY since, character"
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+    def is_friend(self, character: str) -> bool:
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT 1 FROM friends WHERE character = ?", (character,)
+            ).fetchone()
+            return row is not None
+
+    def add_friend(self, character: str) -> dict[str, str]:
+        with self._conn() as conn:
+            if not self._character_exists(conn, character):
+                raise ValueError("unknown character: " + character)
+            now = self._now(conn)
+            conn.execute(
+                "INSERT OR IGNORE INTO friends(character, since) VALUES (?, ?)",
+                (character, now),
+            )
+            row = conn.execute(
+                "SELECT character, since FROM friends WHERE character = ?", (character,)
+            ).fetchone()
+        return dict(row)
 
     def characters(self) -> list[dict]:
         with self._conn() as conn:
@@ -357,6 +430,8 @@ class WorldService:
         summary: str,
         participants: Iterable[str] | None = None,
         visibility: str = "public",
+        room_id: str | None = None,
+        message_id: str | None = None,
     ) -> dict:
         if visibility not in VISIBILITIES:
             raise ValueError("visibility must be one of " + ", ".join(VISIBILITIES))
@@ -365,13 +440,15 @@ class WorldService:
             participants = [self._canonical_participant(conn, p) for p in participants]
             now = self._now(conn)
             cur = conn.execute(
-                """INSERT INTO events(kind, summary, participants_json, visibility, created_at)
-                   VALUES (?,?,?,?,?)""",
-                (kind, summary, json.dumps(participants), visibility, now),
+                """INSERT INTO events(kind, summary, participants_json, visibility,
+                                     created_at, room_id, message_id)
+                   VALUES (?,?,?,?,?,?,?)""",
+                (kind, summary, json.dumps(participants), visibility, now, room_id, message_id),
             )
             return {
                 "id": cur.lastrowid, "kind": kind, "summary": summary,
                 "participants": participants, "visibility": visibility, "created_at": now,
+                "room_id": room_id, "message_id": message_id,
             }
 
     def who_knows(self, proposition_key: str) -> dict:
@@ -483,7 +560,12 @@ class WorldService:
                     "SELECT * FROM events ORDER BY id DESC LIMIT 50"
                 )
             ]
-            clock = dict(conn.execute("SELECT now, day FROM clock WHERE id = 1").fetchone())
+            clock = self._clock(conn)
+            friends = [
+                r["character"] for r in conn.execute(
+                    "SELECT character FROM friends ORDER BY since, character"
+                )
+            ]
         for e in events:
             e["participants"] = json.loads(e.pop("participants_json") or "[]")
         return {
@@ -492,6 +574,7 @@ class WorldService:
             "beliefs": beliefs,
             "relationships": relationships,
             "events": list(reversed(events)),
+            "friends": friends,
             "matrix": self.matrix(),
         }
 
@@ -535,18 +618,23 @@ class WorldService:
         )
 
     def advance_time(self, actor: str, minutes: int) -> dict:
+        """Jump the story clock. A deliberate jump leaves realtime and returns to mock."""
         if actor != "director":
             raise PermissionError("only the director advances the world clock")
         minutes = int(minutes)
         with self._conn() as conn:
-            row = conn.execute("SELECT now FROM clock WHERE id = 1").fetchone()
-            current = self._parse_time(row["now"])
+            current = self._parse_time(self._clock(conn)["now"])
             nxt = current + timedelta(minutes=minutes)
             conn.execute(
-                "UPDATE clock SET now = ?, day = ? WHERE id = 1",
-                (nxt.isoformat(), nxt.date().isoformat()),
+                "UPDATE clock SET now = ?, day = ?, mode = 'mock', anchor_real = NULL WHERE id = 1",
+                (nxt.isoformat(timespec="seconds"), nxt.date().isoformat()),
             )
-            return {"now": nxt.isoformat(), "day": nxt.date().isoformat(), "minutes": minutes}
+            return {
+                "now": nxt.isoformat(timespec="seconds"),
+                "day": nxt.date().isoformat(),
+                "mode": "mock",
+                "minutes": minutes,
+            }
 
     # ---- scene card -------------------------------------------------------
 

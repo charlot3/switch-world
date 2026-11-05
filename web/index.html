@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>switch-world — a small town, four hearts, one secret</title>
-  <link rel="stylesheet" href="/static/styles.css?v=20261105-7">
-  <script src="/static/cast.js?v=20261105-7" defer></script>
-  <script src="/static/app.js?v=20261105-7" defer></script>
+  <link rel="stylesheet" href="/static/styles.css?v=20261105-8">
+  <script src="/static/cast.js?v=20261105-8" defer></script>
+  <script src="/static/app.js?v=20261105-8" defer></script>
 </head>
 <body>
   <div class="petals" id="petals" aria-hidden="true"></div>
@@ -73,6 +73,7 @@
           <div class="scene-art">
             <div class="scene-wash" id="scene-wash"></div>
             <img id="scene-portrait" class="scene-portrait" alt="">
+            <div class="scene-cast" id="scene-cast" aria-label="Who is in the scene"></div>
             <div class="scene-stamp" id="scene-stamp">SCENE 02 · THE CAFÉ</div>
             <div class="scene-caption" id="scene-caption">18:30 · a Tuesday in late autumn</div>
           </div>
@@ -85,9 +86,15 @@
               <span class="mood" id="scene-mood">warm · watchful</span>
             </div>
             <p class="scene-line" id="scene-line"></p>
+            <div class="scene-choices" id="scene-choices" aria-label="Things you could say"></div>
+            <form class="scene-say" id="scene-say-form">
+              <input id="scene-say-input" type="text" maxlength="800" autocomplete="off" placeholder="Say something to the room…" aria-label="Say something to the room">
+              <button type="submit" id="scene-say-send" aria-label="Say it">↑</button>
+            </form>
+            <p class="scene-status" id="scene-status" role="status"></p>
             <div class="scene-actions">
               <button class="btn primary" id="scene-next" type="button">Next line <span class="kbd">→</span></button>
-              <button class="btn ghost" id="scene-dm" type="button">Message this character</button>
+              <button class="btn ghost" id="scene-dm" type="button">Open the phone</button>
               <button class="btn ghost" id="scene-run" type="button">Copy live-beat command</button>
             </div>
             <div class="scene-rail" id="scene-rail" aria-label="Recent dialogue"></div>
@@ -291,6 +298,26 @@
               </div>
             </div>
             <p class="tiny">Full setup: <code>docs/GEEKROOM.md</code> · Bifrost logs: <code>data/logs/bifrost.jsonl</code></p>
+          </article>
+
+          <article class="card setting-card wide">
+            <h3>Time machine</h3>
+            <p class="card-sub">One story datetime is stored. <strong>Mock time</strong> lets the showrunner jump to the next beat in a second; <strong>real time</strong> aligns the story to the next wall-clock beat and then runs at 1×.</p>
+            <div class="time-readout">
+              <div><span class="eyebrow">story clock</span><p id="clock-now">—</p></div>
+              <div><span class="eyebrow">mode</span><p id="clock-mode">mock</p></div>
+              <div><span class="eyebrow">next beat</span><p id="clock-next">—</p></div>
+            </div>
+            <div class="button-row">
+              <button class="btn" id="clock-mock" type="button">Mock time</button>
+              <button class="btn" id="clock-real" type="button">Real time (align)</button>
+            </div>
+            <div class="button-row">
+              <button class="btn" id="clock-advance" type="button">Advance to next beat</button>
+              <button class="btn primary" id="clock-play" type="button">Advance &amp; play</button>
+            </div>
+            <p class="status" id="clock-status">Mock time · the story waits for you.</p>
+            <p class="tiny">Real time jumps to the next authored beat and then follows the wall clock; advancing manually returns to mock time. The arc still only moves when a beat is run.</p>
           </article>
 
           <article class="card setting-card wide">

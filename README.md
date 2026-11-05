@@ -1,8 +1,10 @@
 # switch-world
 
 A **Switch-native AI social world**. Four characters share a group chat, keep private
-memories, and live in a public feed. You can DM any of them, watch them meet, and follow a
-secret as it travels — with provenance for every belief.
+memories, and live in a public feed. You meet them **in a scene** — sprites, stage
+performance, authored choices, a free-text line — and only after you add someone as a
+friend does their **phone** unlock. A **time machine** can fast-forward the story in mock
+time or run it against the wall clock, and every belief still carries provenance.
 
 **MCP-first:** the world engine is an MCP server, and the cast's only write path is
 `world__remember` / `world__update_relationship`. Each character carries a scoped bearer
@@ -18,7 +20,9 @@ This repo carries the same social world to two hackathons:
 | **Flip the Switch** | `main` / tag `flip-2026-11-05` | Switch rooms and agents; the secret ledger; canon; scene card |
 | **Geek Room** | `geekroom` | **Bifrost** model gateway + **Tavily** real-world layer, on the same world engine and canon |
 
-The Flip edition is frozen at the tag. The Geek Room edition is additive: Switch remains
+The tag is the Flip submission snapshot; `main` keeps evolving (the current build adds the
+in-person scene, friend-gated phone and time machine to both editions). The Geek Room
+edition is additive: Switch remains
 supported, but the Geek Room demo can run without it. Setup, demo and submission notes are
 in [`docs/GEEKROOM.md`](docs/GEEKROOM.md); the deck outline is
 [`docs/PITCH.md`](docs/PITCH.md).
@@ -81,28 +85,34 @@ the corrected `branch` event and the same provenance.
 
 ## Dashboard
 
-Four views. The Story scene, tree and ledger are read-only projections; the phone DM and the beat controls are the write surfaces:
+Four views. The tree and ledger are read-only projections; the scene composer, the phone
+DM, the time machine and the beat controls are the write surfaces:
 
 - **Story** — two columns: the visual-novel scene + **authored arc strip** (Act I, five
   beats, the branch the ledger chose) on the left; a **phone-shaped private DM** on the
-  right. The phone posts to `/api/dm`, runs the selected character through
-  Bifrost/OpenCode, and records private `dm` events. The thread loads up to **100** recent
-  scene + DM messages, with **Load older** as a database-backed cursor for anything above
-  that; the user's turn is written before the model call, so it stays visible while the
-  typing indicator runs. It mirrors the language of the last message: a Chinese message
-  gets natural spoken Chinese, using the per-character `中文口吻` sample as a register, not
-  an English translation. On mobile
-  it stacks below the scene. Cast cards with a two-line intro, affinity hearts, **Chat**
-  and **Profile** actions sit below. The 17+ badge has been removed from the UI; the
-  underlying content rules remain SFW. History is per world instance; Mattermost DMs are
-  not imported.
+  right. The left is the **in-person scene**: the current beat's full-body 立绘, a row of
+  who is present, a typewriter dialogue box, **three authored choices**, and a free-text
+  **“Say something to the room”** composer. Sending goes to the live Switch room
+  (`POST /api/group/say`), addresses only the characters in the current beat, waits for
+  their own replies, and plays them back one line at a time with **Next line**. The phone
+  posts to `/api/dm`, but it is **locked until you add that character as a friend**
+  (`POST /api/friends/<id>`); the lock panel and the cast-card button both add them. The
+  thread loads up to **100** recent scene + DM messages, with **Load older** as a
+  database-backed cursor; the user's turn is written before the model call, so it stays
+  visible while the typing indicator runs. It mirrors the language of the last message: a
+  Chinese message gets natural spoken Chinese, using the per-character `中文口吻` sample as
+  a register, not an English translation. On mobile it stacks below the scene. Cast cards
+  with a two-line intro, affinity hearts, **Chat/Add friend** and **Profile** actions sit
+  below. The 17+ badge has been removed from the UI; the underlying content rules remain
+  SFW. History is per world instance; Mattermost DMs are not imported.
 - **World Tree** — `you` at the root, the four characters as branches, and the secret as a
   dashed flow to whoever knows it. Click a node to inspect that character's beliefs and
   relationship bars.
 - **Secret Ledger** — the full belief matrix, directed relationship bars, and the event feed.
-- **Settings** — theme and motion, Switch/Mattermost links, provider status, world controls,
-  scene-card export, the submission deadline, a **Geek Room layer** card (Bifrost beat /
-  Tavily event), and a **Canon & worldline** card.
+- **Settings** — theme and motion, the **Time machine** (mock/real, advance/play), Switch
+  and Mattermost links, provider status, world controls, scene-card export, the submission
+  deadline, a **Geek Room layer** card (Bifrost beat / Tavily event), and a **Canon &
+  worldline** card.
 
 The **Profile** sheet is a character card, not a thumbnail: the full-body 立绘, age, height,
 birthday, specialty, likes and dislikes, a private canon line labelled **god view**, a
@@ -115,25 +125,62 @@ Mattermost and the Switch Console are separate apps with their own live updates.
 
 ### Driving the story
 
-The dashboard is a **read-only projection**. `Next line` only steps through the dialogue
-already captured in the feed; it does not generate a new turn. To advance the world:
+The dashboard is a **projection plus two write surfaces** (scene and phone); everything
+still lands in the same world engine. To advance the world:
 
-1. **Use the phone** — the right-hand phone on Story is a private DM. Pick a cast card,
-   type, send; the reply comes through Bifrost/OpenCode and is logged as a private `dm`
-   event. This needs no Mattermost login.
-2. **Talk in #world** — open `#world` at
+1. **Talk in the scene** — the Story stage shows who is present at the current beat. Type a
+   line or click one of the three authored choices. The director posts it to `#world`
+   addressed to those characters, the agents answer through Switch, and the replies are
+   recorded as `dialogue` events. `Next line` steps through the performance; `Next line`
+   with no queued replies walks the captured feed.
+2. **Use the phone** — add the character as a friend first (cast card or the phone lock).
+   Then type; the reply comes through Bifrost/OpenCode and is logged as a private `dm`
+   event. This needs no Mattermost login. **Phone DMs are intentionally not mirrored into
+   Mattermost** — they are private, so they stay in the world DB and the phone; `#world` is
+   the public room.
+3. **Talk in #world directly** — open `#world` at
    <http://127.0.0.1:8065/switch/channels/world>. Mattermost may ask you to log in first;
-   the local user is `MATTERMOST_USER` in `.env`. Address `@alice` / `@emily`. In this
-   build direct Mattermost DMs can show only the session status (the bridge posts the reply
-   to Town Square), so use the phone for private DMs and `#world` for live Switch chat.
-3. **Run a beat** — Flip: `uv run director --switch` (seed Alice first with the dashboard's
+   the local user is `MATTERMOST_USER` in `.env`. In a channel, address the people you want:
+   `@alice @emily are we still on for tonight?` — the same group-chat path the scene
+   composer uses. In this build direct Mattermost DMs can show only the session status (the
+   bridge posts the reply to Town Square), so use the phone for private DMs and `#world`
+   for live Switch chat.
+4. **Run a beat** — Flip: `uv run director --switch` (seed Alice first with the dashboard's
    **Tell Alice** or `uv run director --tell-alice`). Geek Room: `scripts/run-bifrost.sh`,
    then **Settings → Run Bifrost beat**, or `uv run director --bifrost`.
-4. **Run a partial beat** — Settings → **Demo beats**: choose morning / lunch / café /
+5. **Run a partial beat** — Settings → **Demo beats**: choose morning / lunch / café /
    aftermath / roundup, then **Run selected local beat** or **Run full local arc**. The
    café is the required branch; aftermath needs it; the other beats are independent
    partial demos. Bifrost: choose the beat and use **Run Bifrost beat**. CLI:
    `uv run director --beat morning-shop` or `uv run director --arc`.
+
+### The time machine
+
+The world stores **one story datetime** (`clock.now`) plus a mode:
+
+- **Mock time** — the default. The story waits. `Advance to next beat` jumps the clock to
+  the next authored beat; `Advance & play` jumps to the **first beat that has not happened
+  yet** and runs it locally, which is the fast way to unlock the next plot window in a
+  demo. A manual jump always returns the clock to mock.
+- **Real time (align)** — jumps to the next beat whose time of day is still ahead of the
+  wall clock (or the first beat tomorrow), then runs at 1× from that anchor. If it is 14:00
+  you land at 18:30 and the café arrives when it actually arrives. Because the story date
+  is stored, the world knows which day of the story it is.
+
+`GET /api/clock` returns the clock, the current beat and the next beat;
+`POST /api/clock/mode` switches mode; `POST /api/clock/advance` takes `{run, beat}`. The
+Settings → **Time machine** card is the UI, and the rail clock shows `· MOCK` or `· REAL`.
+
+### Group chat vs. phone
+
+| Surface | Transport | What it records | Who sees it |
+| --- | --- | --- | --- |
+| Scene / `#world` | live Switch room | `dialogue` events | the whole room, all agents |
+| Phone DM | local model via Bifrost/OpenCode | private `dm` events | only that character's phone |
+| Authored beat | director + Switch or local | `dialogue`, `beat`, `branch` | the world feed |
+
+Friend state is a small `friends` table in the world DB. It gates the phone endpoints
+(`/api/dm*` returns 403 until `POST /api/friends/<id>`), not the public room.
 
 The header's **Open #world** link points at the verified public Mattermost channel
 (`switch/world`). It opens in the same tab because embedded previews and some popup
@@ -172,7 +219,7 @@ world runs:
   Switch room;
 - **stop Switch and the live world cannot advance** — no rooms, no sessions, no delivery,
   and the director's Switch posts fail. The dashboard still renders the last state, which
-  proves it is a read-only projection, not the world.
+  proves the dashboard is a projection of the last state, not the world.
 
 `docker compose down` is the "remove Switch" test, and the demo shows it. In the Geek Room
 edition the phone DM, local authored beats and Tavily path can still run without Switch;
@@ -187,7 +234,7 @@ the live four-agent café path cannot.
 | **Director** | authored beats, branch checks, post/record choreography |
 | **Bifrost** | Geek Room model routing, fallbacks, per-character budgets and logs |
 | **Tavily** | real-world input and live retrieval |
-| **Dashboard / phone** | read-only projection; phone DM is a Bifrost write surface |
+| **Dashboard / scene / phone** | projection plus write surfaces: group scene, friend-gated phone DM, time machine |
 
 Switch is not the world state, and in the Geek Room edition it is not the model router.
 Removing Switch stops the live rooms and Switch-driven beats; it does not delete the
@@ -474,18 +521,19 @@ user ── Mattermost channel/DM ── Switch room ── Switch agent (Alice)
                           │  posts @alice / @emily scene turns
                           └─ world engine ── SQLite
                                    │
-                               dashboard (read-only /api/*)
+                               dashboard (projection + scene/phone writes)
 ```
 
 1. **Switch** — rooms, agents, sessions, message delivery, the Mattermost bridge.
 2. **World engine** — FastAPI + MCP; beliefs, relationships, events and provenance;
-   per-character tokens; the read-only dashboard.
+   per-character tokens; the dashboard projection.
 3. **Director** — a deterministic beat runner; posts scene turns into Switch and reads room
    history to chain them. The LLM is used for dialogue and social decisions, not scheduling.
 4. **Characters** — four Switch agents on **OpenCode**, each with `AGENTS.md`,
    `IDENTITY.md`, a generated `opencode.json` pointing at the world engine, and a scoped
    token.
-5. **Dashboard** — polls the world engine's read-only `/api/*`; never opens SQLite itself.
+5. **Dashboard** — polls `/api/state` for the projection; writes only through
+   `/api/group/say`, `/api/dm` and `/api/clock/*`; never opens SQLite itself.
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and [`docs/SWITCH.md`](docs/SWITCH.md).
 
@@ -699,7 +747,7 @@ the scene card above: the user and the cast co-produce a scene and its provenanc
 | `tests/` | pytest for the service, API, canon and café beat |
 | `agents/<name>/` | per-character working directories: `AGENTS.md`, `IDENTITY.md`, `CLAUDE.md`, generated `opencode.json` / `.mcp.json` |
 | `mcp/` | the world engine's MCP tool surface (design notes) |
-| `director/` | authored beat runners (local/Bifrost/Switch), the phone DM, and `canon.py` |
+| `director/` | authored beat runners (local/Bifrost/Switch), the phone DM, group chat (`group.py`), the time machine (`clock.py`), and `canon.py` |
 | `scripts/fetch-switch.sh` | pull the pinned Switch compose artifact |
 | `scripts/generate-cast-art.py` | one flow for the bust/full-body/avatar set |
 | `scripts/update-mattermost-avatars.sh` | push the square crops to the four bot accounts |

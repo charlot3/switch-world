@@ -75,7 +75,14 @@ CREATE TABLE IF NOT EXISTS beats (
 CREATE TABLE IF NOT EXISTS clock (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     now TEXT NOT NULL,
-    day TEXT NOT NULL
+    day TEXT NOT NULL,
+    mode TEXT NOT NULL DEFAULT 'mock',
+    anchor_real TEXT
+);
+
+CREATE TABLE IF NOT EXISTS friends (
+    character TEXT PRIMARY KEY REFERENCES characters(id),
+    since TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS meta (
@@ -99,7 +106,11 @@ def init_db(db_path: Path | str, state_dir: Path = config.STATE_DIR) -> None:
     conn = connect(path)
     try:
         conn.executescript(SCHEMA)
-        conn.execute("INSERT OR IGNORE INTO meta(key, value) VALUES ('schema_version', '1')")
+        _migrate(conn)
+        conn.execute(
+            "INSERT INTO meta(key, value) VALUES ('schema_version', '2') "
+            "ON CONFLICT(key) DO UPDATE SET value = '2'"
+        )
         conn.execute(
             "INSERT OR IGNORE INTO clock(id, now, day) VALUES (1, ?, ?)",
             (config.WORLD_START, config.WORLD_DAY),
@@ -111,6 +122,15 @@ def init_db(db_path: Path | str, state_dir: Path = config.STATE_DIR) -> None:
         conn.commit()
     finally:
         conn.close()
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Add columns that older demo databases predate. Safe to run every boot."""
+    columns = {row["name"] for row in conn.execute("PRAGMA table_info(clock)")}
+    if "mode" not in columns:
+        conn.execute("ALTER TABLE clock ADD COLUMN mode TEXT NOT NULL DEFAULT 'mock'")
+    if "anchor_real" not in columns:
+        conn.execute("ALTER TABLE clock ADD COLUMN anchor_real TEXT")
 
 
 def _seed(conn: sqlite3.Connection, state_dir: Path) -> None:

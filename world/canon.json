@@ -61,6 +61,11 @@
       ],
       "goal": "Alice weighs whether to tell Emily. The user can visit, but the scene does not force a decision.",
       "exit": "Alice is still holding the secret.",
+      "choices": [
+        "I wanted to see you before the day got loud.",
+        "You don't have to carry it alone, you know.",
+        "I'll make the tea. You finish opening up."
+      ],
       "local": [
         {
           "speaker": "alice",
@@ -104,6 +109,11 @@
       ],
       "goal": "Mia vents about money; Sophia listens and takes mental notes. Neither knows the secret.",
       "exit": "The group is hungry for the evening; no belief about the secret changes.",
+      "choices": [
+        "Mia, what's the real number on the truck?",
+        "Sophia, are you writing about us again?",
+        "Save me the crispy bits and I'll owe you forever."
+      ],
       "local": [
         {
           "speaker": "mia",
@@ -157,7 +167,12 @@
         "user"
       ],
       "goal": "Emily asks Alice directly. Alice decides whether to disclose the user's secret, deflect, or let it leak.",
-      "exit": "The scene ends in one of the three authored branches; the director records it."
+      "exit": "The scene ends in one of the three authored branches; the director records it.",
+      "choices": [
+        "Alice. Whatever it is, you can say it here.",
+        "I heard about the lease. You don't have to carry it alone.",
+        "Nobody has to explain anything tonight. Let's just eat."
+      ]
     },
     {
       "id": "aftermath",
@@ -172,6 +187,11 @@
       ],
       "goal": "The people who spoke process what was said. Relationships move; nobody retcons the scene.",
       "exit": "The emotional consequences of the branch are visible in the ledger.",
+      "choices": [
+        "That could have gone worse.",
+        "Do you want me to walk you home?",
+        "You did the right thing. Even if it doesn't feel like it."
+      ],
       "local_by_branch": {
         "disclosure": [
           {
@@ -266,6 +286,11 @@
       ],
       "goal": "The day's beliefs settle. The director exports the scene card.",
       "exit": "The scene card is the day's artifact.",
+      "choices": [
+        "So are we going to talk about tonight?",
+        "No post-mortems. Just tell me everyone got home.",
+        "Alice, I'm here. Whatever you decide."
+      ],
       "local": [
         {
           "speaker": "alice",

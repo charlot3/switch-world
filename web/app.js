@@ -26,6 +26,8 @@ const state = {
     loading: false,
     sending: false,
   },
+  performance: null,
+  group: { sending: false },
 };
 
 function initialTheme() {
@@ -155,6 +157,24 @@ function castIdForName(name) {
   }) || null;
 }
 
+function currentBeat(data) {
+  const scene = (data && data.scene) || {};
+  if (scene.current_beat) return scene.current_beat;
+  const beats = (data && data.canon && data.canon.beats) || [];
+  return beats[0] || null;
+}
+
+function presentCharacters(data) {
+  const beat = currentBeat(data);
+  if (!beat) return ORDER.slice();
+  return (beat.characters || []).map((id) => String(id).toLowerCase())
+    .filter((id) => CAST[id]);
+}
+
+function isFriend(data, id) {
+  return Boolean(data && (data.friends || []).includes(id));
+}
+
 function dialogueEvents(data) {
   return (data.events || [])
     .filter((event) => event.kind === "dialogue")
@@ -263,15 +283,30 @@ function typeLine(element, text, key) {
 }
 
 function renderStory(data) {
+  const beat = currentBeat(data);
+  const present = presentCharacters(data);
+  if (present.length && !present.includes(state.selected)) state.selected = present[0];
+
+  const performance = state.performance && state.performance.items[state.performance.index];
   const lines = dialogueEvents(data).slice(-8);
   if (state.lineId != null && !lines.some((line) => line.id === state.lineId)) {
     state.lineId = null;
   }
   const castLines = lines.filter((item) => item.castId === state.selected);
-  const line = state.lineId != null
+  let line = state.lineId != null
     ? lines.find((item) => item.id === state.lineId)
     : (castLines[castLines.length - 1] || null);
-  if (line && state.lineId != null && line.castId) state.selected = line.castId;
+  if (performance) {
+    line = {
+      id: `perf:${state.performance.index}:${performance.text.slice(0, 24)}`,
+      name: performance.character === "user" ? "You" : (CAST[performance.character] || {}).name || performance.character,
+      castId: performance.character === "user" ? null : performance.character,
+      text: performance.text,
+      ts: data.clock ? data.clock.now : null,
+    };
+  } else if (line && state.lineId != null && line.castId) {
+    state.selected = line.castId;
+  }
   const cast = CAST[(line && line.castId) || state.selected] || CAST[state.selected];
 
   const scene = $(".scene");
@@ -279,20 +314,43 @@ function renderStory(data) {
   const portrait = $("#scene-portrait");
   portrait.onerror = () => {
     portrait.onerror = null;
-    portrait.src = `/static/assets/portraits/${cast.id}.svg`;
+    portrait.src = `/static/assets/portraits/${cast.id}-bust.png`;
   };
-  portrait.src = cast.portrait;
+  portrait.src = cast.full || cast.portrait;
   portrait.alt = `${cast.name} portrait`;
-  $("#scene-name").textContent = cast.name;
-  $("#scene-jp").textContent = cast.jp;
-  $("#scene-mood").textContent = cast.mood;
-  $("#scene-stamp").textContent = "SCENE · THE CAFÉ";
-  $("#scene-caption").textContent = line
-    ? `${formatClock(line.ts)} · late autumn`
+  portrait.style.setProperty("--sprite-scale", cast.fullScale || 1);
+  $("#scene-name").textContent = line ? line.name : cast.name;
+  $("#scene-jp").textContent = line && line.name === "You" ? "" : cast.jp;
+  $("#scene-mood").textContent = line && line.name === "You" ? "in the room" : cast.mood;
+  $("#scene-stamp").textContent = beat ? `SCENE · ${beat.title.toUpperCase()}` : "SCENE · THE CAFÉ";
+  $("#scene-caption").textContent = beat
+    ? `${formatTime(data.clock.now)} · ${beat.place || beat.title}`
     : "18:30 · a Tuesday in late autumn";
 
   const text = line ? line.text : cast.quote;
   typeLine($("#scene-line"), text, line ? `line:${line.id}` : `quote:${cast.id}`);
+
+  renderSceneCast(present);
+  renderChoices(beat);
+  const sayInput = $("#scene-say-input");
+  if (sayInput) {
+    sayInput.placeholder = present.length > 1
+      ? "Say something to the room…"
+      : `Say something to ${present.length ? firstName(CAST[present[0]].name) : "them"}…`;
+  }
+
+  const status = $("#scene-status");
+  if (status) {
+    if (state.group.sending) {
+      status.textContent = present.length
+        ? `${present.map((id) => firstName(CAST[id].name)).join(", ")} ${present.length === 1 ? "is" : "are"} listening…`
+        : "The room is listening…";
+    } else if (state.performance) {
+      status.textContent = `Line ${state.performance.index + 1} of ${state.performance.items.length} · Next line to continue`;
+    } else {
+      status.textContent = "";
+    }
+  }
 
   const rail = $("#scene-rail");
   rail.replaceChildren();
@@ -304,6 +362,7 @@ function renderStory(data) {
     button.title = item.text;
     button.addEventListener("click", () => {
       state.lineId = item.id;
+      state.performance = null;
       if (item.castId) state.selected = item.castId;
       renderStory(state.data);
     });
@@ -314,6 +373,103 @@ function renderStory(data) {
   renderCast(data);
   renderArc(data);
   renderPhone(data);
+}
+
+function renderSceneCast(present) {
+  const row = $("#scene-cast");
+  if (!row) return;
+  row.replaceChildren();
+  present.forEach((id) => {
+    const cast = CAST[id];
+    if (!cast) return;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "scene-member" + (state.selected === id ? " is-active" : "");
+    button.title = `${cast.name} — ${cast.role}`;
+    button.setAttribute("aria-label", `${cast.name}, ${cast.role}`);
+    const img = document.createElement("img");
+    img.src = cast.avatar;
+    img.alt = "";
+    img.onerror = () => {
+      img.onerror = null;
+      img.src = `/static/assets/portraits/${id}-avatar.svg`;
+    };
+    button.appendChild(img);
+    const label = document.createElement("span");
+    label.textContent = firstName(cast.name);
+    button.appendChild(label);
+    button.addEventListener("click", () => {
+      state.performance = null;
+      selectCast(id);
+    });
+    row.appendChild(button);
+  });
+}
+
+function renderChoices(beat) {
+  const box = $("#scene-choices");
+  if (!box) return;
+  box.replaceChildren();
+  const choices = (beat && beat.choices) || [];
+  choices.forEach((text) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "scene-choice";
+    button.textContent = text;
+    button.disabled = state.group.sending;
+    button.addEventListener("click", () => sendGroup(text));
+    box.appendChild(button);
+  });
+  box.hidden = choices.length === 0;
+}
+
+async function sendGroup(text) {
+  text = String(text || "").trim();
+  if (!text || state.group.sending) return;
+  const present = presentCharacters(state.data);
+  state.group.sending = true;
+  state.performance = { items: [{ character: "user", text }], index: 0 };
+  renderStory(state.data);
+
+  const input = $("#scene-say-input");
+  const send = $("#scene-say-send");
+  if (input) input.disabled = true;
+  if (send) send.disabled = true;
+
+  try {
+    const result = await api("/api/group/say", {
+      method: "POST",
+      body: JSON.stringify({ message: text, characters: present, timeout: 50 }),
+    });
+    state.group.sending = false;
+    if (result.replies && result.replies.length) {
+      state.performance = {
+        items: result.replies.map((reply) => ({ character: reply.character, text: reply.text })),
+        index: 0,
+      };
+    } else {
+      state.performance = null;
+    }
+    await refresh();
+    const status = $("#scene-status");
+    if (status && result.missing && result.missing.length) {
+      status.textContent = `No reply yet from ${result.missing.map((id) => firstName((CAST[id] || {}).name || id)).join(", ")}. The room may be quiet.`;
+    }
+  } catch (error) {
+    state.group.sending = false;
+    state.performance = null;
+    renderStory(state.data);
+    const status = $("#scene-status");
+    if (status) status.textContent = `The room didn't answer: ${error.message}`;
+  } finally {
+    state.group.sending = false;
+    if (input) {
+      input.disabled = false;
+      input.value = "";
+    }
+    if (send) send.disabled = false;
+    if (state.data) renderStory(state.data);
+  }
 }
 
 function renderHero(data) {
@@ -450,9 +606,13 @@ function renderCast(data) {
     const chat = document.createElement("button");
     chat.type = "button";
     chat.className = "cast-dm";
-    chat.textContent = "Chat";
+    chat.textContent = isFriend(data, id) ? "Chat" : "Add friend";
     chat.addEventListener("click", (event) => {
       event.stopPropagation();
+      if (!isFriend(state.data, id)) {
+        addFriend(id);
+        return;
+      }
       selectCast(id);
       $(".story-phone").scrollIntoView({ behavior: "smooth", block: "center" });
       $("#phone-input").focus();
@@ -475,6 +635,16 @@ function renderCast(data) {
 function renderPhone(data) {
   const cast = CAST[state.selected] || CAST[ORDER[0]];
   if (!cast) return;
+  const friend = isFriend(data, cast.id);
+  const phone = $(".phone");
+  if (phone) phone.classList.toggle("is-locked", !friend);
+  const input = $("#phone-input");
+  const send = $("#phone-send");
+  if (input) {
+    input.disabled = !friend || state.phone.sending;
+    input.placeholder = friend ? `Message ${firstName(cast.name)}…` : "Add as a friend to chat";
+  }
+  if (send) send.disabled = !friend || state.phone.sending;
   const avatar = $("#phone-avatar");
   avatar.onerror = () => {
     avatar.onerror = null;
@@ -485,13 +655,22 @@ function renderPhone(data) {
   $("#phone-name").textContent = cast.name;
   $("#phone-mood").textContent = cast.mood;
   $("#phone-open").href = "http://127.0.0.1:8065/switch/channels/world";
-  $("#phone-input").placeholder = `Message ${firstName(cast.name)}…`;
   const clock = data.clock && data.clock.now
     ? new Date(data.clock.now).toLocaleTimeString("en-GB", {
         timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit",
       })
     : "--:--";
   $("#phone-time").textContent = clock;
+
+  if (!friend) {
+    $("#phone-mood").textContent = "not a friend yet";
+    state.phone.character = null;
+    state.phone.messages = [];
+    state.phone.hasMore = false;
+    paintPhone(cast);
+    return;
+  }
+  $("#phone-mood").textContent = cast.mood;
 
   if (state.phone.sending) return;
 
@@ -528,6 +707,29 @@ function paintPhone(cast) {
     bubble.appendChild(document.createTextNode(text));
     thread.appendChild(bubble);
   };
+
+  if (!isFriend(state.data, cast.id)) {
+    const lock = document.createElement("div");
+    lock.className = "phone-lock";
+    const icon = document.createElement("div");
+    icon.className = "phone-lock-icon";
+    icon.textContent = "◇";
+    lock.appendChild(icon);
+    const title = document.createElement("strong");
+    title.textContent = `You haven't added ${firstName(cast.name)} yet.`;
+    lock.appendChild(title);
+    const note = document.createElement("p");
+    note.textContent = "Phone chat unlocks after you add her as a friend. Talk to her in the scene first.";
+    lock.appendChild(note);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "btn primary";
+    button.textContent = `Add ${firstName(cast.name)} as a friend`;
+    button.addEventListener("click", () => addFriend(cast.id));
+    lock.appendChild(button);
+    thread.appendChild(lock);
+    return;
+  }
 
   if (state.phone.loading && !state.phone.messages.length) {
     const loading = document.createElement("div");
@@ -568,8 +770,26 @@ function paintPhone(cast) {
   thread.scrollTop = thread.scrollHeight;
 }
 
+async function addFriend(character) {
+  if (!character) return;
+  try {
+    await api(`/api/friends/${encodeURIComponent(character)}`, { method: "POST" });
+    selectCast(character);
+    state.phone.character = null;
+    state.phone.messages = [];
+    await refresh();
+    await loadPhoneHistory(character);
+    $(".story-phone").scrollIntoView({ behavior: "smooth", block: "center" });
+    $("#phone-input").focus();
+  } catch (error) {
+    const status = $("#scene-status");
+    if (status) status.textContent = `Could not add ${character}: ${error.message}`;
+  }
+}
+
 async function loadPhoneHistory(character, beforeId = null, prepend = false) {
   if (!character || state.phone.loading || state.phone.sending) return;
+  if (!isFriend(state.data, character)) return;
   state.phone.loading = true;
   const thread = $("#phone-thread");
   const previousHeight = thread ? thread.scrollHeight : 0;
@@ -615,6 +835,10 @@ async function sendPhone(event) {
   const message = input.value.trim();
   if (!message) return;
   const character = state.selected || "alice";
+  if (!isFriend(state.data, character)) {
+    addFriend(character);
+    return;
+  }
   const cast = CAST[character];
   const thread = $("#phone-thread");
   input.value = "";
@@ -655,9 +879,10 @@ async function sendPhone(event) {
   } finally {
     state.phone.sending = false;
     typing.hidden = true;
-    input.disabled = false;
-    send.disabled = false;
-    input.focus();
+    const friend = isFriend(state.data, character);
+    input.disabled = !friend;
+    send.disabled = !friend;
+    if (friend) input.focus();
     if (!cast) input.placeholder = "Message…";
   }
 }
@@ -1366,6 +1591,27 @@ function closeProfile() {
 function renderSettings(data) {
   const current = data || state.data || {};
   renderCanon(current);
+  const scene = current.scene || {};
+  const mode = (current.clock && current.clock.mode) || "mock";
+  const clockNow = $("#clock-now");
+  if (clockNow) clockNow.textContent = formatClock(current.clock.now);
+  const clockMode = $("#clock-mode");
+  if (clockMode) {
+    clockMode.textContent = mode === "realtime" ? "real time · 1×" : "mock time";
+    clockMode.className = mode === "realtime" ? "is-real" : "";
+  }
+  const clockNext = $("#clock-next");
+  if (clockNext) {
+    clockNext.textContent = scene.next_beat
+      ? `${scene.next_beat.time} · ${scene.next_beat.title}`
+      : "—";
+  }
+  const clockStatus = $("#clock-status");
+  if (clockStatus) {
+    clockStatus.textContent = mode === "realtime"
+      ? "Real time · the story follows the wall clock until you jump."
+      : "Mock time · the story waits for you.";
+  }
   const beatSelect = $("#beat-select");
   if (beatSelect) {
     const previous = beatSelect.value;
@@ -1441,7 +1687,8 @@ function setView(view) {
 }
 
 function render(data) {
-  $("#rail-clock").textContent = formatClock(data.clock.now);
+  const mode = data.clock && data.clock.mode === "realtime" ? " · REAL" : " · MOCK";
+  $("#rail-clock").textContent = formatClock(data.clock.now) + mode;
   if (state.view === "story") renderStory(data);
   if (state.view === "tree") renderTree(data);
   if (state.view === "ledger") renderLedger(data);
@@ -1553,6 +1800,49 @@ async function fetchTavily() {
   }
 }
 
+async function setClockMode(mode) {
+  const status = $("#clock-status");
+  if (status) status.textContent = mode === "realtime" ? "Aligning the story to the wall clock…" : "Freezing the story clock…";
+  try {
+    const result = await api("/api/clock/mode", {
+      method: "POST",
+      body: JSON.stringify({ mode }),
+    });
+    if (status) {
+      status.textContent = mode === "realtime"
+        ? `Real time from ${formatClock(result.clock.now)}. The next beat arrives when the clock does.`
+        : "Mock time · the story waits for you.";
+    }
+    await refresh();
+  } catch (error) {
+    if (status) status.textContent = `Clock mode failed: ${error.message}`;
+  }
+}
+
+async function advanceClock(run) {
+  const status = $("#clock-status");
+  const buttons = [$("#clock-advance"), $("#clock-play")];
+  buttons.forEach((button) => { if (button) button.disabled = true; });
+  if (status) status.textContent = run ? "Jumping to the next beat and playing it…" : "Jumping to the next beat…";
+  try {
+    const result = await api("/api/clock/advance", {
+      method: "POST",
+      body: JSON.stringify({ run: Boolean(run) }),
+    });
+    if (status) {
+      status.textContent = `Now ${result.view.current_beat.title} at ${formatClock(result.clock.now)}${run ? " · beat played" : ""}.`;
+    }
+    state.performance = null;
+    state.lineId = null;
+    await refresh();
+    if (run) await loadSceneCard();
+  } catch (error) {
+    if (status) status.textContent = `Clock advance failed: ${error.message}`;
+  } finally {
+    buttons.forEach((button) => { if (button) button.disabled = false; });
+  }
+}
+
 async function runLocalBeat() {
   const beat = $("#beat-select")?.value || "cafe";
   try {
@@ -1628,6 +1918,16 @@ async function copyLiveCommand() {
 }
 
 function nextLine() {
+  if (state.performance) {
+    if (state.performance.index < state.performance.items.length - 1) {
+      state.performance.index += 1;
+      renderStory(state.data);
+      return;
+    }
+    state.performance = null;
+    renderStory(state.data);
+    return;
+  }
   const lines = dialogueEvents(state.data || {});
   if (!lines.length) return;
   const index = lines.findIndex((line) => line.id === state.lineId);
@@ -1702,10 +2002,27 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") closeProfile();
 });
 $("#scene-next").addEventListener("click", nextLine);
+$("#scene-say-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const input = $("#scene-say-input");
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = "";
+  sendGroup(text);
+});
 $("#scene-dm").addEventListener("click", () => {
+  const cast = CAST[state.selected];
+  if (cast && !isFriend(state.data, cast.id)) {
+    addFriend(cast.id);
+    return;
+  }
   $(".story-phone").scrollIntoView({ behavior: "smooth", block: "center" });
   $("#phone-input").focus();
 });
+$("#clock-mock").addEventListener("click", () => setClockMode("mock"));
+$("#clock-real").addEventListener("click", () => setClockMode("realtime"));
+$("#clock-advance").addEventListener("click", () => advanceClock(false));
+$("#clock-play").addEventListener("click", () => advanceClock(true));
 $("#scene-run").addEventListener("click", copyLiveCommand);
 $("#tell-alice").addEventListener("click", tellAlice);
 $("#run-cafe").addEventListener("click", runLocalBeat);

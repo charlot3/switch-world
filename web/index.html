@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>switch-world — a small town, four hearts, one secret</title>
-  <link rel="stylesheet" href="/static/styles.css?v=20261105-14">
-  <script src="/static/cast.js?v=20261105-14" defer></script>
-  <script src="/static/app.js?v=20261105-14" defer></script>
+  <link rel="stylesheet" href="/static/styles.css?v=20261105-23">
+  <script src="/static/cast.js?v=20261105-23" defer></script>
+  <script src="/static/app.js?v=20261105-23" defer></script>
 </head>
 <body>
   <div class="petals" id="petals" aria-hidden="true"></div>
@@ -96,7 +96,6 @@
             <div class="scene-actions">
               <button class="btn primary" id="scene-next" type="button">Next line <span class="kbd">→</span></button>
               <button class="btn ghost" id="scene-dm" type="button">Open the phone</button>
-              <button class="btn ghost" id="scene-run" type="button">Copy live-beat command</button>
             </div>
             <div class="scene-rail" id="scene-rail" aria-label="Recent dialogue"></div>
           </div>
@@ -118,6 +117,7 @@
           </div>
 
           <aside class="story-phone" aria-label="Private chat">
+            <button class="phone-close" id="phone-close" type="button" aria-label="Close phone">×</button>
             <div class="phone">
               <div class="phone-notch" aria-hidden="true"></div>
               <div class="phone-screen">

@@ -305,7 +305,6 @@ main {
   transition: opacity 160ms ease;
 }
 
-main.refreshing { opacity: 0.68; }
 
 /* ---- top -------------------------------------------------------------- */
 
@@ -928,16 +927,16 @@ select {
 .phone-home { width: 100px; height: 4px; margin: 4px auto 8px; border-radius: 2px; background: rgba(255, 255, 255, 0.22); }
 .phone-note { margin: 8px 4px 0; text-align: right; font-size: 8.5px; color: var(--muted); }
 .phone-note a { color: var(--rose-soft); text-decoration: none; }
+.phone-close { display: none; }
 
 @keyframes phone-blink { 0%, 100% { opacity: 0.35; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-2px); } }
 
-@media (max-width: 1120px) {
-  .story-layout { grid-template-columns: minmax(0, 1fr) 330px; }
+@media (max-width: 1360px) {
+  .story-layout { grid-template-columns: 1fr; }
+  .story-phone { position: static; order: 2; }
 }
 
 @media (max-width: 900px) {
-  .story-layout { grid-template-columns: 1fr; }
-  .story-phone { position: static; order: 2; }
   .phone { max-width: 420px; margin: 0 auto; }
   .phone-screen { height: 560px; }
 }
@@ -1479,10 +1478,10 @@ body.modal-open { overflow: hidden; }
 
 @media (max-width: 860px) {
   .app { grid-template-columns: 1fr; }
-  .rail { position: static; height: auto; flex-direction: row; align-items: center; gap: 12px; padding: 12px 14px; border-right: 0; border-bottom: 1px solid var(--border); overflow-x: auto; }
+  .rail { position: static; height: auto; flex-direction: row; align-items: center; gap: 10px; padding: 10px 12px; border-right: 0; border-bottom: 1px solid var(--border); overflow: visible; }
   .rail-brand { flex: 0 0 auto; }
   .rail-brand span { display: none; }
-  .rail-nav { flex-direction: row; gap: 4px; flex: 0 0 auto; }
+  .rail-nav { flex-direction: row; gap: 2px; flex: 1 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; }
   .rail-link { width: auto; padding: 8px 10px; white-space: nowrap; }
   .rail-link em { display: none; }
   .rail-foot { margin: 0 0 0 auto; flex-direction: row; align-items: center; gap: 8px; }
@@ -1496,8 +1495,52 @@ body.modal-open { overflow: hidden; }
   .cast-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
+@media (max-width: 760px) {
+  .scene-art {
+    width: 100%;
+    height: clamp(220px, 34dvh, 320px);
+    min-height: 0;
+    aspect-ratio: auto;
+    margin: 0;
+  }
+  .scene-portrait { object-fit: cover; object-position: 62% 28%; }
+  .scene-cast { bottom: 8px; }
+  .story-phone {
+    display: none;
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100dvh;
+    max-width: none;
+    z-index: 120;
+    padding: 12px;
+    background: var(--bg);
+    overflow-y: auto;
+  }
+  .story-phone.is-open { display: block; }
+  .story-phone .phone { max-width: 460px; height: calc(100dvh - 24px); margin: 0 auto; }
+  .story-phone .phone-screen { height: 100%; }
+  .phone-close {
+    display: grid;
+    place-items: center;
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 130;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1px solid var(--border-strong);
+    background: var(--surface-2);
+    color: var(--ink);
+    font-size: 22px;
+    line-height: 1;
+  }
+}
+
 @media (max-width: 620px) {
-  .rail-brand strong { font-size: 14px; }
+  .rail-brand strong { font-size: 14px; display: none; }
+  .rail-clock { display: none; }
   .cast-art { height: 240px; }
   .cast-art img { object-position: 50% 30%; }
   .scene-portrait { object-position: 50% 36%; }
@@ -1538,4 +1581,123 @@ body.modal-open { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
   .petals { display: none; }
+}
+
+/* ---- explicit shell modes --------------------------------------------- */
+/* Set by shellMode() from the visible width. This is the guard for embedded
+   980px layouts and desktop-site mode, where media queries see the wrong width. */
+
+html[data-shell="compact"] .story-layout { grid-template-columns: 1fr; }
+html[data-shell="compact"] .app { grid-template-columns: 198px minmax(0, 1fr); }
+
+html[data-shell="phone"] .app { grid-template-columns: minmax(0, 1fr); }
+html[data-shell="phone"] .rail {
+  position: static;
+  height: auto;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-right: 0;
+  border-bottom: 1px solid var(--border);
+  overflow: visible;
+}
+html[data-shell="phone"] .rail-brand span,
+html[data-shell="phone"] .rail-nav em,
+html[data-shell="phone"] .rail-clock,
+html[data-shell="phone"] .rail-badges { display: none; }
+html[data-shell="phone"] .rail-brand strong { display: none; }
+html[data-shell="phone"] .rail-nav {
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-direction: row;
+  gap: 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+html[data-shell="phone"] .rail-foot { margin: 0 0 0 auto; }
+html[data-shell="phone"] main { padding: 0 16px 34px; }
+html[data-shell="phone"] .story-layout { display: block; grid-template-columns: 1fr; }
+html[data-shell="phone"] .scene { grid-template-columns: 1fr; }
+html[data-shell="phone"] .scene-art {
+  width: 100%;
+  height: clamp(220px, 34dvh, 320px);
+  min-height: 0;
+  aspect-ratio: auto;
+  margin: 0;
+}
+html[data-shell="phone"] .scene-portrait { object-fit: cover; object-position: 62% 28%; }
+html[data-shell="phone"] .scene-cast { bottom: 8px; }
+html[data-shell="phone"] .story-phone {
+  display: none;
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  max-width: none;
+  z-index: 120;
+  padding: 12px;
+  background: var(--bg);
+  overflow-y: auto;
+}
+html[data-shell="phone"] .story-phone.is-open { display: block; }
+html[data-shell="phone"] .story-phone .phone { max-width: 460px; height: calc(100dvh - 24px); margin: 0 auto; }
+html[data-shell="phone"] .story-phone .phone-screen { height: 100%; }
+html[data-shell="phone"] .phone-close {
+  display: grid;
+  place-items: center;
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 130;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: 22px;
+  line-height: 1;
+}
+
+/* A transformed .view would become the containing block for the fixed phone. */
+html[data-shell="phone"] .view.is-active { animation: none; transform: none; }
+@media (max-width: 760px) {
+  .view.is-active { animation: none; transform: none; }
+}
+
+/* Compact/tablet: the phone is a drawer, not a 330px column. */
+@media (max-width: 1360px) {
+  .story-phone {
+    display: none;
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100dvh;
+    max-width: none;
+    z-index: 120;
+    padding: 12px;
+    background: var(--bg);
+    overflow-y: auto;
+  }
+  .story-phone.is-open { display: block; }
+  .story-phone .phone { max-width: 460px; height: calc(100dvh - 24px); margin: 0 auto; }
+  .story-phone .phone-screen { height: 100%; }
+  .phone-close {
+    display: grid;
+    place-items: center;
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 130;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1px solid var(--border-strong);
+    background: var(--surface-2);
+    color: var(--ink);
+    font-size: 22px;
+    line-height: 1;
+  }
+  html[data-shell="compact"] .view.is-active { animation: none; transform: none; }
 }

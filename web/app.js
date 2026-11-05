@@ -59,6 +59,13 @@ function initialView() {
   return ["story", "tree", "ledger", "settings"].includes(param) ? param : "story";
 }
 
+function shellMode() {
+  const visual = window.visualViewport ? window.visualViewport.width : window.innerWidth;
+  const width = Math.min(window.innerWidth, visual || window.innerWidth);
+  document.documentElement.dataset.shell = width <= 760 ? "phone" : width <= 1180 ? "compact" : "wide";
+  if (width > 760) closePhone();
+}
+
 function setTheme(theme) {
   state.theme = theme;
   document.documentElement.dataset.theme = theme;
@@ -867,8 +874,17 @@ function openPhone(character) {
     }
     if (state.data) renderPhone(state.data);
   }
-  $(".story-phone").scrollIntoView({ behavior: "smooth", block: "center" });
+  if (window.matchMedia("(max-width: 1360px)").matches) {
+    $(".story-phone").classList.add("is-open");
+  } else {
+    $(".story-phone").scrollIntoView({ behavior: "smooth", block: "center" });
+  }
   if (isFriend(state.data, id)) $("#phone-input").focus();
+}
+
+function closePhone() {
+  const phone = $(".story-phone");
+  if (phone) phone.classList.remove("is-open");
 }
 
 async function loadPhoneHistory(character, beforeId = null, prepend = false) {
@@ -1776,6 +1792,7 @@ const VIEW_META = {
 
 function setView(view) {
   closeProfile();
+  closePhone();
   state.view = view;
   $$(".rail-link").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.view === view);
@@ -2023,10 +2040,12 @@ async function copyLiveCommand() {
   } catch {
     $("#status").textContent = `Run in the terminal: ${command}`;
   }
-  const button = $("#scene-run");
-  const old = button.textContent;
-  button.textContent = "Copied ✓";
-  setTimeout(() => { button.textContent = old; }, 1800);
+  const button = $("#copy-command");
+  if (button) {
+    const old = button.textContent;
+    button.textContent = "Copied ✓";
+    setTimeout(() => { button.textContent = old; }, 1800);
+  }
 }
 
 function nextLine() {
@@ -2055,6 +2074,9 @@ function nextLine() {
 
 setTheme(state.theme);
 setMotion(state.motion);
+shellMode();
+window.addEventListener("resize", shellMode);
+if (window.visualViewport) window.visualViewport.addEventListener("resize", shellMode);
 setView(state.view);
 
 $$(".rail-link").forEach((button) => {
@@ -2113,7 +2135,12 @@ $("#profile-modal").addEventListener("click", (event) => {
   if (event.target.matches("[data-close-profile]")) closeProfile();
 });
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape") closeProfile();
+  if (event.key !== "Escape") return;
+  if ($(".story-phone")?.classList.contains("is-open")) {
+    closePhone();
+    return;
+  }
+  closeProfile();
 });
 $("#scene-next").addEventListener("click", nextLine);
 $("#scene-say-form").addEventListener("submit", (event) => {
@@ -2136,12 +2163,12 @@ $("#clock-mock").addEventListener("click", () => setClockMode("mock"));
 $("#clock-real").addEventListener("click", () => setClockMode("realtime"));
 $("#clock-advance").addEventListener("click", () => advanceClock(false));
 $("#clock-play").addEventListener("click", () => advanceClock(true));
-$("#scene-run").addEventListener("click", copyLiveCommand);
 $("#tell-alice").addEventListener("click", tellAlice);
 $("#run-cafe").addEventListener("click", runLocalBeat);
 $("#run-arc").addEventListener("click", runArc);
 $("#run-bifrost").addEventListener("click", runBifrost);
 $("#phone-form").addEventListener("submit", sendPhone);
+$("#phone-close").addEventListener("click", closePhone);
 $("#fetch-tavily").addEventListener("click", fetchTavily);
 $("#reset").addEventListener("click", resetWorld);
 $("#load-card").addEventListener("click", loadSceneCard);

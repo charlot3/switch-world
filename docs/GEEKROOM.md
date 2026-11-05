@@ -115,7 +115,9 @@ The demo shows:
 
 Screenshots: [`geekroom-dashboard.png`](geekroom-dashboard.png),
 [`geekroom-ledger.png`](geekroom-ledger.png),
-[`geekroom-settings.png`](geekroom-settings.png).
+[`geekroom-settings.png`](geekroom-settings.png). The real run also produced
+[`bifrost-log-example.jsonl`](bifrost-log-example.jsonl) (two requests: 3,043 + 2,403
+tokens) and [`scene-card-bifrost-example.md`](scene-card-bifrost-example.md).
 
 ## Geek Room deliverables
 

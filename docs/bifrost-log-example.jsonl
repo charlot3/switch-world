@@ -1,0 +1,2 @@
+{"ts":"2026-11-05T05:01:54.544673+00:00","character":"alice","model":"qwen3.8:27b-q4_K_M","prompt_tokens":1615,"completion_tokens":1428,"total_tokens":3043,"latency_ms":142329,"ok":true}
+{"ts":"2026-11-05T05:03:27.407643+00:00","character":"emily","model":"qwen3.8:27b-q4_K_M","prompt_tokens":1568,"completion_tokens":835,"total_tokens":2403,"latency_ms":92859,"ok":true}

@@ -285,6 +285,9 @@ The default is Ollama (`qwen3.8:27b-q4_K_M`). Add OpenAI/Anthropic providers in
 `deploy/bifrost/data/config.json` and point a character at `openai/...` or
 `anthropic/...`; the Python client does not change. Per-character token budgets,
 fallbacks and virtual-key headers are in [`docs/GEEKROOM.md`](docs/GEEKROOM.md).
+A real two-request run is recorded in
+[`docs/bifrost-log-example.jsonl`](docs/bifrost-log-example.jsonl), with the resulting
+[`scene card`](docs/scene-card-bifrost-example.md).
 
 ### Tavily — the real world
 

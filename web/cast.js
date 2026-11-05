@@ -35,7 +35,7 @@ window.SWITCH_CAST = {
     fullScale: 1,
     scene: "/static/assets/portraits/alice-scene.png",
     avatar: "/static/assets/portraits/alice-avatar.png",
-    dm: "http://localhost:8065/switch/messages/@alice",
+    dm: "http://127.0.0.1:8065/switch/messages/@alice",
     quote: "Sit anywhere. The kettle's still warm, and I'm a very good listener.",
   },
   emily: {
@@ -65,7 +65,7 @@ window.SWITCH_CAST = {
     fullScale: 1.08,
     scene: "/static/assets/portraits/emily-scene.png",
     avatar: "/static/assets/portraits/emily-avatar.png",
-    dm: "http://localhost:8065/switch/messages/@emily",
+    dm: "http://127.0.0.1:8065/switch/messages/@emily",
     quote: "Don't manage me. Tell me the thing you're actually thinking.",
   },
   sophia: {
@@ -95,7 +95,7 @@ window.SWITCH_CAST = {
     fullScale: 1.07,
     scene: "/static/assets/portraits/sophia-scene.png",
     avatar: "/static/assets/portraits/sophia-avatar.png",
-    dm: "http://localhost:8065/switch/messages/@sophia",
+    dm: "http://127.0.0.1:8065/switch/messages/@sophia",
     quote: "People tell you who they are twice. The second time is the confession.",
   },
   mia: {
@@ -125,7 +125,7 @@ window.SWITCH_CAST = {
     fullScale: 1.02,
     scene: "/static/assets/portraits/mia-scene.png",
     avatar: "/static/assets/portraits/mia-avatar.png",
-    dm: "http://localhost:8065/switch/messages/@mia",
+    dm: "http://127.0.0.1:8065/switch/messages/@mia",
     quote: "Okay, hear me out — and then feed me, because I've had a day.",
   },
 };

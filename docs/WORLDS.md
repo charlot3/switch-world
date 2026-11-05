@@ -16,6 +16,23 @@ room per take if the transport transcript matters.
 | `w5-bad` | Three Ways — Bad | all four | 21:30 | The good setup with a colder ledger supports **BAD END — The Leak**. |
 | `w6-long-tuesday` | The Long Tuesday | all four | 08:00 | The original five-beat arc and the remove-Switch fallback. |
 
+## Takes
+
+Each world has a matching take in `world/takes/<id>.json`: 2 scenes, a scene art plate,
+opening/choices, deterministic cues, polished fallback lines, a `next` pointer and a
+`must_change` gate. Load a take from the **Takes** shelf or:
+
+```sh
+curl -X POST http://127.0.0.1:8890/api/takes/w3-quiet-route/load \
+  -H 'Content-Type: application/json' -d '{}'
+curl -X POST http://127.0.0.1:8890/api/takes/next \
+  -H 'Content-Type: application/json' -d '{}'   # 409 until a turn/cue changed something
+```
+
+The w3 causal chain is explicit: default cardigan → user preference cue → belief → next
+scene outfit change. The fallback lines are authored/polished, marked `authored` when a
+live speaker misses the deadline.
+
 ## Load
 
 Dashboard → **Worlds** → **Load & play**, or:

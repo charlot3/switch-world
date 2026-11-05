@@ -197,6 +197,35 @@ same engine, not a second server. `GET /api/scenarios` lists them; `POST
 /api/scenarios/{id}/load` loads one; `/api/state` exposes `scenario`, `outfits`,
 `cast_art`, `scene_art`, `item` and `connections`. See [`docs/WORLDS.md`](docs/WORLDS.md).
 
+### Takes — the recordable score
+
+A **take** adds a linear scene path, authored fallbacks and deterministic cues on top of a
+scenario. `GET /api/takes` lists them; `POST /api/takes/{id}/load` resets and loads scene 0;
+`POST /api/takes/next` advances only after a turn/cue has changed something (409
+`NOTHING_CHANGED` otherwise). Cues (`remember_preference`, `give_item`, `set_outfit`,
+`advance_time`, `mark_absent`, `ending`) change recorded state, never prose. The w3 take is
+the flagship: Alice starts in her default cardigan; the user's choice records
+`user-prefers-short-skirt`; the next scene applies the date outfit; the outfit badge opens
+the belief. The fallback lines are the polished authored safety net, marked `authored`
+when a live speaker misses its deadline. Protocol: [`docs/TAKE_PROTOCOL.md`](docs/TAKE_PROTOCOL.md).
+
+### Reliable turns
+
+- `POST /api/group/say` and `/api/takes/next` accept `request_id` + `expected_revision`;
+  a replay returns the stored response, a stale revision returns 409.
+- `/api/state` exposes `revision`, `turn` and `paused`.
+- The group planner reads `connections()`: named addressee first, then the highest user
+  affinity (or tension for an intimate probe), then the highest character↔character
+  tension as reactor; only planned speakers are posted to, the rest are recorded silence.
+- User actions are classified as `result`, `attempt`, `continue` or `wait`; attempts on an
+  NPC get a response from `refuse | negotiate | limited | surface | sincere`.
+- DM/group context is projected to a 12 KiB cap, trimming old DMs and scene lines first.
+- `POST /api/clock/advance {offscreen:true}` records a deterministic promise/rumor/errand
+  event without a model call.
+- `POST /api/safety/pause` / `/api/safety/resume` is an engine flag; paused group/DM writes
+  return 423 with a neutral message.
+- `scripts/validate-takes.py` gates every take/scenario before a recording.
+
 ### Studio
 
 The **Studio** rail view reads `GET /api/studio/summary`: five health chips (world, Switch,
@@ -810,6 +839,8 @@ the scene card above: the user and the cast co-produce a scene and its provenanc
 | `world/models.json` | per-character Bifrost model, fallbacks, temperature and token budget |
 | `world/social.json` | affinity tiers, topic ceilings, refusal lines and relationship deltas |
 | `world/scenarios/` | loadable demo worlds: clock, cast, edges, beliefs, outfits, items, art, ending |
+| `world/takes/` | linear recording routes with scenes, cues, polished fallbacks and endings |
+| `director/context.py` | the bounded DM/group context projection |
 | `world/demo-assets.json` | prompt/seed/size manifest for the demo plates |
 | `gateway/` | Bifrost client, Tavily client, offline fixture |
 | `world/state/` | seed characters, relationship graph and beliefs |
@@ -828,6 +859,7 @@ the scene card above: the user and the cast co-produce a scene and its provenanc
 | `scripts/generate-cast-art.py` | one flow for the bust/full-body/avatar/café-CG set |
 | `scripts/generate-beat-cg.py` | bookshop and food-truck location CGs |
 | `scripts/generate-demo-assets.py` | demo plates + outfit/prop renders, with studio cleanup |
+| `scripts/validate-takes.py` | schema/asset/cue validation for takes |
 | `scripts/update-mattermost-avatars.sh` | push the square crops to the four bot accounts |
 | `scripts/normalize-relationships.py` | repair name-keyed relationship rows from older databases |
 | `scripts/run-bifrost.sh` | start the OpenCode adapter + Bifrost gateway |

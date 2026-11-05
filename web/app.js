@@ -488,31 +488,54 @@ function renderPhone(data) {
   const thread = $("#phone-thread");
   if (!thread) return;
   thread.replaceChildren();
+  const divider = (label) => {
+    const node = document.createElement("div");
+    node.className = "phone-divider";
+    node.textContent = label;
+    thread.appendChild(node);
+  };
+  const bubbleFor = (text, role, label) => {
+    const bubble = document.createElement("div");
+    bubble.className = `phone-bubble ${role}`;
+    const who = document.createElement("span");
+    who.className = "phone-who";
+    who.textContent = label;
+    bubble.appendChild(who);
+    bubble.appendChild(document.createTextNode(text));
+    thread.appendChild(bubble);
+  };
+
+  const recentScene = (data.events || [])
+    .filter((event) => event.kind === "dialogue" && (event.participants || []).includes(cast.id))
+    .slice(-3);
+  if (recentScene.length) {
+    divider("Earlier at the café");
+    recentScene.forEach((event) => {
+      const summary = String(event.summary || "");
+      bubbleFor(
+        summary.replace(/^(You|[^:]+):\s*/, ""),
+        "character",
+        `Café · ${firstName(cast.name)}`,
+      );
+    });
+  }
+
   const events = (data.events || []).filter(
     (event) => event.kind === "dm" && (event.participants || []).includes(cast.id),
   );
-  if (!events.length) {
-    const bubble = document.createElement("div");
-    bubble.className = "phone-bubble character";
-    const who = document.createElement("span");
-    who.className = "phone-who";
-    who.textContent = firstName(cast.name);
-    bubble.appendChild(who);
-    bubble.appendChild(document.createTextNode(cast.quote));
-    thread.appendChild(bubble);
-  } else {
+  if (events.length) {
+    divider("Private DM");
     events.forEach((event) => {
       const summary = String(event.summary || "");
       const isUser = summary.startsWith("You:");
-      const bubble = document.createElement("div");
-      bubble.className = `phone-bubble ${isUser ? "user" : "character"}`;
-      const who = document.createElement("span");
-      who.className = "phone-who";
-      who.textContent = isUser ? "You" : firstName(cast.name);
-      bubble.appendChild(who);
-      bubble.appendChild(document.createTextNode(summary.replace(/^(You|[^:]+):\s*/, "")));
-      thread.appendChild(bubble);
+      bubbleFor(
+        summary.replace(/^(You|[^:]+):\s*/, ""),
+        isUser ? "user" : "character",
+        isUser ? "You" : firstName(cast.name),
+      );
     });
+  } else if (!recentScene.length) {
+    bubbleFor(cast.quote, "character", firstName(cast.name));
   }
   thread.scrollTop = thread.scrollHeight;
 }

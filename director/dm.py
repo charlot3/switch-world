@@ -65,9 +65,9 @@ def reply_to_dm(
             ),
         },
     ]
-    envelope = _parse_envelope(client.chat_json(character, messages), character)
-    reply = envelope["reply"]
-
+    # Record the user's turn before the model call. The dashboard polls every 2.5s;
+    # if the turn only existed optimistically in the browser it would vanish while the
+    # character is thinking.
     service.record_event(
         "user",
         "dm",
@@ -75,6 +75,9 @@ def reply_to_dm(
         participants=[character, "user"],
         visibility="private",
     )
+    envelope = _parse_envelope(client.chat_json(character, messages), character)
+    reply = envelope["reply"]
+
     service.record_event(
         character,
         "dm",

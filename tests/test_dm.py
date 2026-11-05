@@ -70,3 +70,22 @@ def test_dm_validates_character_and_message(tmp_path):
         reply_to_dm(service, "director", "hello", client=object())
     with pytest.raises(ValueError):
         reply_to_dm(service, "alice", "   ", client=object())
+
+
+def test_user_turn_is_recorded_before_the_model_thinks(tmp_path):
+    service = make_service(tmp_path)
+
+    class InspectingBifrost:
+        def chat_json(self, character, messages, **kwargs):
+            events = [
+                e for e in service.state()["events"]
+                if e["kind"] == "dm" and "You: hello" in e["summary"]
+            ]
+            assert events, "the user's turn must exist while the model is still thinking"
+            return {"reply": "Hi.", "memory": None, "relationships": []}
+
+        def usage_summary(self):
+            return {"requests": 1}
+
+    result = reply_to_dm(service, "alice", "hello", client=InspectingBifrost())
+    assert result["reply"] == "Hi."

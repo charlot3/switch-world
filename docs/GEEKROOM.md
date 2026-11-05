@@ -102,6 +102,8 @@ TAVILY_OFFLINE=1 uv run director --tavily-event
 
 # 4. Character scene through Bifrost
 uv run director --bifrost
+# or a partial beat
+uv run director --beat morning-shop --transport bifrost
 
 # 5. Dashboard
 open http://127.0.0.1:8891/?view=story

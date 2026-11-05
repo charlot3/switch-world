@@ -67,9 +67,10 @@ beat. A suspicion is **not** the secret — it is a separate, lower-confidence b
 | 4 | Aftermath | 19:20 | Outside the café | optional | The branch's consequences are in the ledger. |
 | 5 | The group chat | 22:10 | `#world` | optional | The scene card is exported. |
 
-Only the café is required. The prototype's director runs that beat; the other four beats
-are authored for a longer run and are not yet wired to the director. They cannot replace
-the café or change its branch conditions.
+All five beats are runnable as partial demos. The **café** is required and owns the
+branch; the other four are optional. **Aftermath** reads the branch from the ledger and
+cannot run before the café. The optional beats cannot replace the café or change its
+branch conditions.
 
 ## The three authored branches
 

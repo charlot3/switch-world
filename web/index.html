@@ -263,6 +263,20 @@
           </article>
 
           <article class="card setting-card wide">
+            <h3>Demo beats</h3>
+            <p class="card-sub">Run one authored beat as a partial demo, or the whole five-beat arc locally. The café is the required branch; the others are optional.</p>
+            <label class="field">
+              <span>Beat</span>
+              <select id="beat-select" aria-label="Authored beat to run"></select>
+            </label>
+            <div class="button-row">
+              <button class="btn primary" id="run-cafe" type="button">Run selected local beat</button>
+              <button class="btn" id="run-arc" type="button">Run full local arc</button>
+            </div>
+            <p class="tiny">Bifrost: use the selected beat in the Geek Room layer card. CLI: <code>uv run director --beat morning-shop</code>.</p>
+          </article>
+
+          <article class="card setting-card wide">
             <h3>Canon &amp; worldline</h3>
             <p class="card-sub">The story is improvised inside authored beats. These facts and invariants are the guardrail: the cast can be wrong, the canon cannot.</p>
             <div class="canon-summary">
@@ -300,7 +314,6 @@
             </label>
             <div class="button-row">
               <button class="btn" id="tell-alice" type="button">Tell Alice</button>
-              <button class="btn primary" id="run-cafe" type="button">Run local beat</button>
               <button class="btn ghost" id="reset" type="button">Reset world</button>
             </div>
             <div class="command-row">

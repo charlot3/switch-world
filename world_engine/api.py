@@ -107,6 +107,39 @@ def create_app(service: WorldService | None = None) -> FastAPI:
             raise HTTPException(400, str(exc)) from exc
         return result
 
+    @app.post("/api/dev/run-beat")
+    def run_beat_endpoint(payload: dict | None = None):
+        if not config.DEV_MODE:
+            raise HTTPException(404)
+        from director.beats import run_beat
+
+        payload = payload or {}
+        beat = payload.get("beat") or "cafe"
+        transport = payload.get("transport") or "local"
+        try:
+            return run_beat(
+                service,
+                beat,
+                transport=transport,
+                force_share=payload.get("force_share"),
+            )
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        except Exception as exc:
+            raise HTTPException(502, f"beat failed: {exc}") from exc
+
+    @app.post("/api/dev/run-arc")
+    def run_arc_endpoint(payload: dict | None = None):
+        if not config.DEV_MODE:
+            raise HTTPException(404)
+        from director.beats import run_arc
+
+        payload = payload or {}
+        try:
+            return run_arc(service, force_share=payload.get("force_share"))
+        except Exception as exc:
+            raise HTTPException(502, f"arc failed: {exc}") from exc
+
     @app.post("/api/dev/tavily-event")
     def tavily_event(payload: dict | None = None):
         if not config.DEV_MODE:

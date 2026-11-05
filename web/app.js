@@ -476,13 +476,27 @@ function renderArc(data) {
   branchNode.textContent = branchLabel;
   branchNode.title = branchEvent ? branchEvent.summary : "The authored café beat has not run yet.";
 
+  const done = new Set(
+    (data.events || [])
+      .filter((event) => event.kind === "beat")
+      .map((event) => {
+        const match = String(event.summary || "").match(/^Beat:\s*([a-z-]+)/i);
+        return match ? match[1] : null;
+      })
+      .filter(Boolean),
+  );
+  if (branchEvent) done.add("cafe");
+  const current = beats.find((beat) => !done.has(beat.id));
+
   const list = $("#arc-beats");
   list.replaceChildren();
   beats.forEach((beat) => {
     const item = document.createElement("li");
     item.className = "arc-beat" + (beat.required ? " is-required" : "");
-    if (beat.id === "cafe") {
-      item.classList.add(branchEvent ? "is-done" : "is-current");
+    if (done.has(beat.id)) {
+      item.classList.add("is-done");
+    } else if (current && current.id === beat.id) {
+      item.classList.add("is-current");
     }
     const time = document.createElement("span");
     time.className = "arc-time";
@@ -1148,6 +1162,20 @@ function closeProfile() {
 function renderSettings(data) {
   const current = data || state.data || {};
   renderCanon(current);
+  const beatSelect = $("#beat-select");
+  if (beatSelect) {
+    const previous = beatSelect.value;
+    const beats = (current.canon && current.canon.beats) || [];
+    beatSelect.replaceChildren();
+    beats.forEach((beat) => {
+      const option = document.createElement("option");
+      option.value = beat.id;
+      option.textContent = `${beat.title} · ${beat.time}${beat.required ? " · required" : ""}`;
+      beatSelect.appendChild(option);
+    });
+    const ids = beats.map((beat) => beat.id);
+    beatSelect.value = ids.includes(previous) ? previous : (ids.includes("cafe") ? "cafe" : (ids[0] || ""));
+  }
   const events = current.events || [];
   const branchEvent = [...events].reverse().find((event) => event.kind === "branch");
   const worldEvent = [...events].reverse().find((event) => event.kind === "world_event");
@@ -1268,15 +1296,20 @@ async function tellAlice() {
 async function runBifrost() {
   const button = $("#run-bifrost");
   const status = $("#bifrost-status");
+  const beat = $("#beat-select")?.value || "cafe";
   button.disabled = true;
   const old = button.textContent;
   button.textContent = "Running Bifrost…";
-  status.textContent = "Bifrost is generating Alice and Emily...";
+  status.textContent = `Bifrost is generating ${beat}...`;
   try {
-    const result = await api("/api/dev/run-bifrost", { method: "POST", body: "{}" });
+    const result = await api("/api/dev/run-beat", {
+      method: "POST",
+      body: JSON.stringify({ beat, transport: "bifrost" }),
+    });
     const used = Object.values((result.bifrost && result.bifrost.characters) || {})
       .reduce((sum, item) => sum + Number(item.used_tokens || 0), 0);
-    status.textContent = `Bifrost beat: ${result.branch.label} (${result.branch.id}) · ${used} tokens logged · log: data/logs/bifrost.jsonl`;
+    const branch = result.branch ? ` · ${result.branch.label} (${result.branch.id})` : "";
+    status.textContent = `Bifrost beat: ${result.beat.title}${branch} · ${used} tokens logged · log: data/logs/bifrost.jsonl`;
     await refresh();
     await loadSceneCard();
   } catch (error) {
@@ -1310,16 +1343,37 @@ async function fetchTavily() {
   }
 }
 
-async function runCafe() {
+async function runLocalBeat() {
+  const beat = $("#beat-select")?.value || "cafe";
   try {
-    const result = await api("/api/dev/run-cafe", { method: "POST", body: "{}" });
-    $("#status").textContent = result.shared
-      ? "Local beat ran. Emily now knows, with a lower confidence."
-      : "Local beat ran. Alice chose not to share.";
+    const result = await api("/api/dev/run-beat", {
+      method: "POST",
+      body: JSON.stringify({ beat, transport: "local" }),
+    });
+    const branch = result.branch ? ` · ${result.branch.label} (${result.branch.id})` : "";
+    $("#status").textContent = `Local beat: ${result.beat.title}${branch}.`;
     await refresh();
     await loadSceneCard();
   } catch (error) {
     $("#status").textContent = `Local beat failed: ${error.message}`;
+  }
+}
+
+async function runArc() {
+  const button = $("#run-arc");
+  button.disabled = true;
+  const old = button.textContent;
+  button.textContent = "Running arc…";
+  try {
+    const result = await api("/api/dev/run-arc", { method: "POST", body: "{}" });
+    $("#status").textContent = `Local arc complete: five beats · ${result.branch.label} (${result.branch.id}).`;
+    await refresh();
+    await loadSceneCard();
+  } catch (error) {
+    $("#status").textContent = `Local arc failed: ${error.message}`;
+  } finally {
+    button.disabled = false;
+    button.textContent = old;
   }
 }
 
@@ -1400,7 +1454,8 @@ document.addEventListener("keydown", (event) => {
 $("#scene-next").addEventListener("click", nextLine);
 $("#scene-run").addEventListener("click", copyLiveCommand);
 $("#tell-alice").addEventListener("click", tellAlice);
-$("#run-cafe").addEventListener("click", runCafe);
+$("#run-cafe").addEventListener("click", runLocalBeat);
+$("#run-arc").addEventListener("click", runArc);
 $("#run-bifrost").addEventListener("click", runBifrost);
 $("#fetch-tavily").addEventListener("click", fetchTavily);
 $("#reset").addEventListener("click", resetWorld);

@@ -11,6 +11,15 @@ import time
 from world_engine.service import WorldService
 
 from . import DEMO_KEY
+from .beats import (
+    _apply_effects,
+    _canon_warning,
+    _ensure_secret,
+    _record_beat,
+    advance_to,
+    get_beat,
+    prompts_for,
+)
 from .canon import brief, branch_for, load as load_canon, record_branch, validate
 from .switch_client import SwitchClient
 
@@ -115,13 +124,105 @@ def run_cafe_switch(
     record_branch(service, branch, issues, participants=participants)
     service.advance_time("director", 30)
     service.record_event("director", "scene_end", "The café scene ends.", ["alice", "emily"], "public")
+    beat = get_beat("cafe", canon)
+    _record_beat(service, beat)
     card = service.scene_card(f"Café, 18:30 — {branch['id']}")
     return {
         "shared": shared,
+        "beat": beat,
+        "transport": "switch",
         "branch": branch,
         "canon_issues": issues,
         "alice": alice,
         "emily": emily,
+        "card": card,
+        "room": room,
+        "matrix": service.matrix(),
+    }
+
+
+def run_beat_switch(
+    service: WorldService | None = None,
+    beat_id: str = "cafe",
+    switch: SwitchClient | None = None,
+    room_name: str = "world",
+    timeout: float = 90.0,
+) -> dict:
+    """Run any authored beat through the live Switch room."""
+    service = service or WorldService()
+    switch = switch or SwitchClient()
+    canon = load_canon()
+    beat = get_beat(beat_id, canon)
+
+    if beat_id == "cafe":
+        _ensure_secret(service)
+        advance_to(service, beat["time"])
+        result = run_cafe_switch(
+            service=service,
+            switch=switch,
+            room_name=room_name,
+            timeout=timeout,
+        )
+        result["beat"] = beat
+        result["transport"] = "switch"
+        return result
+
+    branch = None
+    branch_id = None
+    if beat_id == "aftermath":
+        if not [e for e in service.state()["events"] if e["kind"] == "branch"]:
+            raise ValueError("run the café beat first; aftermath needs a branch")
+        branch = branch_for(service, DEMO_KEY)
+        branch_id = branch["id"]
+
+    if beat_id in {"morning-shop", "roundup"}:
+        _ensure_secret(service)
+    advance_to(service, beat["time"])
+    room = switch.find_room(room_name)
+    room_id = room["room_id"]
+    service.record_event(
+        "director",
+        "beat_start",
+        f"Beat: {beat['id']} — {beat['title']}",
+        participants=beat.get("characters", []),
+        visibility="public",
+    )
+
+    prompts = prompts_for(beat, branch_id)
+    transcript = []
+    for character in beat.get("characters", []):
+        if character in {"user", "director"}:
+            continue
+        prompt = prompts.get(character)
+        if not prompt:
+            continue
+        started = int(time.time() * 1000) - 1000
+        switch.post(
+            room_id,
+            f"@{character} {brief(character, canon)}\n\n{prompt}",
+        )
+        event = switch.wait_for(room_id, character, started, timeout=timeout)
+        if event is None:
+            service.record_event(
+                "director", "no_reply", f"{character.title()} did not answer.", [character], "public"
+            )
+            continue
+        reply = (event.get("body") or "").strip()
+        service.record_event(
+            character, "dialogue", f"{character.title()}: {reply}", [character], "public"
+        )
+        transcript.append(f"{character.title()}: {reply}")
+
+    _apply_effects(service, beat_id, branch_id)
+    _record_beat(service, beat)
+    issues = _canon_warning(service, canon)
+    card = service.scene_card(f"{beat['title']} — {beat_id}")
+    return {
+        "beat": beat,
+        "transport": "switch",
+        "branch": branch,
+        "canon_issues": issues,
+        "transcript": transcript,
         "card": card,
         "room": room,
         "matrix": service.matrix(),

@@ -112,9 +112,11 @@ already captured in the feed; it does not generate a new turn. To advance the wo
 2. **Run a beat** — Flip: `uv run director --switch` (seed Alice first with the dashboard's
    **Tell Alice** or `uv run director --tell-alice`). Geek Room: `scripts/run-bifrost.sh`,
    then **Settings → Run Bifrost beat**, or `uv run director --bifrost`.
-3. **Continue after the café** — the prototype wires the required café beat only. After a
-   branch, DM a character, reset with a new secret, or extend the authored beats in
-   `world/canon.json`; the other four beats are scaffold, not a free-roaming scheduler.
+3. **Run a partial beat** — Settings → **Demo beats**: choose morning / lunch / café /
+   aftermath / roundup, then **Run selected local beat** or **Run full local arc**. The
+   café is the required branch; aftermath needs it; the other beats are independent
+   partial demos. Bifrost: choose the beat and use **Run Bifrost beat**. CLI:
+   `uv run director --beat morning-shop` or `uv run director --arc`.
 
 The header's **Open #world** link points at the verified public Mattermost channel
 (`switch/world`). If it shows a login page, sign in with the `MATTERMOST_USER` credentials
@@ -356,8 +358,8 @@ Freedom needs a guardrail. The story is improvised inside **authored beats**: fi
 for Act I, three legal endings (disclosure, non-disclosure, partial leak), and a set of
 public/private facts and invariants. The authoritative file is
 [`world/canon.json`](world/canon.json); the human-readable story bible is
-[`docs/CANON.md`](docs/CANON.md). The prototype's director runs the **required café beat**;
-the other four beats are authored for a longer run and are not yet wired to the director.
+[`docs/CANON.md`](docs/CANON.md). All five authored beats are runnable as partial demos;
+the **café** is required and owns the branch, and **aftermath** needs that branch.
 
 [`director/canon.py`](director/canon.py) gives each character only its own private facts,
 classifies the ending from the ledger (not from the prose), and writes the branch and any

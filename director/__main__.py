@@ -42,6 +42,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--tavily-event", action="store_true", help="fetch a real-world event through Tavily")
     parser.add_argument("--query", default=None, help="Tavily query for --tavily-event")
     parser.add_argument("--bifrost", action="store_true", help="run the café beat through Bifrost")
+    parser.add_argument("--beat", default=None, help="run one authored beat, e.g. morning-shop")
+    parser.add_argument("--transport", choices=["local", "bifrost", "switch"], default="local", help="transport for --beat")
+    parser.add_argument("--arc", action="store_true", help="run all five beats locally")
     args = parser.parse_args(argv)
 
     service = WorldService()
@@ -54,6 +57,40 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Alice now knows: {belief.get('proposition', belief)}")
     if args.status:
         _status(service)
+    if args.arc:
+        from .beats import run_arc
+
+        try:
+            result = run_arc(service)
+        except Exception as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        for item in result["beats"]:
+            print(f"{item['beat']['id']}: {item['beat']['title']}")
+        print(f"branch: {result['branch']['label']} ({result['branch']['id']})")
+        print(f"scene card: {result['card']['path']}")
+        return 0
+    if args.beat:
+        from .beats import run_beat
+
+        try:
+            result = run_beat(
+                service,
+                args.beat,
+                transport=args.transport,
+                room_name=args.room,
+                timeout=args.timeout,
+            )
+        except Exception as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        print(f"beat: {result['beat']['title']} ({result['beat']['id']})")
+        if result.get("branch"):
+            print(f"branch: {result['branch']['label']} ({result['branch']['id']})")
+        for line in result.get("transcript", []):
+            print(line)
+        print(f"scene card: {result['card']['path']}")
+        return 0
     if args.tavily_event:
         from .tavily_beat import fetch_world_event
 
@@ -100,7 +137,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.simulate or not any(
-        [args.reset, args.tell_alice, args.status, args.switch, args.tavily_event, args.bifrost]
+        [args.reset, args.tell_alice, args.status, args.switch, args.tavily_event, args.bifrost, args.beat, args.arc]
     ):
         try:
             result = run_cafe(service)

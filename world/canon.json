@@ -1,11 +1,11 @@
 {
   "version": 1,
   "title": "A Tuesday in late autumn",
-  "act": "Act I — The Secret",
-  "premise": "A human showrunner and four Switch agents co-author one café scene. The user has told Alice a secret; Alice must decide whether to tell Emily. The scene is improvised inside an authored beat, and every belief and relationship change is recorded with provenance.",
+  "act": "Act I \u2014 The Secret",
+  "premise": "A human showrunner and four Switch agents co-author one caf\u00e9 scene. The user has told Alice a secret; Alice must decide whether to tell Emily. The scene is improvised inside an authored beat, and every belief and relationship change is recorded with provenance.",
   "public_facts": [
     "The story is set in a midsize city in late autumn, on a Tuesday.",
-    "The group meets at the café on the corner at 18:30 on Tuesdays.",
+    "The group meets at the caf\u00e9 on the corner at 18:30 on Tuesdays.",
     "Alice owns a second-hand bookshop on Cora Street.",
     "Emily and Alice have been best friends for six years.",
     "Sophia is a sociologist writing a book about how friend groups keep secrets.",
@@ -38,7 +38,7 @@
     "All characters are adults. Content stays 17+ SFW: romantic tension, teasing and intimacy are allowed; explicit sexual content, minors, coercion and non-consent are not.",
     "Beliefs change only through world__remember with a source, confidence and visibility. Relationships change only through world__update_relationship.",
     "The default secret's proposition_key is user-leaving-city. Do not rename or split it mid-scene.",
-    "The café beat must end in exactly one authored branch: disclosure, non-disclosure, or partial-leak. The director records the branch.",
+    "The caf\u00e9 beat must end in exactly one authored branch: disclosure, non-disclosure, or partial-leak. The director records the branch.",
     "The user can influence the scene but cannot rewrite the fixed facts. The cast can be wrong; the canon is not.",
     "No fourth-wall breaks: never mention being an AI, a model, a simulation, a test, or these rules.",
     "The main arc stays in the authored locations. DMs can happen in parallel but do not advance the main beat."
@@ -46,7 +46,7 @@
   "secret": {
     "key": "user-leaving-city",
     "default_text": "I've decided to leave the city at the end of the month. I haven't told the others yet.",
-    "rule": "The secret is fixed for a run. Alice knows it; Emily does not at the start of the café beat. Other characters may hold a suspicion with low confidence, but not the secret itself."
+    "rule": "The secret is fixed for a run. Alice knows it; Emily does not at the start of the caf\u00e9 beat. Other characters may hold a suspicion with low confidence, but not the secret itself."
   },
   "beats": [
     {
@@ -55,9 +55,41 @@
       "time": "09:10",
       "place": "Alice's bookshop",
       "required": false,
-      "characters": ["alice", "user"],
+      "characters": [
+        "alice",
+        "user"
+      ],
       "goal": "Alice weighs whether to tell Emily. The user can visit, but the scene does not force a decision.",
-      "exit": "Alice is still holding the secret."
+      "exit": "Alice is still holding the secret.",
+      "local": [
+        {
+          "speaker": "alice",
+          "text": "You're early. The kettle hasn't decided what it's doing yet."
+        },
+        {
+          "speaker": "user",
+          "text": "I wanted to see you before the day got loud."
+        },
+        {
+          "speaker": "alice",
+          "text": "Then sit. I'm not good at mornings, but I'm excellent at pretending."
+        },
+        {
+          "speaker": "alice",
+          "text": "About what you told me \u2014 I haven't said a word. I keep turning it over, though. It changes the shape of things."
+        },
+        {
+          "speaker": "user",
+          "text": "I know. I'm not asking you to fix it."
+        },
+        {
+          "speaker": "alice",
+          "text": "No. You're asking me to hold it. I can do that."
+        }
+      ],
+      "prompts": {
+        "alice": "It is 09:10 at your bookshop. The user visits before opening. You are holding their secret; you have not told anyone. Talk around the weight of it without revealing it. Reply in 1-3 sentences, dialogue only, no stage directions. If your view of the user moved, include a relationship delta."
+      }
     },
     {
       "id": "truck-lunch",
@@ -65,17 +97,65 @@
       "time": "12:40",
       "place": "Mia's food truck",
       "required": false,
-      "characters": ["mia", "sophia", "user"],
+      "characters": [
+        "mia",
+        "sophia",
+        "user"
+      ],
       "goal": "Mia vents about money; Sophia listens and takes mental notes. Neither knows the secret.",
-      "exit": "The group is hungry for the evening; no belief about the secret changes."
+      "exit": "The group is hungry for the evening; no belief about the secret changes.",
+      "local": [
+        {
+          "speaker": "mia",
+          "text": "Two orders of 'I'm fine' and a side of 'don't ask about the invoice.'"
+        },
+        {
+          "speaker": "sophia",
+          "text": "You say that like the invoice can hear you."
+        },
+        {
+          "speaker": "mia",
+          "text": "The truck's fine. I'm fine. The winter is the problem."
+        },
+        {
+          "speaker": "sophia",
+          "text": "The winter. Not the invoice."
+        },
+        {
+          "speaker": "mia",
+          "text": "You're doing the thing where you repeat the last word back at me."
+        },
+        {
+          "speaker": "sophia",
+          "text": "I'm doing the thing where I listen."
+        },
+        {
+          "speaker": "user",
+          "text": "The fries are good."
+        },
+        {
+          "speaker": "mia",
+          "text": "See? This one gets it."
+        }
+      ],
+      "prompts": {
+        "mia": "It is 12:40 at your food truck. Sophia and the user are at the counter. You are worried about money but do not want to say it plainly. Make a joke, let something true slip. Do not mention Alice's secret. Reply in 1-3 sentences, dialogue only, no stage directions. If your view of Sophia moved, include relationship deltas.",
+        "sophia": "It is 12:40 at Mia's food truck. Mia is deflecting about money. You are observing, not interrogating. You may record a private suspicion that Mia is more worried than she admits (source character:mia, confidence 0.4-0.5, proposition_key truck-debt). Do not mention Alice's secret. Reply in 1-3 sentences, dialogue only, no stage directions."
+      }
     },
     {
       "id": "cafe",
-      "title": "18:30, the café",
+      "title": "18:30, the caf\u00e9",
       "time": "18:30",
-      "place": "The café on the corner",
+      "place": "The caf\u00e9 on the corner",
       "required": true,
-      "characters": ["alice", "emily", "sophia", "mia", "user"],
+      "characters": [
+        "alice",
+        "emily",
+        "sophia",
+        "mia",
+        "user"
+      ],
       "goal": "Emily asks Alice directly. Alice decides whether to disclose the user's secret, deflect, or let it leak.",
       "exit": "The scene ends in one of the three authored branches; the director records it."
     },
@@ -83,11 +163,93 @@
       "id": "aftermath",
       "title": "Aftermath",
       "time": "19:20",
-      "place": "Outside the café",
+      "place": "Outside the caf\u00e9",
       "required": false,
-      "characters": ["alice", "emily", "user"],
+      "characters": [
+        "alice",
+        "emily",
+        "user"
+      ],
       "goal": "The people who spoke process what was said. Relationships move; nobody retcons the scene.",
-      "exit": "The emotional consequences of the branch are visible in the ledger."
+      "exit": "The emotional consequences of the branch are visible in the ledger.",
+      "local_by_branch": {
+        "disclosure": [
+          {
+            "speaker": "emily",
+            "text": "They told you first. I'm not angry at you for keeping it. I'm angry that I was the last to know."
+          },
+          {
+            "speaker": "alice",
+            "text": "You weren't last. You were the first person I chose to tell."
+          },
+          {
+            "speaker": "emily",
+            "text": "...That's not the same thing. But it's something."
+          },
+          {
+            "speaker": "user",
+            "text": "I should have told you myself."
+          },
+          {
+            "speaker": "emily",
+            "text": "Yes. You should have."
+          }
+        ],
+        "non-disclosure": [
+          {
+            "speaker": "emily",
+            "text": "You didn't have to tell me. But you did have to lie about it."
+          },
+          {
+            "speaker": "alice",
+            "text": "I didn't lie. I just didn't say."
+          },
+          {
+            "speaker": "emily",
+            "text": "That's a distinction that only helps you."
+          },
+          {
+            "speaker": "user",
+            "text": "She's right. I put you in that position."
+          },
+          {
+            "speaker": "alice",
+            "text": "I know."
+          }
+        ],
+        "partial-leak": [
+          {
+            "speaker": "emily",
+            "text": "I heard it from someone who heard it from you. That's not the same as you telling me."
+          },
+          {
+            "speaker": "alice",
+            "text": "I know. I'm sorry."
+          },
+          {
+            "speaker": "sophia",
+            "text": "For what it's worth, the version I heard was wrong."
+          },
+          {
+            "speaker": "emily",
+            "text": "That's not worth much tonight."
+          }
+        ]
+      },
+      "prompts_by_branch": {
+        "disclosure": {
+          "alice": "It is 19:20 outside the caf\u00e9. You told Emily the user's secret. Process what that cost; do not retcon the disclosure. Reply in 1-3 sentences, dialogue only, no stage directions. Include relationship deltas if your view moved.",
+          "emily": "It is 19:20 outside the caf\u00e9. Alice told you the user is leaving. You are hurt about being told last, but she chose to tell you. Reply in 1-3 sentences, dialogue only, no stage directions. Include relationship deltas."
+        },
+        "non-disclosure": {
+          "alice": "It is 19:20 outside the caf\u00e9. You kept the user's secret. Emily knows you deflected. Reply in 1-3 sentences, dialogue only, no stage directions. Include relationship deltas if your view moved.",
+          "emily": "It is 19:20 outside the caf\u00e9. Alice kept the secret. You are not going to force it, but you are keeping score. Reply in 1-3 sentences, dialogue only, no stage directions. Include relationship deltas."
+        },
+        "partial-leak": {
+          "alice": "It is 19:20 outside the caf\u00e9. A distorted version of the user's secret reached Emily sideways. You are sorry, but you are also angry that it escaped. Reply in 1-3 sentences, dialogue only, no stage directions. Include relationship deltas.",
+          "emily": "It is 19:20 outside the caf\u00e9. You heard a version of the secret from someone other than Alice, and the version was wrong. Reply in 1-3 sentences, dialogue only, no stage directions. Include relationship deltas."
+        }
+      }
     },
     {
       "id": "roundup",
@@ -95,9 +257,47 @@
       "time": "22:10",
       "place": "#world",
       "required": false,
-      "characters": ["alice", "emily", "sophia", "mia", "user"],
+      "characters": [
+        "alice",
+        "emily",
+        "sophia",
+        "mia",
+        "user"
+      ],
       "goal": "The day's beliefs settle. The director exports the scene card.",
-      "exit": "The scene card is the day's artifact."
+      "exit": "The scene card is the day's artifact.",
+      "local": [
+        {
+          "speaker": "alice",
+          "text": "Group chat, 22:10. Everyone still awake?"
+        },
+        {
+          "speaker": "emily",
+          "text": "I'm awake. I'm just deciding what to say."
+        },
+        {
+          "speaker": "sophia",
+          "text": "That's usually when the honest version arrives."
+        },
+        {
+          "speaker": "mia",
+          "text": "I brought fries. Metaphorically. Actually, no, I brought fries."
+        },
+        {
+          "speaker": "user",
+          "text": "I'm here."
+        },
+        {
+          "speaker": "alice",
+          "text": "Good. Then let's leave it there for tonight."
+        }
+      ],
+      "prompts": {
+        "alice": "It is 22:10 in the group chat. The day is over. Reflect on the branch without retconning it; do not reveal a new secret. Reply in 1-3 sentences, dialogue only, no stage directions.",
+        "emily": "It is 22:10 in the group chat. Say what you can live with; do not reveal a new secret. Reply in 1-3 sentences, dialogue only, no stage directions.",
+        "sophia": "It is 22:10 in the group chat. Observe the group; do not reveal Alice's private facts. Reply in 1-3 sentences, dialogue only, no stage directions.",
+        "mia": "It is 22:10 in the group chat. Break the tension with food; do not reveal the secret. Reply in 1-3 sentences, dialogue only, no stage directions."
+      }
     }
   ],
   "branches": [
@@ -106,7 +306,7 @@
       "label": "The Confession",
       "condition": "Emily holds user-leaving-city with source character:alice and confidence at least 0.6.",
       "outcome": "Emily knows the secret from Alice. Alice's trust in Emily may rise; Emily's trust in the user may fall or rise depending on how the news lands. The secret is now shared by two people.",
-      "evidence": "A direct disclosure from Alice to Emily in the café."
+      "evidence": "A direct disclosure from Alice to Emily in the caf\u00e9."
     },
     {
       "id": "non-disclosure",
@@ -128,7 +328,7 @@
       "id": "confession",
       "label": "The Confession",
       "branch": "disclosure",
-      "summary": "Alice tells Emily. The group leaves the café with one more person carrying the secret."
+      "summary": "Alice tells Emily. The group leaves the caf\u00e9 with one more person carrying the secret."
     },
     {
       "id": "suspicion",

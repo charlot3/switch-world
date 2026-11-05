@@ -23,6 +23,15 @@ from world_engine import config
 from world_engine.service import WorldService
 
 from . import DEMO_KEY, DEMO_SECRET
+from .beats import (
+    _apply_effects,
+    _canon_warning,
+    _ensure_secret,
+    _record_beat,
+    advance_to,
+    get_beat,
+    prompts_for,
+)
 from .canon import brief, branch_for, load as load_canon, record_branch, validate
 from .simulate import user_tells_alice
 from .tavily_beat import world_context
@@ -209,6 +218,8 @@ def run_cafe_bifrost(
     service.record_event(
         "director", "scene_end", "The Bifrost café scene ends.", ["alice", "emily"], "public"
     )
+    beat = get_beat("cafe", canon)
+    _record_beat(service, beat)
     card = service.scene_card(f"Café, 18:30 — {branch['id']}")
     usage = client.usage_summary() if hasattr(client, "usage_summary") else {}
     return {
@@ -219,6 +230,92 @@ def run_cafe_bifrost(
         "emily": emily["reply"],
         "alice_writes": alice_writes,
         "emily_writes": emily_writes,
+        "card": card,
+        "matrix": service.matrix(),
+        "bifrost": usage,
+        "world_context": context,
+    }
+
+
+def run_beat_bifrost(
+    service: WorldService | None = None,
+    beat_id: str = "cafe",
+    client=None,
+) -> dict:
+    """Run any authored beat through Bifrost; the café keeps its branch logic."""
+    service = service or WorldService()
+    if client is None:
+        from gateway.bifrost import BifrostClient
+
+        client = BifrostClient()
+    canon = load_canon()
+    beat = get_beat(beat_id, canon)
+
+    if beat_id == "cafe":
+        _ensure_secret(service)
+        advance_to(service, beat["time"])
+        result = run_cafe_bifrost(service, client=client)
+        result["beat"] = beat
+        result["transport"] = "bifrost"
+        return result
+
+    branch = None
+    branch_id = None
+    if beat_id == "aftermath":
+        if not [e for e in service.state()["events"] if e["kind"] == "branch"]:
+            raise ValueError("run the café beat first; aftermath needs a branch")
+        branch = branch_for(service, DEMO_KEY)
+        branch_id = branch["id"]
+
+    if beat_id in {"morning-shop", "roundup"}:
+        _ensure_secret(service)
+    advance_to(service, beat["time"])
+    context = world_context(service)
+    service.record_event(
+        "director",
+        "beat_start",
+        f"Beat: {beat['id']} — {beat['title']}",
+        participants=beat.get("characters", []),
+        visibility="public",
+    )
+
+    prompts = prompts_for(beat, branch_id)
+    turns = []
+    transcript = []
+    for character in beat.get("characters", []):
+        if character in {"user", "director"}:
+            continue
+        prompt = prompts.get(character)
+        if not prompt:
+            continue
+        messages = [
+            {"role": "system", "content": _system(character, canon, context)},
+            {"role": "user", "content": prompt},
+        ]
+        envelope = _parse_envelope(client.chat_json(character, messages), character)
+        service.record_event(
+            character,
+            "dialogue",
+            f"{character.title()}: {envelope['reply']}",
+            [character],
+            "public",
+        )
+        writes = _apply(service, character, envelope)
+        turns.append({"character": character, "reply": envelope["reply"], "writes": writes})
+        transcript.append(f"{character.title()}: {envelope['reply']}")
+
+    _apply_effects(service, beat_id, branch_id)
+    _record_beat(service, beat)
+    issues = _canon_warning(service, canon)
+    card = service.scene_card(f"{beat['title']} — {beat_id}")
+    usage = client.usage_summary() if hasattr(client, "usage_summary") else {}
+    return {
+        "beat": beat,
+        "transport": "bifrost",
+        "branch": branch,
+        "canon_issues": issues,
+        "turns": turns,
+        "transcript": transcript,
         "card": card,
         "matrix": service.matrix(),
         "bifrost": usage,

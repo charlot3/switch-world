@@ -121,3 +121,18 @@ def test_dev_bifrost_endpoint(client, monkeypatch):
     response = client.post("/api/dev/run-bifrost", json={})
     assert response.status_code == 200
     assert response.json()["branch"]["id"] == "disclosure"
+
+
+def test_run_beat_and_arc_endpoints(client):
+    beat = client.post(
+        "/api/dev/run-beat",
+        json={"beat": "morning-shop", "transport": "local"},
+    )
+    assert beat.status_code == 200
+    assert beat.json()["beat"]["id"] == "morning-shop"
+
+    arc = client.post("/api/dev/run-arc", json={})
+    assert arc.status_code == 200
+    assert [item["beat"]["id"] for item in arc.json()["beats"]] == [
+        "morning-shop", "truck-lunch", "cafe", "aftermath", "roundup"
+    ]

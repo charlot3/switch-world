@@ -11,12 +11,14 @@ that let the project be demonstrated in parts without changing the canon.
 """
 from __future__ import annotations
 
+import math
 from datetime import datetime
 
 from world_engine.service import WorldService
 
 from . import DEMO_KEY
 from .canon import branch_for, load as load_canon, record_branch, validate
+from .clock import advance_to_beat
 from .simulate import run_cafe, user_tells_alice
 
 BEAT_ORDER = ("morning-shop", "truck-lunch", "cafe", "aftermath", "roundup")
@@ -35,7 +37,7 @@ def advance_to(service: WorldService, time_text: str) -> None:
     now = datetime.fromisoformat(service.clock()["now"])
     hour, minute = (int(part) for part in time_text.split(":"))
     target = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-    delta = max(0, int((target - now).total_seconds() // 60))
+    delta = max(0, math.ceil((target - now).total_seconds() / 60))
     if delta:
         service.advance_time("director", delta)
 
@@ -194,7 +196,7 @@ def run_local_beat(
 
     if beat_id == "cafe":
         _ensure_secret(service)
-        advance_to(service, beat["time"])
+        advance_to_beat(service, canon, beat["id"])
         result = run_cafe(service, force_share=force_share)
         _record_beat(service, beat)
         _canon_warning(service, canon)
@@ -220,7 +222,7 @@ def run_local_beat(
 
     if beat_id in {"morning-shop", "roundup"}:
         _ensure_secret(service)
-    advance_to(service, beat["time"])
+    advance_to_beat(service, canon, beat["id"])
     lines = _lines_for(beat, branch_id)
     _record_lines(service, lines)
     _apply_effects(service, beat_id, branch_id)

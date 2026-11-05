@@ -21,6 +21,7 @@ from .beats import (
     prompts_for,
 )
 from .canon import brief, branch_for, load as load_canon, record_branch, validate
+from .clock import advance_to_beat
 from .switch_client import SwitchClient
 
 ALICE_PROMPT = (
@@ -156,7 +157,7 @@ def run_beat_switch(
 
     if beat_id == "cafe":
         _ensure_secret(service)
-        advance_to(service, beat["time"])
+        advance_to_beat(service, canon, beat["id"])
         result = run_cafe_switch(
             service=service,
             switch=switch,
@@ -177,7 +178,7 @@ def run_beat_switch(
 
     if beat_id in {"morning-shop", "roundup"}:
         _ensure_secret(service)
-    advance_to(service, beat["time"])
+    advance_to_beat(service, canon, beat["id"])
     room = switch.find_room(room_name)
     room_id = room["room_id"]
     service.record_event(

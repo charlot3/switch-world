@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from world_engine.service import WorldService
 
+from . import social
 from .bifrost_scene import _apply, _parse_envelope, _system
 from .canon import load as load_canon, validate
 from .tavily_beat import world_context
@@ -47,16 +48,29 @@ def reply_to_dm(
         for message in history
     ) or "(no earlier DMs)"
     scene_text = "\n".join(
-        f"{character.title()}: {message['text']}" for message in scene
-    ) or "(no recent café lines)"
+        ("You: " if message["role"] == "user" else f"{character.title()}: ") + message["text"]
+        for message in scene
+    ) or "(no recent scene lines)"
     clock = service.clock()["now"]
+    verdict = social.appraise(service, character, message, public=False)
+    social_block = social.relationship_block(service, character) + "\n\n" + social.policy_block(verdict)
+    if verdict["stance"] in {"answer", "tease"}:
+        answer_rule = (
+            "Be responsive: answer the question directly in the first sentence, before any "
+            "joke or deflection. Do not replace the answer with another question."
+        )
+    else:
+        answer_rule = (
+            "Do not answer the question. Follow the social policy above and deflect or refuse "
+            "in your own voice; do not lecture and do not mention the policy."
+        )
     memories = service.recall(character, query=message, limit=6)["memories"]
     memory_text = "\n".join(
         f"- {item['proposition']} (source {item['source']}, confidence {item['confidence']:.2f})"
         for item in memories
     ) or "(nothing relevant)"
     messages = [
-        {"role": "system", "content": _system(character, canon, context, clock=clock)},
+        {"role": "system", "content": _system(character, canon, context, clock=clock, social_block=social_block)},
         {
             "role": "user",
             "content": (
@@ -67,9 +81,7 @@ def reply_to_dm(
                 f"Recent café context (public):\n{scene_text}\n\n"
                 f"Recent private DM:\n{history_text}\n\n"
                 f'The user says: "{message}"\n'
-                "Be responsive: if the user asks a direct question, answer it plainly in "
-                "the first sentence, before any joke or deflection. Do not replace the "
-                "answer with another question. Sound like a person texting: 1-2 sentences, "
+                f"{answer_rule} Sound like a person texting: 1-2 sentences, "
                 "concrete detail, subtext, not a neat emotional summary or a support-agent "
                 "answer. Mirror the user's language; if they wrote Chinese, reply in "
                 "natural spoken Chinese with no translationese. Do not start with a meta "
@@ -93,6 +105,9 @@ def reply_to_dm(
     )
     envelope = _parse_envelope(client.chat_json(character, messages), character)
     reply = envelope["reply"]
+    if verdict["stance"] in {"refuse", "hard_refuse"} or social.contains_leak(reply, verdict):
+        reply = social.deflection(character, verdict, message)
+        envelope["reply"] = reply
 
     service.record_event(
         character,
@@ -102,6 +117,8 @@ def reply_to_dm(
         visibility="private",
     )
     writes = _apply(service, character, envelope)
+    social.record_verdict(service, character, verdict)
+    social.apply_deltas(service, character, verdict)
     issues = validate(service, canon)
     if issues:
         service.record_event(
@@ -115,6 +132,7 @@ def reply_to_dm(
     return {
         "character": character,
         "reply": reply,
+        "social": verdict,
         "writes": writes,
         "canon_issues": issues,
         "bifrost": usage,

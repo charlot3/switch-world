@@ -134,9 +134,16 @@ class WorldService:
             return "user"
         if lowered in CHARACTER_ORDER or lowered == "director":
             return lowered
+        pattern = (
+            lowered.replace("\\", "\\\\")
+            .replace("%", "\\%")
+            .replace("_", "\\_")
+            + " %"
+        )
         row = conn.execute(
-            "SELECT id FROM characters WHERE id = ? OR lower(name) = ? OR lower(name) LIKE ?",
-            (raw, lowered, lowered + " %"),
+            "SELECT id FROM characters WHERE id = ? OR lower(name) = ? "
+            "OR lower(name) LIKE ? ESCAPE '\\'",
+            (raw, lowered, pattern),
         ).fetchone()
         if row:
             return row["id"]
@@ -470,6 +477,20 @@ class WorldService:
             result.append(event)
         return result
 
+    def event_by_message_id(self, message_id: str) -> dict | None:
+        if not message_id:
+            return None
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT * FROM events WHERE message_id = ? ORDER BY id DESC LIMIT 1",
+                (message_id,),
+            ).fetchone()
+        if not row:
+            return None
+        event = dict(row)
+        event["participants"] = json.loads(event.pop("participants_json") or "[]")
+        return event
+
     def latest_event(self, kind: str) -> dict | None:
         with self._conn() as conn:
             row = conn.execute(
@@ -563,13 +584,15 @@ class WorldService:
                 summary = row["summary"] or ""
                 if ":" not in summary:
                     continue
+                label, text = summary.split(":", 1)
+                text = text.strip()
                 if row["kind"] == "dm":
-                    role = "user" if summary.startswith("You:") else "character"
-                    text = summary.split(":", 1)[1].strip()
+                    role = "user" if label.strip().lower() in {"you", "user"} else "character"
                     source = "dm"
                 else:
-                    role = "character"
-                    text = summary.split(":", 1)[1].strip()
+                    # Group scenes address the room as "You: ..."; the phone must not
+                    # paint the user's own line as the selected character's.
+                    role = "user" if label.strip().lower() in {"you", "user"} else "character"
                     source = "scene"
                 messages.append(
                     {

@@ -7,6 +7,7 @@ authored beat arrives when its time of day actually arrives.
 """
 from __future__ import annotations
 
+import math
 from datetime import datetime, timedelta
 
 from world_engine.service import WorldService
@@ -57,7 +58,7 @@ def advance_to_next(service: WorldService, canon: dict) -> dict:
     """Jump to the next beat. This deliberately leaves realtime for mock mode."""
     now = datetime.fromisoformat(service.clock()["now"])
     beat, target = next_beat(canon, now)
-    minutes = max(1, int((target - now).total_seconds() // 60))
+    minutes = max(1, math.ceil((target - now).total_seconds() / 60))
     clock = service.advance_time("director", minutes)
     return {"beat": beat, "clock": clock, "target": target.isoformat(timespec="seconds")}
 
@@ -71,7 +72,7 @@ def advance_to_beat(service: WorldService, canon: dict, beat_id: str) -> dict:
         target = _at(now.date(), beat["time"], now.tzinfo)
         if target < now:
             target += timedelta(days=1)
-        minutes = max(0, int((target - now).total_seconds() // 60))
+        minutes = max(0, math.ceil((target - now).total_seconds() / 60))
         clock = service.advance_time("director", minutes)
         return {"beat": beat, "clock": clock, "target": target.isoformat(timespec="seconds")}
     raise ValueError("unknown beat: " + beat_id)

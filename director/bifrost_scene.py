@@ -33,6 +33,7 @@ from .beats import (
     prompts_for,
 )
 from .canon import brief, branch_for, load as load_canon, record_branch, validate
+from .clock import advance_to_beat
 from .simulate import user_tells_alice
 from .tavily_beat import world_context
 
@@ -83,12 +84,14 @@ def _system(
     canon: dict,
     context: str,
     clock: str | None = None,
+    social_block: str = "",
 ) -> str:
     return (
         f"You are {character.title()}, a character in a small interactive-fiction world.\n\n"
         f"{_identity(character)}\n\n"
         f"{brief(character, canon)}\n\n"
         f"{TONE}\n\n"
+        f"{social_block}\n\n"
         f"{LANGUAGE_AND_VOICE}\n\n"
         f"Current world time: {clock or 'unknown; do not invent a time of day.'}\n"
         f"Latest shared real-world event: {context or 'none yet.'}\n\n"
@@ -271,7 +274,7 @@ def run_beat_bifrost(
 
     if beat_id == "cafe":
         _ensure_secret(service)
-        advance_to(service, beat["time"])
+        advance_to_beat(service, canon, beat["id"])
         result = run_cafe_bifrost(service, client=client)
         result["beat"] = beat
         result["transport"] = "bifrost"
@@ -287,7 +290,7 @@ def run_beat_bifrost(
 
     if beat_id in {"morning-shop", "roundup"}:
         _ensure_secret(service)
-    advance_to(service, beat["time"])
+    advance_to_beat(service, canon, beat["id"])
     context = world_context(service)
     service.record_event(
         "director",

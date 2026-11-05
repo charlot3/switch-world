@@ -72,3 +72,15 @@ def test_advance_leaves_realtime(service):
     service.advance_time("director", 10)
     assert service.clock()["mode"] == "mock"
     assert service.clock()["now"].startswith("2026-11-03T18:40")
+
+
+def test_beat_jump_does_not_land_before_the_beat(service):
+    with service._conn() as conn:
+        conn.execute(
+            "UPDATE clock SET now = ?, day = ?, mode = 'mock', anchor_real = NULL WHERE id = 1",
+            ("2026-11-03T09:08:30+09:00", "2026-11-03"),
+        )
+    moved = story_clock.advance_to_beat(service, CANON, "cafe")
+    assert moved["beat"]["id"] == "cafe"
+    assert service.clock()["now"] >= "2026-11-03T18:30:00"
+    assert story_clock.current_beat(CANON, datetime.fromisoformat(service.clock()["now"]))["id"] == "cafe"

@@ -110,3 +110,25 @@ def test_dm_prompt_has_language_and_voice_contract(tmp_path):
     assert "中文口吻" in system
     assert "1-2 sentences" in user
     assert "natural spoken Chinese" in user
+
+
+def test_dm_prompt_labels_the_users_group_line_as_you(tmp_path):
+    service = make_service(tmp_path)
+    service.record_event(
+        "user", "dialogue", "You: are we still on for tonight?", ["user", "alice"], "public"
+    )
+    service.record_event("alice", "dialogue", "Alice: I'll be there.", ["alice"], "public")
+    captured = {}
+
+    class CapturingBifrost:
+        def chat_json(self, character, messages, **kwargs):
+            captured["messages"] = messages
+            return {"reply": "Of course.", "memory": None, "relationships": []}
+
+        def usage_summary(self):
+            return {}
+
+    reply_to_dm(service, "alice", "Good.", client=CapturingBifrost())
+    user_prompt = captured["messages"][1]["content"]
+    assert "You: are we still on for tonight?" in user_prompt
+    assert "Alice: are we still on for tonight?" not in user_prompt

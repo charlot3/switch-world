@@ -11,6 +11,7 @@ import time
 
 from world_engine.service import WorldService
 
+from . import social
 from .switch_client import SwitchClient, SwitchError
 
 DEFAULT_CHARACTERS = ("alice", "emily", "sophia", "mia")
@@ -47,6 +48,10 @@ def say_in_group(
 
     targets = [_clean_character(c) for c in (characters or DEFAULT_CHARACTERS)]
     targets = list(dict.fromkeys(targets))
+    verdicts = {
+        character: social.appraise(service, character, message, public=True)
+        for character in targets
+    }
     switch = switch or SwitchClient()
     room = switch.find_room(room_name)
     room_id = room["room_id"]
@@ -62,9 +67,14 @@ def say_in_group(
     )
 
     started = int(time.time() * 1000) - 500
-    mentions = " ".join(f"@{character}" for character in targets)
     try:
-        switch.post(room_id, f"{mentions} {message}")
+        for character in targets:
+            verdict = verdicts[character]
+            switch.post(
+                room_id,
+                f"@{character} {social.relationship_block(service, character)}\n\n"
+                f"{social.policy_block(verdict)}\n\n{message}",
+            )
     except SwitchError as exc:
         raise RuntimeError(
             "the Switch room did not accept the message; check that the gateway and the "
@@ -98,6 +108,14 @@ def say_in_group(
         if not event:
             continue
         body = (event.get("body") or "").strip()
+        verdict = verdicts[character]
+        if verdict["stance"] in {"refuse", "hard_refuse"} or social.contains_leak(body, verdict):
+            body = social.deflection(character, verdict, message)
+        message_id = str(event.get("event_id") or "")
+        if message_id and service.event_by_message_id(message_id):
+            continue
+        social.record_verdict(service, character, verdict)
+        social.apply_deltas(service, character, verdict)
         recorded = service.record_event(
             character,
             "dialogue",
@@ -105,7 +123,7 @@ def say_in_group(
             participants=[character],
             visibility="public",
             room_id=room_id,
-            message_id=str(event.get("event_id") or ""),
+            message_id=message_id,
         )
         replies.append(
             {
@@ -120,6 +138,7 @@ def say_in_group(
     return {
         "room": room,
         "targets": targets,
+        "verdicts": verdicts,
         "replies": replies,
         "missing": missing,
         "timed_out": bool(missing),

@@ -1,0 +1,99 @@
+{
+  "comment": "Authored social policy. Tiers are topics, not content ratings. All characters are adults; the project is 17+ SFW.",
+  "tiers": [
+    {"stars": 0, "label": "Wary", "ceiling": 0},
+    {"stars": 1, "label": "Wary", "ceiling": 0},
+    {"stars": 2, "label": "Cordial", "ceiling": 1},
+    {"stars": 3, "label": "Friendly", "ceiling": 2},
+    {"stars": 4, "label": "Close", "ceiling": 3},
+    {"stars": 5, "label": "Intimate", "ceiling": 4}
+  ],
+  "topics": [
+    {
+      "id": "contact",
+      "tier": 4,
+      "label": "physical contact",
+      "keywords": [
+        "kiss", "kissed", "kissing", "make out", "touch you", "touch me",
+        "grab you", "grab me", "hold your hand", "hold my hand", "hug you", "hug me",
+        "lift your skirt", "lift her skirt", "under your shirt", "under your clothes",
+        "sit on my lap", "on my lap", "pull you close", "pull me close", "waist",
+        "force", "强吻", "亲我", "吻我", "抱我", "牵手", "摸我", "摸你", "掀裙", "掀开",
+        "抓我", "搂", "亲一下", "亲你", "吻你", "抱你", "接吻", "搂住"
+      ]
+    },
+    {
+      "id": "body",
+      "tier": 3,
+      "label": "body or appearance",
+      "keywords": [
+        "underwear", "bra", "panties", "lingerie", "boxers", "what are you wearing",
+        "naked", "nude", "breasts", "boobs", "chest", "nipples", "your body", "figure",
+        "legs", "thighs", "virgin", "sex", "sleep with", "turn around", "bend over",
+        "内衣", "内裤", "胸", "裸", "光着", "身材", "腿", "乳头", "睡", "性感", "衣服下面"
+      ]
+    },
+    {
+      "id": "private-emotional",
+      "tier": 2,
+      "label": "private feelings",
+      "keywords": [
+        "secret", "secrets", "afraid", "scared", "cry", "family", "parents", "money",
+        "debt", "lease", "job", "fired", "love you", "in love", "marry", "divorce",
+        "lonely", "depressed", "秘密", "害怕", "家里", "父母", "钱", "债", "租",
+        "工作", "爱", "结婚", "孤独", "难过", "心事"
+      ]
+    },
+    {
+      "id": "personal",
+      "tier": 1,
+      "label": "daily life",
+      "keywords": [
+        "how are you", "your day", "work", "book", "books", "food", "coffee", "tea",
+        "weather", "shop", "truck", "class", "writing", "今天", "工作", "书", "咖啡",
+        "茶", "店", "餐车", "课", "写"
+      ]
+    }
+  ],
+  "characters": {
+    "alice": {
+      "deflect": "I'm going to pretend you asked me about the weather.",
+      "refuse": "No. That's not a question I'm answering.",
+      "hard_refuse": "Stop. Don't do that.",
+      "deflect_zh": "打住。这个问题我不接。",
+      "refuse_zh": "不行。换一个话题。",
+      "hard_refuse_zh": "停下。别这样。"
+    },
+    "emily": {
+      "deflect": "That's not a question I'm answering.",
+      "refuse": "No. Ask something else.",
+      "hard_refuse": "Don't touch me.",
+      "deflect_zh": "不答。换一个。",
+      "refuse_zh": "不行。问点别的。",
+      "hard_refuse_zh": "别碰我。"
+    },
+    "sophia": {
+      "deflect": "Why do you think that's yours to ask?",
+      "refuse": "I'm not answering that.",
+      "hard_refuse": "Step back.",
+      "deflect_zh": "你为什么会觉得这个问题可以问？",
+      "refuse_zh": "这个我不回答。",
+      "hard_refuse_zh": "退后。"
+    },
+    "mia": {
+      "deflect": "Wow. Buy me dinner first — actually, no. Don't.",
+      "refuse": "Nope. Not happening.",
+      "hard_refuse": "Hey. Hands off.",
+      "deflect_zh": "哈，想得美。换话题。",
+      "refuse_zh": "不行。想都别想。",
+      "hard_refuse_zh": "喂。手拿开。"
+    }
+  },
+  "deltas": {
+    "answer": {"closeness": 0.01},
+    "tease": {"closeness": 0.01},
+    "deflect": {"tension": 0.02},
+    "refuse": {"trust": -0.01, "tension": 0.03},
+    "hard_refuse": {"trust": -0.25, "closeness": -0.20, "tension": 0.50}
+  }
+}

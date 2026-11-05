@@ -40,7 +40,7 @@ def reply_to_dm(
 
     canon = load_canon()
     context = world_context(service)
-    phone = service.phone_history(character, limit=100)["messages"]
+    phone = service.phone_history(character, limit=100, include_scene=True)["messages"]
     history = [message for message in phone if message["kind"] == "dm"]
     scene = [message for message in phone if message["kind"] == "scene"][-6:]
     history_text = "\n".join(

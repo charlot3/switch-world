@@ -174,14 +174,17 @@ def test_phone_history_returns_100_and_paginates(service):
     assert service.phone_history("emily")["messages"] == []
 
 
-def test_phone_history_labels_group_user_lines_as_user(service):
+def test_phone_history_excludes_scene_lines_by_default(service):
     service.record_event(
         "user", "dialogue", "You: are we still on for tonight?", ["user", "alice"], "public"
     )
     service.record_event(
         "alice", "dialogue", "Alice: I'll be there.", ["alice"], "public"
     )
-    messages = service.phone_history("alice")["messages"]
+    assert service.phone_history("alice")["messages"] == []
+
+    # The DM prompt still needs public scene context, so it can opt in.
+    messages = service.phone_history("alice", include_scene=True)["messages"]
     assert [m["role"] for m in messages] == ["user", "character"]
     assert messages[0]["text"] == "are we still on for tonight?"
 

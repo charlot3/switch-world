@@ -553,26 +553,32 @@ class WorldService:
         character: str,
         limit: int = 100,
         before_id: int | None = None,
+        include_scene: bool = False,
     ) -> dict:
-        """Recent scene lines + DMs for one character, newest last.
+        """Recent DMs for one character, newest last.
+
+        The phone is a private mailbox: public scene lines are deliberately excluded so a
+        group conversation never leaks into a one-to-one thread. `include_scene=True` is
+        for the DM prompt's context, not for the phone UI.
 
         The dashboard asks for 100 at a time; `before_id` is the pagination cursor. The
         query walks backwards in batches until it has one more matching message than the
         limit, so `has_more` is honest even when other characters' DMs dominate the log.
         """
         limit = max(1, min(int(limit), 200))
+        kind_clause = "kind IN ('dialogue', 'dm')" if include_scene else "kind = 'dm'"
         messages: list[dict] = []
         cursor = before_id
         batch = max(limit * 2, 200)
         while len(messages) <= limit:
             with self._conn() as conn:
                 rows = conn.execute(
-                    """SELECT id, kind, summary, participants_json, created_at
-                         FROM events
-                        WHERE kind IN ('dialogue', 'dm')
-                          AND (? IS NULL OR id < ?)
-                        ORDER BY id DESC
-                        LIMIT ?""",
+                    f"""SELECT id, kind, summary, participants_json, created_at
+                          FROM events
+                         WHERE {kind_clause}
+                           AND (? IS NULL OR id < ?)
+                         ORDER BY id DESC
+                         LIMIT ?""",
                     (cursor, cursor, batch),
                 ).fetchall()
             if not rows:

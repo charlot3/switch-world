@@ -600,6 +600,7 @@ the scene card above: the user and the cast co-produce a scene and its provenanc
 | `scripts/update-mattermost-avatars.sh` | push the square crops to the four bot accounts |
 | `scripts/normalize-relationships.py` | repair name-keyed relationship rows from older databases |
 | `scripts/run-bifrost.sh` | start the Bifrost gateway + the Ollama host proxy |
+| `scripts/run-geekroom-engine.sh` | separate Geek Room world engine on :8891 |
 | `scripts/ollama-proxy.py` | expose loopback Ollama to Docker Desktop |
 | `scripts/world-tick.py` | one-shot/loop Tavily world-event scheduler |
 | `scripts/make-pitch-deck.py` | Geek Room PPTX draft from the docs screenshots |

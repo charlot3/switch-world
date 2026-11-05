@@ -88,11 +88,7 @@ input.
 scripts/run-bifrost.sh
 
 # 2. A Geek Room world instance (separate DB/port; do not disturb the Flip demo)
-WORLD_ENGINE_PORT=8891 \
-WORLD_DB=/tmp/geekroom/world.sqlite \
-WORLD_DATA_DIR=/tmp/geekroom \
-TAVILY_OFFLINE=1 \
-uv run --env-file .env world-engine
+scripts/run-geekroom-engine.sh
 
 # 3. Real-world input (offline fixture if no key)
 TAVILY_OFFLINE=1 uv run director --tavily-event

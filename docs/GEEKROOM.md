@@ -11,11 +11,10 @@ The Flip edition is unchanged by this branch: Switch remains the transport and t
 Switch agents remain the live cast. The Geek Room edition runs the same world engine and
 the same canon, but adds two integrations the Geek Room brief asks for.
 
-> **Gate before submitting Geek Room:** the submission form must allow
-> **“Innovative Solution for AI Agents & Intelligent Systems”** as the primary problem
-> statement. If it is not selectable and no other problem statement is honest, stop and
-> submit only Flip. That is the one-vote-veto in the inbox plan; don't spend the extra
-> time before confirming it.
+> **Confirmed 2026-11-05:** the HackCulture submission form offers
+> **“Innovative Solution for AI Agents & Intelligent Systems”** as the only primary
+> problem statement, so the Geek Room edition proceeds. Keep the Flip submission first;
+> the Geek Room deck/video is the later deadline.
 
 ## What the Geek Room edition adds
 

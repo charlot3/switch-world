@@ -19,6 +19,11 @@ data/
 *.sqlite-wal
 logs/
 
+# Bifrost runtime state; keep the checked-in config only
+!deploy/bifrost/data/
+deploy/bifrost/data/*
+!deploy/bifrost/data/config.json
+
 # python
 .venv/
 __pycache__/

@@ -107,6 +107,35 @@ def create_app(service: WorldService | None = None) -> FastAPI:
             raise HTTPException(400, str(exc)) from exc
         return result
 
+    @app.post("/api/dev/tavily-event")
+    def tavily_event(payload: dict | None = None):
+        if not config.DEV_MODE:
+            raise HTTPException(404)
+        from director.tavily_beat import fetch_world_event
+
+        payload = payload or {}
+        try:
+            return fetch_world_event(service, query=payload.get("query"))
+        except Exception as exc:
+            raise HTTPException(502, f"Tavily event failed: {exc}") from exc
+
+    @app.post("/api/dev/run-bifrost")
+    def run_bifrost():
+        if not config.DEV_MODE:
+            raise HTTPException(404)
+        from director.bifrost_scene import run_cafe_bifrost
+
+        try:
+            return run_cafe_bifrost(service)
+        except Exception as exc:
+            raise HTTPException(502, f"Bifrost beat failed: {exc}") from exc
+
+    @app.get("/api/bifrost/usage")
+    def bifrost_usage():
+        from gateway.bifrost import BifrostClient
+
+        return BifrostClient().usage_summary()
+
     @app.post("/api/dev/reset")
     def reset():
         if not config.DEV_MODE:

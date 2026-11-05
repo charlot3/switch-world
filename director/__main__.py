@@ -39,6 +39,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--switch", action="store_true", help="run the live Switch café beat")
     parser.add_argument("--room", default="world", help="Switch room name for the live beat")
     parser.add_argument("--timeout", type=float, default=90.0, help="seconds to wait for each reply")
+    parser.add_argument("--tavily-event", action="store_true", help="fetch a real-world event through Tavily")
+    parser.add_argument("--query", default=None, help="Tavily query for --tavily-event")
+    parser.add_argument("--bifrost", action="store_true", help="run the café beat through Bifrost")
     args = parser.parse_args(argv)
 
     service = WorldService()
@@ -51,6 +54,35 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Alice now knows: {belief.get('proposition', belief)}")
     if args.status:
         _status(service)
+    if args.tavily_event:
+        from .tavily_beat import fetch_world_event
+
+        try:
+            result = fetch_world_event(service, query=args.query)
+        except Exception as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        print(f"event: {result['event']['summary']}")
+        print(f"key: {result['key']} · holders: {', '.join(result['holders'])}")
+        print("offline fixture" if result["offline"] else "live Tavily result")
+        if not args.bifrost:
+            return 0
+    if args.bifrost:
+        from .bifrost_scene import run_cafe_bifrost
+
+        try:
+            result = run_cafe_bifrost(service)
+        except Exception as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        print("Alice:", result["alice"])
+        print("Emily:", result["emily"])
+        print(f"branch: {result['branch']['label']} ({result['branch']['id']})")
+        print("canon:", "holds" if not result["canon_issues"] else "; ".join(result["canon_issues"]))
+        print("scene card:", result["card"]["path"])
+        print("bifrost:", json.dumps(result["bifrost"], indent=2))
+        if not args.switch:
+            return 0
     if args.switch:
         from .run_switch import run_cafe_switch
 
@@ -68,7 +100,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.simulate or not any(
-        [args.reset, args.tell_alice, args.status, args.switch]
+        [args.reset, args.tell_alice, args.status, args.switch, args.tavily_event, args.bifrost]
     ):
         try:
             result = run_cafe(service)

@@ -19,6 +19,7 @@ director = "director.__main__:main"
 dev = [
   "pytest>=8",
   "pytest-asyncio>=0.24",
+  "python-pptx>=1.0.2",
 ]
 
 [build-system]
@@ -26,7 +27,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["world_engine", "director"]
+packages = ["world_engine", "director", "gateway"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

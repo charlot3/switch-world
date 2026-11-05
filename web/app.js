@@ -1146,7 +1146,19 @@ function closeProfile() {
 /* ---- settings --------------------------------------------------------- */
 
 function renderSettings(data) {
-  renderCanon(data || state.data || {});
+  const current = data || state.data || {};
+  renderCanon(current);
+  const events = current.events || [];
+  const branchEvent = [...events].reverse().find((event) => event.kind === "branch");
+  const worldEvent = [...events].reverse().find((event) => event.kind === "world_event");
+  const bifrostStatus = $("#bifrost-status");
+  if (bifrostStatus && branchEvent) {
+    bifrostStatus.textContent = `Last branch: ${branchEvent.summary}`;
+  }
+  const tavilyStatus = $("#tavily-status");
+  if (tavilyStatus && worldEvent) {
+    tavilyStatus.textContent = worldEvent.summary;
+  }
   const list = $("#provider-list");
   list.replaceChildren();
   (window.SWITCH_PROVIDERS || []).forEach((provider) => {
@@ -1253,6 +1265,51 @@ async function tellAlice() {
   }
 }
 
+async function runBifrost() {
+  const button = $("#run-bifrost");
+  const status = $("#bifrost-status");
+  button.disabled = true;
+  const old = button.textContent;
+  button.textContent = "Running Bifrost…";
+  status.textContent = "Bifrost is generating Alice and Emily...";
+  try {
+    const result = await api("/api/dev/run-bifrost", { method: "POST", body: "{}" });
+    const used = Object.values((result.bifrost && result.bifrost.characters) || {})
+      .reduce((sum, item) => sum + Number(item.used_tokens || 0), 0);
+    status.textContent = `Bifrost beat: ${result.branch.label} (${result.branch.id}) · ${used} tokens logged · log: data/logs/bifrost.jsonl`;
+    await refresh();
+    await loadSceneCard();
+  } catch (error) {
+    status.textContent = `Bifrost beat failed: ${error.message}`;
+  } finally {
+    button.disabled = false;
+    button.textContent = old;
+  }
+}
+
+async function fetchTavily() {
+  const button = $("#fetch-tavily");
+  const status = $("#tavily-status");
+  const query = $("#tavily-query").value.trim();
+  button.disabled = true;
+  const old = button.textContent;
+  button.textContent = "Searching…";
+  try {
+    const result = await api("/api/dev/tavily-event", {
+      method: "POST",
+      body: JSON.stringify({ query }),
+    });
+    const marker = result.offline ? " (offline fixture)" : "";
+    status.textContent = `${result.title}${marker} · ${result.holders.length} characters now share this event · key ${result.key}`;
+    await refresh();
+  } catch (error) {
+    status.textContent = `Tavily event failed: ${error.message}`;
+  } finally {
+    button.disabled = false;
+    button.textContent = old;
+  }
+}
+
 async function runCafe() {
   try {
     const result = await api("/api/dev/run-cafe", { method: "POST", body: "{}" });
@@ -1344,6 +1401,8 @@ $("#scene-next").addEventListener("click", nextLine);
 $("#scene-run").addEventListener("click", copyLiveCommand);
 $("#tell-alice").addEventListener("click", tellAlice);
 $("#run-cafe").addEventListener("click", runCafe);
+$("#run-bifrost").addEventListener("click", runBifrost);
+$("#fetch-tavily").addEventListener("click", fetchTavily);
 $("#reset").addEventListener("click", resetWorld);
 $("#load-card").addEventListener("click", loadSceneCard);
 $("#copy-command").addEventListener("click", copyLiveCommand);

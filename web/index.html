@@ -240,6 +240,29 @@
           </article>
 
           <article class="card setting-card wide">
+            <h3>Geek Room layer</h3>
+            <p class="card-sub">The same world, two integrations: <strong>Bifrost</strong> routes every character model call; <strong>Tavily</strong> turns current news into shared world events.</p>
+            <div class="geekroom-grid">
+              <div class="geekroom-pane">
+                <span class="eyebrow">Bifrost · LLM gateway</span>
+                <p class="tiny">Per-character models, fallbacks, token budgets and request logs. The local default is Ollama through Bifrost.</p>
+                <div class="button-row"><button class="btn primary" id="run-bifrost" type="button">Run Bifrost beat</button></div>
+                <p class="status" id="bifrost-status">Not run yet.</p>
+              </div>
+              <div class="geekroom-pane">
+                <span class="eyebrow">Tavily · real world</span>
+                <label class="field">
+                  <span>Search query</span>
+                  <input id="tavily-query" type="text" value="AI agents, creative tools and human-agent collaboration news this week" autocomplete="off">
+                </label>
+                <div class="button-row"><button class="btn" id="fetch-tavily" type="button">Fetch world event</button></div>
+                <p class="status" id="tavily-status">No real-world event fetched.</p>
+              </div>
+            </div>
+            <p class="tiny">Full setup: <code>docs/GEEKROOM.md</code> · Bifrost logs: <code>data/logs/bifrost.jsonl</code></p>
+          </article>
+
+          <article class="card setting-card wide">
             <h3>Canon &amp; worldline</h3>
             <p class="card-sub">The story is improvised inside authored beats. These facts and invariants are the guardrail: the cast can be wrong, the canon cannot.</p>
             <div class="canon-summary">

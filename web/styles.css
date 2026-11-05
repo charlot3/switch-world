@@ -972,6 +972,12 @@ select {
 .provider-status.live { background: rgba(95, 211, 154, 0.14); color: #6fe0a8; border: 1px solid rgba(95, 211, 154, 0.3); }
 .provider-status.preferred { background: rgba(139, 123, 216, 0.14); color: #b7a9f0; border: 1px solid rgba(139, 123, 216, 0.3); }
 
+/* ---- geek room card --------------------------------------------------- */
+
+.geekroom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 12px; }
+.geekroom-pane { padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); }
+.geekroom-pane .field { margin-top: 8px; }
+
 /* ---- canon card ------------------------------------------------------- */
 
 .canon-summary { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 14px; margin: 12px 0 16px; }
@@ -1147,7 +1153,7 @@ body.modal-open { overflow: hidden; }
 @media (max-width: 900px) {
   .arc-beats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .arc-beat { padding-top: 10px; }
-  .canon-columns, .canon-branches, .canon-summary { grid-template-columns: 1fr; }
+  .canon-columns, .canon-branches, .canon-summary, .geekroom-grid { grid-template-columns: 1fr; }
   .profile-sheet { grid-template-columns: 1fr; max-height: 92vh; }
   .profile-art { min-height: 300px; max-height: 44vh; }
   .profile-copy { padding: 24px 20px; }

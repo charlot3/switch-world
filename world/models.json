@@ -1,0 +1,38 @@
+{
+  "alice": {
+    "model": "ollama/qwen3.8:27b-q4_K_M",
+    "fallbacks": [],
+    "temperature": 0.75,
+    "max_tokens": 2500,
+    "daily_tokens": 60000,
+    "virtual_key_env": "BIFROST_VK_ALICE",
+    "note": "warm and unhurried; a slower, softer sampling profile"
+  },
+  "emily": {
+    "model": "ollama/qwen3.8:27b-q4_K_M",
+    "fallbacks": [],
+    "temperature": 0.55,
+    "max_tokens": 2500,
+    "daily_tokens": 50000,
+    "virtual_key_env": "BIFROST_VK_EMILY",
+    "note": "short, precise, low-temperature"
+  },
+  "sophia": {
+    "model": "ollama/qwen3.8:27b-q4_K_M",
+    "fallbacks": [],
+    "temperature": 0.45,
+    "max_tokens": 2500,
+    "daily_tokens": 50000,
+    "virtual_key_env": "BIFROST_VK_SOPHIA",
+    "note": "measured; long pauses are part of the voice"
+  },
+  "mia": {
+    "model": "ollama/qwen3.8:27b-q4_K_M",
+    "fallbacks": [],
+    "temperature": 0.95,
+    "max_tokens": 2500,
+    "daily_tokens": 60000,
+    "virtual_key_env": "BIFROST_VK_MIA",
+    "note": "fast, funny, high-variance"
+  }
+}

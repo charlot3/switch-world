@@ -89,3 +89,35 @@ def test_reset(client):
     matrix = client.get("/api/matrix").json()["matrix"]
     row = next((r for r in matrix if r["key"] == "user-leaving-city"), None)
     assert row is None
+
+
+def test_dev_tavily_endpoint(client, monkeypatch):
+    monkeypatch.setattr(
+        "director.tavily_beat.fetch_world_event",
+        lambda service, query=None: {
+            "query": query,
+            "offline": False,
+            "event": {"id": 1, "summary": "Real world: test"},
+            "key": "world-test",
+            "title": "test",
+            "url": "https://example.com",
+            "holders": ["alice", "emily", "sophia", "mia"],
+            "results": [],
+        },
+    )
+    response = client.post("/api/dev/tavily-event", json={"query": "agents"})
+    assert response.status_code == 200
+    assert response.json()["key"] == "world-test"
+
+
+def test_dev_bifrost_endpoint(client, monkeypatch):
+    monkeypatch.setattr(
+        "director.bifrost_scene.run_cafe_bifrost",
+        lambda service: {
+            "branch": {"id": "disclosure", "label": "The Confession"},
+            "bifrost": {"requests": 2},
+        },
+    )
+    response = client.post("/api/dev/run-bifrost", json={})
+    assert response.status_code == 200
+    assert response.json()["branch"]["id"] == "disclosure"

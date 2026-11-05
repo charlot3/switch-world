@@ -9,6 +9,22 @@ secret as it travels — with provenance for every belief.
 token; the server maps it to that character and refuses another character's private
 beliefs at the API layer. Switch is the transport; the scene card is the artifact.
 
+## Two editions
+
+This repo carries the same social world to two hackathons:
+
+| Edition | Branch | Additions |
+| --- | --- | --- |
+| **Flip the Switch** | `main` / tag `flip-2026-11-05` | Switch rooms and agents; the secret ledger; canon; scene card |
+| **Geek Room** | `geekroom` | **Bifrost** model gateway + **Tavily** real-world layer, on the same world engine and canon |
+
+The Flip edition is frozen at the tag. The Geek Room edition is additive: Switch remains
+supported, but the Geek Room demo can run without it. Setup, demo and submission notes are
+in [`docs/GEEKROOM.md`](docs/GEEKROOM.md); the deck outline is
+[`docs/PITCH.md`](docs/PITCH.md).
+
+![The Geek Room edition: a Bifrost-generated café scene with a Tavily world event in the ledger.](docs/geekroom-dashboard.png)
+
 > **Demo video:** _to be recorded during the window_ · **Repo:** <https://github.com/charlot3/switch-world>
 
 > **Hackathon entry:** [Flip the Switch](https://www.wemakedevs.org/hackathons/switch)
@@ -76,7 +92,8 @@ Four views, all read-only projections of the Switch world state:
   relationship bars.
 - **Secret Ledger** — the full belief matrix, directed relationship bars, and the event feed.
 - **Settings** — theme and motion, Switch/Mattermost links, provider status, world controls,
-  scene-card export, the submission deadline, and a **Canon & worldline** card.
+  scene-card export, the submission deadline, a **Geek Room layer** card (Bifrost beat /
+  Tavily event), and a **Canon & worldline** card.
 
 The **Profile** sheet is a character card, not a thumbnail: the full-body 立绘, age, height,
 birthday, specialty, likes and dislikes, a private canon line labelled **god view**, a
@@ -225,6 +242,7 @@ Tool surface (implemented in [`world_engine/mcp_server.py`](world_engine/mcp_ser
 | `world__relationship(other)` | character | the calling character's view of another character |
 | `world__update_relationship(other, trust_delta, closeness_delta, tension_delta, reason)` | character | adjust the calling character's outgoing edge, clamped to 0..1; appends an event |
 | `world__record_event(kind, summary, participants, visibility)` | character / director | append-only event; returns the event id |
+| `world__search_web(query, max_results=5, topic=news)` | character | Tavily search for the present; use it before answering a current-events/fact question rather than guessing |
 | `world__who_knows(proposition_key)` | director | the full matrix with provenance; the dashboard reads `GET /api/who-knows/<key>` instead |
 | `world__advance_time(minutes)` | director | moves the world clock and enqueues the next beat |
 
@@ -241,6 +259,50 @@ directly, so the canon is one file, not a second source of truth.
 | **Addressing** | channels require `@name`; a one-to-one Mattermost DM reaches the agent without `@` |
 | **Director** | registers with `POST /agents` using a registration key owned by the user; posts via `POST /agents/{id}/message`; reads room history to chain turns |
 | **Remove test** | `docker compose down` → no rooms, sessions, delivery, or beats |
+
+## Geek Room layer
+
+The `geekroom` branch adds two integrations around the same world engine.
+
+### Bifrost — the model gateway
+
+Every character call in the Bifrost café beat goes through
+`POST /v1/chat/completions` on a local Bifrost gateway:
+
+- `world/models.json` sets a model, fallbacks, temperature, max tokens and daily token
+  budget per character;
+- `BIFROST_MODEL_<NAME>` / `BIFROST_FALLBACKS_<NAME>` override the file;
+- `data/logs/bifrost.jsonl` records character, model, prompt/completion tokens, latency
+  and success/error; `GET /api/bifrost/usage` returns the local budget;
+- Bifrost's own UI at `:8080` is the gateway-side observability evidence.
+
+```sh
+scripts/run-bifrost.sh
+uv run director --bifrost
+```
+
+The default is Ollama (`qwen3.8:27b-q4_K_M`). Add OpenAI/Anthropic providers in
+`deploy/bifrost/data/config.json` and point a character at `openai/...` or
+`anthropic/...`; the Python client does not change. Per-character token budgets,
+fallbacks and virtual-key headers are in [`docs/GEEKROOM.md`](docs/GEEKROOM.md).
+
+### Tavily — the real world
+
+- `uv run director --tavily-event` (or `scripts/world-tick.py`) turns one Tavily search
+  into a public `world_event` and a `shared` belief for every character, with
+  `source=event:<id>`;
+- the World Feed and the belief matrix show the input and its URL;
+- the `world__search_web` MCP tool gives a character live retrieval in a DM, and the agent
+  rules require it for facts that change after training;
+- without `TAVILY_API_KEY`, `TAVILY_OFFLINE=1` uses a clearly-labelled fixture, never a
+  fabricated live result.
+
+```sh
+uv run director --tavily-event --query "AI agents and creative tools this week"
+```
+
+See [`docs/GEEKROOM.md`](docs/GEEKROOM.md) for the two-edition demo, the Bifrost/Ollama
+proxy, the Geek Room submission checklist, and the pitch-deck outline.
 
 ## Cast
 
@@ -519,6 +581,8 @@ the scene card above: the user and the cast co-produce a scene and its provenanc
 | --- | --- |
 | `world/characters/` | the four character sheets |
 | `world/canon.json` | the authored story bible: facts, beats, branches, invariants |
+| `world/models.json` | per-character Bifrost model, fallbacks, temperature and token budget |
+| `gateway/` | Bifrost client, Tavily client, offline fixture |
 | `world/state/` | seed characters, relationship graph and beliefs |
 | `world/rooms.json` | surface ↔ character ↔ channel/DM mapping |
 | `world_engine/` | FastAPI + SQLite + MCP world engine, token scoping, canon API, scene card |
@@ -532,9 +596,14 @@ the scene card above: the user and the cast co-produce a scene and its provenanc
 | `scripts/generate-cast-art.py` | one flow for the bust/full-body/avatar set |
 | `scripts/update-mattermost-avatars.sh` | push the square crops to the four bot accounts |
 | `scripts/normalize-relationships.py` | repair name-keyed relationship rows from older databases |
+| `scripts/run-bifrost.sh` | start the Bifrost gateway + the Ollama host proxy |
+| `scripts/ollama-proxy.py` | expose loopback Ollama to Docker Desktop |
+| `scripts/world-tick.py` | one-shot/loop Tavily world-event scheduler |
+| `scripts/make-pitch-deck.py` | Geek Room PPTX draft from the docs screenshots |
+| `deploy/bifrost/` | Bifrost config, provider notes, local data mount |
 | `scripts/render-agent-configs.sh` | write each agent's OpenCode config with its token |
 | `scripts/render-claude-configs.sh` | write each agent's Claude Code `CLAUDE.md` and `.mcp.json` |
-| `docs/` | proposal, requirements, architecture, canon, cast, Switch setup, demo, decisions, submission |
+| `docs/` | proposal, requirements, architecture, canon, cast, Geek Room runbook, pitch outline, Switch setup, demo, decisions, submission |
 | `pyproject.toml` / `uv.lock` | dependencies and the pinned environment |
 
 ## Honest scope
@@ -553,6 +622,11 @@ Two provenance repairs are in the repo rather than hidden in prose: the branch c
 requires a confidence floor and a content match before it calls a belief a disclosure, and
 the service resolves display names to character ids so `"Emily"` cannot create a second
 relationship row next to `"emily"`.
+
+For the Geek Room edition, the local default is **one** Ollama model with four character
+profiles; per-character different provider models and failover chains are a config change
+(`world/models.json` + `deploy/bifrost/data/config.json`). Live Tavily needs
+`TAVILY_API_KEY`; the offline fixture is explicitly labelled in the event text.
 
 ## Sources
 

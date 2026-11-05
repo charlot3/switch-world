@@ -1,0 +1,29 @@
+{
+  "$schema": "https://www.getbifrost.ai/schema",
+  "encryption_key": "env.BIFROST_ENCRYPTION_KEY",
+  "config_store": {
+    "enabled": false
+  },
+  "providers": {
+    "ollama": {
+      "keys": [
+        {
+          "name": "ollama-local",
+          "value": "",
+          "models": [
+            "*"
+          ],
+          "weight": 1.0,
+          "ollama_key_config": {
+            "url": "env.OLLAMA_URL"
+          }
+        }
+      ],
+      "network_config": {
+        "default_request_timeout_in_seconds": 300,
+        "max_retries": 1,
+        "allow_private_network": true
+      }
+    }
+  }
+}

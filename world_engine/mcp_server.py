@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from mcp.server.mcpserver import Context, MCPServer
 
+from gateway.tavily import TavilyClient, TavilyError, TavilyNotConfigured
+
 from .service import WorldService
 
 
@@ -19,7 +21,9 @@ def create_mcp(service: WorldService) -> MCPServer:
             "world__recall before making a claim about another person. Write what you "
             "learn with world__remember, including the source and a proposition_key. "
             "Write how you feel with world__update_relationship. Never reveal a private "
-            "belief unless your disclosure policy says so."
+            "belief unless your disclosure policy says so. When a question is about the "
+            "present or a fact after your training, call world__search_web instead of "
+            "guessing; record what you learn from it as an observation."
         ),
     )
 
@@ -43,6 +47,30 @@ def create_mcp(service: WorldService) -> MCPServer:
         claim about another person.
         """
         return service.recall(actor(ctx), query=query, limit=limit)
+
+    @mcp.tool()
+    def world__search_web(
+        query: str,
+        ctx: Context,
+        max_results: int = 5,
+        topic: str = "news",
+    ) -> dict:
+        """Search the live web through Tavily for current, real-world information.
+
+        Use this instead of answering from stale training data when a question is about
+        the present. The result includes titles, URLs and snippets; record what you
+        learned with world__remember and source "observation" (or event:<id> for a
+        shared world event).
+        """
+        actor(ctx)
+        try:
+            return TavilyClient.from_env().search(
+                query, max_results=max_results, topic=topic
+            )
+        except TavilyNotConfigured as exc:
+            raise ValueError(str(exc)) from exc
+        except TavilyError as exc:
+            raise ValueError(f"web search failed: {exc}") from exc
 
     @mcp.tool()
     def world__remember(

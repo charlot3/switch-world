@@ -1,0 +1,147 @@
+# Geek Room edition — one project, two hackathons
+
+This repository has two editions of the same social world:
+
+| Edition | Branch | Core additions | Primary event |
+| --- | --- | --- | --- |
+| **Flip the Switch** | `main` (tag `flip-2026-11-05`) | Switch rooms/agents, secret ledger, canon, scene card | Flip the Switch, deadline **2026-11-08 03:29 JST** |
+| **Geek Room** | `geekroom` | **Bifrost** model gateway + **Tavily** real-world layer | Geek Room Global AI Hackathon, deadline **2026-11-15 23:59** (internal **2026-11-14**) |
+
+The Flip edition is unchanged by this branch: Switch remains the transport and the four
+Switch agents remain the live cast. The Geek Room edition runs the same world engine and
+the same canon, but adds two integrations the Geek Room brief asks for.
+
+> **Gate before submitting Geek Room:** the submission form must allow
+> **“Innovative Solution for AI Agents & Intelligent Systems”** as the primary problem
+> statement. If it is not selectable and no other problem statement is honest, stop and
+> submit only Flip. That is the one-vote-veto in the inbox plan; don't spend the extra
+> time before confirming it.
+
+## What the Geek Room edition adds
+
+### 1. Bifrost = the model gateway for every character call
+
+`gateway/bifrost.py` calls Bifrost's OpenAI-compatible
+`POST /v1/chat/completions`. The local café beat in `director/bifrost_scene.py` generates
+Alice's and Emily's turns through that client — not through a direct provider SDK.
+
+- **Per-character model configuration** — `world/models.json` sets a model, temperature,
+  max tokens, fallbacks and daily token budget per character. `BIFROST_MODEL_<NAME>` and
+  `BIFROST_FALLBACKS_<NAME>` override them without editing the file.
+- **Failover** — each character can carry a provider/model fallback chain; Bifrost owns
+  the routing and retry.
+- **Governance** — the client has a local daily token guard (`data/bifrost_budget.json`)
+  and sends optional `x-bf-vk` virtual-key headers. Bifrost's own governance can add
+  budgets/rate limits at the gateway.
+- **Observability** — Bifrost logs every request; `gateway/bifrost.py` also writes
+  `data/logs/bifrost.jsonl` (character, model, prompt/completion tokens, latency,
+  success/error), and `GET /api/bifrost/usage` returns the current budget.
+- **Reasoning-model handling** — the local Ollama Qwen model is a reasoning model. For
+  `ollama/*` models the client sends `think: false`, otherwise the whole token budget can
+  disappear into hidden reasoning and return an empty content field.
+
+Run it:
+
+```sh
+scripts/run-bifrost.sh          # Bifrost on :8080 + Ollama proxy if needed
+uv run director --bifrost       # Alice and Emily generated through Bifrost
+```
+
+The default local model is `ollama/qwen3.8:27b-q4_K_M`. Add OpenAI/Anthropic providers in
+`deploy/bifrost/data/config.json` and point `world/models.json` at
+`anthropic/...` or `openai/...` when keys are available. The request path is identical.
+
+### 2. Tavily = the real world
+
+`gateway/tavily.py` is the only web access. It never invents a result: without
+`TAVILY_API_KEY` it raises unless `TAVILY_OFFLINE=1`, and the offline fixture is clearly
+marked in every event.
+
+There are two paths:
+
+- **World scheduler** — `scripts/world-tick.py` (or `uv run director --tavily-event`)
+  searches one topic, records a public `world_event`, and writes a `shared` belief for
+  every character with source `event:<id>`. The World Feed and the belief matrix show the
+  real-world input; the next scene can reference it.
+- **DM retrieval** — the `world__search_web` MCP tool lets any character check the present
+  before answering. The agent rules say to use it for news/prices/weather/releases and to
+  record what they learn as an observation. A Switch DM therefore gets live retrieval, not
+  stale model knowledge.
+
+```sh
+# live Tavily
+export TAVILY_API_KEY=tvly-...
+uv run director --tavily-event --query "AI agents and creative tools this week"
+
+# no-network demo (clearly labelled)
+TAVILY_OFFLINE=1 uv run director --tavily-event --query "AI agents this week"
+```
+
+The event becomes a matrix row shared by all four characters. The Bifrost scene prompt
+includes the latest event summary, so the characters can argue about the same real-world
+input.
+
+## Run the Geek Room demo
+
+```sh
+# 1. Gateway
+scripts/run-bifrost.sh
+
+# 2. A Geek Room world instance (separate DB/port; do not disturb the Flip demo)
+WORLD_ENGINE_PORT=8891 \
+WORLD_DB=/tmp/geekroom/world.sqlite \
+WORLD_DATA_DIR=/tmp/geekroom \
+TAVILY_OFFLINE=1 \
+uv run --env-file .env world-engine
+
+# 3. Real-world input (offline fixture if no key)
+TAVILY_OFFLINE=1 uv run director --tavily-event
+
+# 4. Character scene through Bifrost
+uv run director --bifrost
+
+# 5. Dashboard
+open http://127.0.0.1:8891/?view=story
+```
+
+The demo shows:
+
+1. the Settings **Geek Room layer** card and the Bifrost request log;
+2. a Tavily event in the World Feed and the shared-event row in the belief matrix;
+3. the café scene generated by Bifrost, with the same branch/canon/scene-card machinery
+   as the Flip edition;
+4. `GET /api/bifrost/usage` and `data/logs/bifrost.jsonl` as governance/observability
+   evidence.
+
+Screenshots: [`geekroom-dashboard.png`](geekroom-dashboard.png),
+[`geekroom-ledger.png`](geekroom-ledger.png),
+[`geekroom-settings.png`](geekroom-settings.png).
+
+## Geek Room deliverables
+
+- [ ] Public GitHub repository with a README explaining **both** Bifrost and Tavily.
+- [ ] **Pitch deck** (required; Flip does not require one) — draft
+      [`switch-world-geekroom-pitch.pptx`](switch-world-geekroom-pitch.pptx); outline in
+      [`PITCH.md`](PITCH.md). Regenerate with `uv run python scripts/make-pitch-deck.py`.
+- [ ] Demo video (optional for Geek Room; reuse the Flip footage plus the Bifrost/Tavily
+      segment).
+- [ ] Submission on HackCulture: Manage → Submissions → Problem Statements & Prototype
+      Submission. Choose **Innovative Solution for AI Agents & Intelligent Systems** as
+      primary, only if the form offers it.
+- [ ] One final submission for the team; no second project.
+
+Deadline: **2026-11-15 23:59** (timezone not stated). Internal target: **2026-11-14**,
+before the Nagoya trip. The Flip deadline is earlier and remains the priority.
+
+## Compliance / honest scope
+
+- The Flip core was built in the Flip window (2026-11-04–07 JST). The Geek Room window is
+  2026-11-01–15, so the same work is inside it.
+- Neither ruleset read here has an exclusivity clause; one project can be submitted to
+  both. The final Geek Room submission is one project only.
+- The local default is a single Ollama model with four character profiles. Per-character
+  *different provider models* are a config change, not a claim that the local demo already
+  uses four vendors. The README says so.
+- The offline Tavily fixture is labelled in the event text. A live submission should set
+  `TAVILY_API_KEY`.
+- No 3D, voice, or in-loop image generation; the cast art is a pre-generated set.

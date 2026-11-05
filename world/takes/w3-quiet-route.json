@@ -1,0 +1,117 @@
+{
+  "id": "w3-quiet-route",
+  "title": "The Quiet Route",
+  "scenario": "w3-quiet-route",
+  "warm": [
+    "alice"
+  ],
+  "scenes": [
+    {
+      "id": "quiet-close",
+      "title": "After close",
+      "place": "the café, after close",
+      "cast": [
+        "alice"
+      ],
+      "art": "/static/assets/portraits/beat-morning-shop.jpg",
+      "opening": [
+        "The café is closed—chairs up, lights low—except for one table by the window.",
+        "Alice is in her cream cardigan, sleeves pushed up, a cup going cold in front of her.",
+        "\"You came,\" she says. \"I was starting to invent reasons to text you.\""
+      ],
+      "choices": [
+        "You'd look incredible in that burgundy skirt. Wear it Friday — just for me.",
+        "That skirt in the window — the short one. It's you.",
+        "You said Friday. I listened — so wear it, and let me walk you home."
+      ],
+      "cues": [
+        {
+          "on": "user_line",
+          "match": "skirt|friday|wear|dress",
+          "op": "remember_preference",
+          "holder": "alice",
+          "key": "user-prefers-short-skirt",
+          "proposition": "The user prefers short skirts.",
+          "confidence": 0.9,
+          "tags": [
+            "skirt",
+            "preference"
+          ]
+        },
+        {
+          "on": "user_line",
+          "match": "skirt|friday|wear|dress",
+          "op": "set_outfit",
+          "character": "alice",
+          "outfit": "date-skirt",
+          "source_belief": "user-prefers-short-skirt",
+          "reason": "because you said Friday"
+        },
+        {
+          "on": "user_line",
+          "match": "quiet|walk|home|route",
+          "op": "remember_preference",
+          "holder": "alice",
+          "key": "user-likes-quiet-walks",
+          "proposition": "The user likes the quiet route home.",
+          "confidence": 0.85,
+          "tags": [
+            "quiet",
+            "walk"
+          ]
+        }
+      ],
+      "fallback_lines": {
+        "alice": "You said Friday. I’ll think about it — and you can walk me home while I do."
+      },
+      "next": "quiet-walk",
+      "must_change": true
+    },
+    {
+      "id": "quiet-walk",
+      "title": "The quiet route home",
+      "place": "the long way home, past the station",
+      "cast": [
+        "alice"
+      ],
+      "art": "/static/assets/scenes/beat-date-alice.jpg",
+      "opening": [
+        "The street is empty enough that Alice takes your arm without asking, like it's the most ordinary thing in the world.",
+        "She is in the burgundy skirt now, the short one, and she does not explain it.",
+        "The station lights are on ahead, but she steers you past them, down the block where the lamps are farther apart."
+      ],
+      "choices": [
+        "I'd take the long way every night, if it was with you.",
+        "You don't have to say anything. Just walk.",
+        "Tell me what Friday meant."
+      ],
+      "cues": [
+        {
+          "on": "user_line",
+          "match": "long way|every night|friday|nothing",
+          "op": "remember_preference",
+          "holder": "alice",
+          "key": "user-takes-the-long-way",
+          "proposition": "The user would take the long way every night.",
+          "confidence": 0.8,
+          "tags": [
+            "quiet",
+            "friday"
+          ]
+        },
+        {
+          "on": "user_line",
+          "match": "long way|every night|friday|nothing",
+          "op": "advance_time",
+          "minutes": 20
+        }
+      ],
+      "fallback_lines": {
+        "alice": "Then we take the long way. It's not far, and the station's not going anywhere."
+      },
+      "next": null,
+      "must_change": false
+    }
+  ],
+  "ending": null
+}

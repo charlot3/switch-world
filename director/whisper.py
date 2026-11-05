@@ -210,9 +210,19 @@ def _target_messages(
     canon = load_canon()
     context = world_context(service)
     clock = service.clock()["now"]
-    social_block = (
-        social.relationship_block(service, to) + "\n\n" + social.policy_block(verdict)
+    social_block = "\n\n".join(
+        [
+            social.relationship_block(service, to),
+            social.policy_block(verdict),
+            social.response_block(verdict),
+            social.action_block(verdict),
+        ]
     )
+    if verdict.get("action_mode") == "attempt":
+        social_block += (
+            "\n\nThis is an attempt on you, not a fact. It is never automatic success: "
+            "you decide what, if anything, you allow."
+        )
     user = (
         "The user leans in and whispers privately to you. No one else can hear it.\n\n"
         f'The user whispers: "{message}"\n\n'

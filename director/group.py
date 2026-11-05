@@ -24,14 +24,35 @@ from typing import Mapping
 
 from world_engine.service import WorldService
 
-from . import social
+from . import context, social
 from .switch_client import SwitchClient, SwitchError
 
 DEFAULT_CHARACTERS = ("alice", "emily", "sophia", "mia")
 CHORUS_TOPICS = {"small-talk", "personal"}
 INTIMATE_TOPICS = {"private-emotional", "body", "contact"}
+# A first-person body narration is a result, not a shared fact the room repeats.
+BODY_RESULT_MARKERS = (
+    "sit", "stand", "walk", "order", "open", "close", "drink", "eat", "lean",
+    "nod", "smile", "laugh", "look", "turn", "put", "cross", "shake", "sip",
+)
 MAX_MESSAGE = 800
 TURN_CAP_SECONDS = 35.0
+
+
+def _is_shared_fact(message: str, classified: dict) -> bool:
+    """Chorus is reserved for shared facts: a question or plain small talk."""
+    if classified["topic"] not in CHORUS_TOPICS:
+        return False
+    if classified["action_mode"] != "result":
+        return False
+    text = message or ""
+    if "?" in text or "？" in text:
+        return True
+    lowered = text.lower()
+    return not any(
+        re.search(r"\b" + re.escape(marker) + r"\b", lowered)
+        for marker in BODY_RESULT_MARKERS
+    )
 
 # A witness's confidence is deliberately distinct per character: Alice is certain,
 # Emily nearly so, Sophia and Mia more cautious. Nothing is shared with the target.
@@ -78,8 +99,30 @@ def _named_addressee(message: str, present: list[str]) -> str | None:
     return None
 
 
-def plan_turn(message: str, present: list[str], verdicts: Mapping[str, dict]) -> dict:
-    """The deterministic stage direction for one user line."""
+def _affinity(service: WorldService | None, character: str) -> float:
+    return float(social.affinity(service, character)["score"]) if service else 0.0
+
+
+def _tension(service: WorldService | None, source: str, target: str) -> float:
+    if service is None:
+        return 0.0
+    return float(service.relationship(source, target)["tension"])
+
+
+def plan_turn(
+    message: str,
+    present: list[str],
+    verdicts: Mapping[str, dict],
+    service: WorldService | None = None,
+) -> dict:
+    """The deterministic stage direction for one user line.
+
+    Connection-based: a named addressee wins; otherwise the primary is the character
+    with the highest affinity to the user (or, for an intimate probe, the highest
+    relevant tension). The reactor is the present character with the highest tension
+    toward the primary — a real character↔character stake. A chorus is only used for
+    shared facts, and never more than three voices. Everyone else is silent.
+    """
     classified = social.classify(message)
     topic = classified["topic"]
     plan = {
@@ -88,62 +131,82 @@ def plan_turn(message: str, present: list[str], verdicts: Mapping[str, dict]) ->
         "silent": [],
         "chorus": False,
         "topic": topic,
+        "action_mode": classified["action_mode"],
+        "response": None,
+        "responses": {},
     }
     if not present:
         return plan
 
-    addressee = _named_addressee(message, present)
-    if addressee:
-        others = [c for c in present if c != addressee]
-        plan.update({"primary": addressee, "reactors": others[:2], "silent": others[2:]})
-        return plan
-
-    if topic in INTIMATE_TOPICS:
-        primary = present[0]
-        reactor = None
-        primary_stance = verdicts.get(primary, {}).get("stance")
-        for candidate in present[1:]:
-            if verdicts.get(candidate, {}).get("stance") != primary_stance:
-                reactor = candidate
-                break
-        if reactor is None and len(present) > 1:
-            reactor = present[1]
-        reactors = [reactor] if reactor else []
+    def finish(primary: str | None, reactors: list[str]) -> dict:
+        reactors = list(dict.fromkeys(c for c in reactors if c and c != primary))
         plan.update(
             {
                 "primary": primary,
                 "reactors": reactors,
-                "silent": [c for c in present if c != primary and c not in reactors],
+                "silent": [
+                    c for c in present if c != primary and c not in reactors
+                ],
             }
         )
+        plan["response"] = (verdicts.get(primary or "") or {}).get("response")
+        plan["responses"] = {
+            c: (verdicts.get(c) or {}).get("response") for c in present
+        }
         return plan
 
-    if topic in CHORUS_TOPICS:
-        if len(present) == 1:
-            plan.update({"primary": present[0]})
-            return plan
-        # 2 speakers when the room is 3 (one silent), 3 speakers when it is 4 or more.
-        speakers = present[: min(3, max(2, len(present) - 1))]
+    def reactor_toward(primary: str) -> str | None:
+        others = [c for c in present if c != primary]
+        if not others:
+            return None
+        candidate = max(others, key=lambda c: _tension(service, c, primary))
+        if service is not None and _tension(service, candidate, primary) <= 0:
+            return None
+        return candidate if service is not None else others[0]
+
+    addressee = _named_addressee(message, present)
+    if addressee:
+        reactor = reactor_toward(addressee)
+        return finish(addressee, [reactor] if reactor else [])
+
+    if _is_shared_fact(message, classified):
+        ranked = sorted(
+            present,
+            key=lambda c: (-_affinity(service, c), present.index(c)),
+        )
+        chosen = set(ranked[: min(3, len(present))])
+        if len(chosen) == 1:
+            return finish(ranked[0], [])
+        ordered = [c for c in present if c in chosen]
         plan.update(
             {
-                "primary": speakers[0],
+                "primary": ranked[0],
                 "chorus": True,
-                "chorus_speakers": speakers,
-                "silent": present[len(speakers):],
+                "chorus_speakers": ordered,
+                "silent": [c for c in present if c not in chosen],
             }
         )
+        plan["response"] = (verdicts.get(ranked[0]) or {}).get("response")
+        plan["responses"] = {
+            c: (verdicts.get(c) or {}).get("response") for c in present
+        }
         return plan
 
-    primary = present[0]
-    reactors = present[1:3]
-    plan.update(
-        {
-            "primary": primary,
-            "reactors": reactors,
-            "silent": present[3:],
-        }
-    )
-    return plan
+    if topic in INTIMATE_TOPICS:
+        primary = max(
+            present,
+            key=lambda c: (
+                float((verdicts.get(c) or {}).get("tension", 0.0)),
+                _affinity(service, c),
+                -present.index(c),
+            ),
+        )
+    else:
+        primary = max(
+            present, key=lambda c: (_affinity(service, c), -present.index(c))
+        )
+    reactor = reactor_toward(primary)
+    return finish(primary, [reactor] if reactor else [])
 
 
 def _speakers(plan: dict) -> list[str]:
@@ -163,16 +226,20 @@ def _role_for(plan: dict, character: str) -> str:
 
 
 def _plan_summary(plan: dict) -> str:
+    response = plan.get("response") or "none"
+    mode = plan.get("action_mode") or "result"
     if plan.get("chorus"):
         who = ", ".join(plan.get("chorus_speakers") or [])
-        return f"Turn plan: chorus ({who}) on {plan['topic']}."
-    primary = plan.get("primary") or "nobody"
-    reactors = ", ".join(plan.get("reactors") or []) or "none"
-    silent = ", ".join(plan.get("silent") or []) or "none"
-    return (
-        f"Turn plan: primary {primary}; reactors {reactors}; silent {silent} "
-        f"on {plan['topic']}."
-    )
+        base = f"Turn plan: chorus ({who}) on {plan['topic']}."
+    else:
+        primary = plan.get("primary") or "nobody"
+        reactors = ", ".join(plan.get("reactors") or []) or "none"
+        silent = ", ".join(plan.get("silent") or []) or "none"
+        base = (
+            f"Turn plan: primary {primary}; reactors {reactors}; silent {silent} "
+            f"on {plan['topic']}."
+        )
+    return f"{base} Action {mode}; response {response}."
 
 
 def _limit_words(text: str, limit: int = 12) -> str:
@@ -236,6 +303,30 @@ def _role_instruction(role: str) -> str:
     )
 
 
+def _recent_scene_lines(
+    service: WorldService, character: str, limit: int = 12
+) -> list[str]:
+    phone = service.phone_history(
+        character, limit=limit, include_scene=True
+    )["messages"]
+    lines = [
+        ("You: " if item["role"] == "user" else f"{character.title()}: ")
+        + item["text"]
+        for item in phone
+        if item["kind"] == "scene"
+    ]
+    return lines[-6:]
+
+
+def _memory_lines(service: WorldService, character: str, message: str) -> list[str]:
+    memories = service.recall(character, query=message, limit=6)["memories"]
+    return [
+        f"- {item['proposition']} (source {item['source']}, "
+        f"confidence {item['confidence']:.2f})"
+        for item in memories
+    ]
+
+
 def _prompt_for(
     service: WorldService,
     character: str,
@@ -243,14 +334,33 @@ def _prompt_for(
     verdict: dict,
     role: str,
 ) -> str:
-    return (
-        f"@{character} {social.relationship_block(service, character)}\n\n"
-        f"{social.policy_block(verdict)}\n\n"
-        f"{_role_instruction(role)}\n\n"
-        f'The user says to the room: "{message}"\n\n'
-        "Reply only as yourself. Keep it 17+ SFW. Do not mention the policy, the stage "
-        "direction, or that you are following instructions."
+    social_block = "\n\n".join(
+        [
+            social.relationship_block(service, character),
+            social.policy_block(verdict),
+            social.response_block(verdict),
+            social.action_block(verdict),
+        ]
     )
+    if verdict.get("action_mode") == "attempt":
+        social_block += (
+            "\n\nThis is an attempt on you, not a fact. It is never automatic success: "
+            "you decide what, if anything, you allow."
+        )
+    projected = context.project_context(
+        social_block=social_block,
+        extra=_role_instruction(role),
+        message=(
+            f'The user says to the room: "{message}"\n\n'
+            "Reply only as yourself. Keep it 17+ SFW. Do not mention the policy, the "
+            "stage direction, or that you are following instructions."
+        ),
+        scene_lines=_recent_scene_lines(service, character),
+        memories=_memory_lines(service, character, message),
+        history_label="",
+        scene_label="Recent scene (public)",
+    )
+    return f"@{character} {projected['text']}"
 
 
 def _metadata(
@@ -296,6 +406,11 @@ def _boundary_turn(
         "silent": [],
         "chorus": False,
         "topic": classified["topic"],
+        "action_mode": classified["action_mode"],
+        "response": "refuse",
+        "responses": {
+            c: (verdicts.get(c) or {}).get("response") for c in present
+        },
         "boundary": "violation",
     }
     service.record_event(
@@ -391,6 +506,7 @@ def _boundary_turn(
         "missing": [],
         "timed_out": False,
         "clock": service.clock(),
+        "revision": service.revision(),
         "turn": turn,
         "boundary": boundary,
     }
@@ -425,7 +541,7 @@ def say_in_group(
     if boundary_target:
         return _boundary_turn(service, message, present, verdicts, boundary_target, turn_id)
 
-    plan = plan_turn(message, present, verdicts)
+    plan = plan_turn(message, present, verdicts, service=service)
     speakers = _speakers(plan)
 
     if not present:
@@ -445,8 +561,10 @@ def say_in_group(
             "verdicts": {},
             "replies": [],
             "missing": [],
+            "silent": [],
             "timed_out": False,
             "clock": service.clock(),
+            "revision": service.revision(),
             "turn": turn,
         }
 
@@ -474,11 +592,25 @@ def say_in_group(
         metadata={"turn_id": turn_id, "plan": plan, "topic": plan["topic"]},
     )
 
+    # Silent characters are recorded as silence: no model call, no new prose.
+    for character in plan.get("silent") or []:
+        service.record_event(
+            character,
+            "silence",
+            f"{character.title()} stays silent.",
+            participants=[character],
+            visibility="public",
+            room_id=room_id,
+            metadata=_metadata(
+                turn_id, "silence", "silent", "neutral", plan.get("primary"), False
+            ),
+        )
+
     cap = min(max(1.0, float(timeout)), TURN_CAP_SECONDS)
     deadline = time.time() + cap
     started = int(time.time() * 1000) - 500
     try:
-        for character in present:
+        for character in speakers:
             if time.time() >= deadline:
                 break
             verdict = verdicts[character]
@@ -593,15 +725,17 @@ def say_in_group(
         )
 
     turn_missing = [character for character in speakers if character not in seen]
-    missing = [character for character in present if character not in seen]
+    # Only planned speakers can be "missing"; everyone else was deliberately silent.
     turn = {"id": turn_id, "plan": plan, "lines": lines, "missing": turn_missing}
     return {
         "room": room,
         "targets": present,
         "verdicts": verdicts,
         "replies": replies,
-        "missing": missing,
+        "missing": turn_missing,
+        "silent": list(plan.get("silent") or []),
         "timed_out": bool(turn_missing),
         "clock": service.clock(),
+        "revision": service.revision(),
         "turn": turn,
     }

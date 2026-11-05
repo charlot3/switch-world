@@ -1,0 +1,93 @@
+{
+  "id": "w5-bad",
+  "title": "The Leak",
+  "scenario": "w5-bad",
+  "warm": ["alice", "emily"],
+  "scenes": [
+    {
+      "id": "platform",
+      "title": "The late train",
+      "place": "the station platform, 21:30",
+      "cast": ["alice", "emily", "sophia", "mia"],
+      "art": "/static/assets/scenes/ending-bad.jpg",
+      "opening": [
+        "The platform clock says 21:30. The train is late, and Emily has been quiet since the ticket machine.",
+        "Alice holds your ticket with both hands. Emily isn't watching the tracks — she's watching you."
+      ],
+      "choices": [
+        "Alice, I'm staying. I mean it this time.",
+        "Emily, there's something you should hear from me before the train comes.",
+        "Let's not do this on a platform. Not here."
+      ],
+      "cues": [
+        {
+          "on": "user_line",
+          "match": "staying|stay|hear from me|truth|told",
+          "op": "remember_preference",
+          "holder": "emily",
+          "key": "user-staying-doubt",
+          "proposition": "The user told Emily they are staying, and Emily does not believe it.",
+          "confidence": 0.8,
+          "tags": ["staying", "emily", "doubt"]
+        },
+        {
+          "on": "user_line",
+          "match": "staying|stay|hear from me|truth|told",
+          "op": "advance_time",
+          "minutes": 10
+        }
+      ],
+      "fallback_lines": {
+        "alice": "Don't say it if you're going to take it back on the train.",
+        "emily": "That's a nice sentence. It doesn't sound true.",
+        "sophia": "You looked at the exit before you looked at her.",
+        "mia": "I brought fries. Nobody's eating them."
+      },
+      "next": "last-call",
+      "must_change": true
+    },
+    {
+      "id": "last-call",
+      "title": "Last call",
+      "place": "the platform, last call",
+      "cast": ["alice", "emily", "sophia", "mia"],
+      "art": "/static/assets/scenes/ending-bad.jpg",
+      "opening": [
+        "Last call. Emily is looking at Alice, not at you, and Alice is looking at her shoes.",
+        "Sophia has her phone out. Whatever she's typing, it has your name in it."
+      ],
+      "choices": [
+        "Alice, say it. Before the doors close.",
+        "Emily, I should have told you sooner. That's on me.",
+        "We can miss this train. It's just a train."
+      ],
+      "cues": [
+        {
+          "on": "user_line",
+          "match": "say it|sooner|miss this train|stay",
+          "op": "remember_preference",
+          "holder": "sophia",
+          "key": "sophia-spreads-the-leak",
+          "proposition": "Sophia is telling the group the user is leaving because Alice pushed them away.",
+          "confidence": 0.6,
+          "tags": ["leak", "sophia"]
+        },
+        {
+          "on": "user_line",
+          "match": "say it|sooner|miss this train|stay",
+          "op": "ending",
+          "id": "bad-leak"
+        }
+      ],
+      "fallback_lines": {
+        "alice": "I heard you. I just don't know what to do with it.",
+        "emily": "You should have said it to her. Not to the platform.",
+        "sophia": "The doors are closing. She's already decided what happened.",
+        "mia": "There's another train in the morning. I don't think that's the problem."
+      },
+      "next": null,
+      "must_change": false
+    }
+  ],
+  "ending": "bad-leak"
+}

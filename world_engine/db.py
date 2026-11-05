@@ -110,6 +110,17 @@ CREATE TABLE IF NOT EXISTS meta (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
 );
+
+-- Demo reliability layer: one stored response per (scope, request_id). Same id +
+-- same payload replays the stored response; a different payload is a conflict.
+CREATE TABLE IF NOT EXISTS idempotency (
+    scope TEXT NOT NULL,
+    request_id TEXT NOT NULL,
+    digest TEXT NOT NULL,
+    response_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (scope, request_id)
+);
 """
 
 

@@ -2,9 +2,17 @@
   "id": "w3-quiet-route",
   "title": "The Quiet Route",
   "seed": 3003,
-  "clock": {"now": "2026-11-03T19:10:00+09:00", "mode": "mock", "scale": 1.0},
-  "cast": ["alice"],
-  "friends": ["alice"],
+  "clock": {
+    "now": "2026-11-03T19:10:00+09:00",
+    "mode": "mock",
+    "scale": 1.0
+  },
+  "cast": [
+    "alice"
+  ],
+  "friends": [
+    "alice"
+  ],
   "absent": [],
   "outfits": {
     "alice": {
@@ -12,36 +20,34 @@
       "label": "the burgundy skirt",
       "art": "/static/assets/portraits/outfits/alice-date-skirt.jpg",
       "reason": "because you said you like short skirts",
-      "source_belief": "user-prefers-short-skirt"
+      "source_belief": "user-prefers-short-skirt",
+      "apply": false
     }
   },
   "cast_art": {
-    "alice": "/static/assets/portraits/outfits/alice-date-skirt.jpg"
+    "alice": "/static/assets/portraits/alice-cg.jpg"
   },
-  "scene_art": "/static/assets/scenes/beat-date-alice.jpg",
+  "scene_art": "/static/assets/portraits/beat-morning-shop.jpg",
   "place": "the café, after close",
   "item": null,
   "relationships": [
-    {"a": "alice", "b": "user", "trust": 0.78, "closeness": 0.72, "tension": 0.08}
-  ],
-  "beliefs": [
     {
-      "holder": "alice",
-      "proposition": "The user prefers short skirts.",
-      "key": "user-prefers-short-skirt",
-      "source": "user",
-      "confidence": 0.90,
-      "visibility": "private"
+      "a": "alice",
+      "b": "user",
+      "trust": 0.78,
+      "closeness": 0.72,
+      "tension": 0.08
     }
   ],
+  "beliefs": [],
   "opening": {
     "title": "The window seat",
     "line": "You came. I saved the window seat.",
     "choices": [
-      "You said Friday. I listened.",
-      "That skirt is unfair.",
-      "Tell me about the book."
+      "You'd look incredible in that burgundy skirt. Wear it Friday — just for me.",
+      "That skirt in the window — the short one. It's you.",
+      "You said Friday. I listened — so wear it, and let me walk you home."
     ]
   },
-  "notes": "One live Alice session; date outfit; memory → outfit callback."
+  "notes": "One live Alice session; starts in her default cardigan; the preference cue records the belief and the next scene applies the date outfit."
 }

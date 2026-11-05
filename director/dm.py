@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from world_engine.service import WorldService
 
-from . import social
+from . import context, social
 from .bifrost_scene import _apply, _parse_envelope, _system
 from .canon import load as load_canon, validate
 from .tavily_beat import world_context
@@ -39,21 +39,29 @@ def reply_to_dm(
         client = BifrostClient()
 
     canon = load_canon()
-    context = world_context(service)
+    world = world_context(service)
     phone = service.phone_history(character, limit=100, include_scene=True)["messages"]
-    history = [message for message in phone if message["kind"] == "dm"]
-    scene = [message for message in phone if message["kind"] == "scene"][-6:]
-    history_text = "\n".join(
-        ("You: " if message["role"] == "user" else f"{character.title()}: ") + message["text"]
-        for message in history
-    ) or "(no earlier DMs)"
-    scene_text = "\n".join(
-        ("You: " if message["role"] == "user" else f"{character.title()}: ") + message["text"]
-        for message in scene
-    ) or "(no recent scene lines)"
+    history_lines = [
+        ("You: " if item["role"] == "user" else f"{character.title()}: ") + item["text"]
+        for item in phone
+        if item["kind"] == "dm"
+    ]
+    scene_lines = [
+        ("You: " if item["role"] == "user" else f"{character.title()}: ") + item["text"]
+        for item in phone
+        if item["kind"] == "scene"
+    ][-6:]
     clock = service.clock()["now"]
     verdict = social.appraise(service, character, message, public=False)
-    social_block = social.relationship_block(service, character) + "\n\n" + social.policy_block(verdict)
+    social_block = (
+        social.relationship_block(service, character)
+        + "\n\n"
+        + social.policy_block(verdict)
+        + "\n\n"
+        + social.response_block(verdict)
+        + "\n\n"
+        + social.action_block(verdict)
+    )
     if verdict["stance"] in {"answer", "tease"}:
         answer_rule = (
             "Be responsive: answer the question directly in the first sentence, before any "
@@ -64,34 +72,49 @@ def reply_to_dm(
             "Do not answer the question. Follow the social policy above and deflect or refuse "
             "in your own voice; do not lecture and do not mention the policy."
         )
+    if verdict.get("action_mode") == "attempt":
+        answer_rule += (
+            " The user is attempting something that affects you. It is never automatic "
+            "success: decide for yourself and answer from the response spectrum."
+        )
     memories = service.recall(character, query=message, limit=6)["memories"]
-    memory_text = "\n".join(
-        f"- {item['proposition']} (source {item['source']}, confidence {item['confidence']:.2f})"
+    memory_lines = [
+        f"- {item['proposition']} (source {item['source']}, "
+        f"confidence {item['confidence']:.2f})"
         for item in memories
-    ) or "(nothing relevant)"
+    ]
+    system_prompt = _system(
+        character, canon, world, clock=clock, social_block=social_block
+    )
+    projected = context.project_context(
+        extra=(
+            "This is a private text DM with the user, not the café scene. Do not describe "
+            "the user as physically present or sitting across from you; you are texting.\n\n"
+            f"Current world time: {clock}\n\n"
+            f"{answer_rule}"
+        ),
+        message=(
+            f'The user says: "{message}"\n'
+            "Sound like a person texting: 1-2 sentences, concrete detail, subtext, not a "
+            "neat emotional summary or a support-agent answer. Mirror the user's language; "
+            "if they wrote Chinese, reply in natural spoken Chinese with no translationese. "
+            "Do not start with a meta preface like '认真答' or '说实话'; just answer. Use "
+            "short sentences and at most one dash. Use the time and history; do not claim "
+            "it is closing time unless the clock is evening. Do not reveal another "
+            "character's private facts. All characters are adults; keep it 17+ SFW and "
+            "never explicit. Return the JSON envelope."
+        ),
+        history_lines=history_lines,
+        scene_lines=scene_lines,
+        memories=memory_lines,
+        history_label="Recent private DM",
+        scene_label="Recent café context (public)",
+        memory_label="Your own memories and public facts",
+        reserved=len(system_prompt.encode("utf-8")),
+    )
     messages = [
-        {"role": "system", "content": _system(character, canon, context, clock=clock, social_block=social_block)},
-        {
-            "role": "user",
-            "content": (
-                "This is a private text DM with the user, not the café scene. Do not describe the user \n"
-                "as physically present or sitting across from you; you are texting.\n\n"
-                f"Current world time: {clock}\n"
-                f"Your own memories and public facts:\n{memory_text}\n\n"
-                f"Recent café context (public):\n{scene_text}\n\n"
-                f"Recent private DM:\n{history_text}\n\n"
-                f'The user says: "{message}"\n'
-                f"{answer_rule} Sound like a person texting: 1-2 sentences, "
-                "concrete detail, subtext, not a neat emotional summary or a support-agent "
-                "answer. Mirror the user's language; if they wrote Chinese, reply in "
-                "natural spoken Chinese with no translationese. Do not start with a meta "
-                "preface like '认真答' or '说实话'; just answer. Use short sentences and at "
-                "most one dash. Use the time and history; "
-                "do not claim it is closing time unless the clock is evening. Do not reveal "
-                "another character's private facts. All characters are adults; keep it 17+ "
-                "SFW and never explicit. Return the JSON envelope."
-            ),
-        },
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": projected["text"]},
     ]
     # Record the user's turn before the model call. The dashboard polls every 2.5s;
     # if the turn only existed optimistically in the browser it would vanish while the

@@ -1,0 +1,93 @@
+{
+  "id": "w6-long-tuesday",
+  "title": "A Long Tuesday",
+  "scenario": "w6-long-tuesday",
+  "warm": ["alice"],
+  "scenes": [
+    {
+      "id": "morning-shop",
+      "title": "Morning, the bookshop",
+      "place": "the bookshop, 08:00",
+      "cast": ["alice", "emily", "sophia", "mia"],
+      "art": "/static/assets/portraits/beat-morning-shop.jpg",
+      "opening": [
+        "You're early. The kettle is doing that thing where it clicks and then thinks better of it.",
+        "Eight o'clock, and the shop already smells of rain, dust and yesterday's paper."
+      ],
+      "choices": [
+        "I wanted to see you before the day got loud.",
+        "You don't have to carry it alone, you know.",
+        "I'll make the tea. You finish opening up. Deal?"
+      ],
+      "cues": [
+        {
+          "on": "user_line",
+          "match": "tea|opening|alone|early|loud",
+          "op": "advance_time",
+          "minutes": 570
+        },
+        {
+          "on": "user_line",
+          "match": "alone|carry|see you",
+          "op": "remember_preference",
+          "holder": "alice",
+          "key": "user-came-in-early",
+          "proposition": "The user came in early to see Alice before the day got loud.",
+          "confidence": 0.75,
+          "tags": ["morning", "alice"]
+        }
+      ],
+      "fallback_lines": {
+        "alice": "Sit down. The kettle's slower than both of us.",
+        "emily": "I'll take the first delivery. Don't wait on me.",
+        "sophia": "I'm writing this down. It's a good line.",
+        "mia": "Coffee first. Then talking. In that order, like a proper meal."
+      },
+      "next": "cafe",
+      "must_change": true
+    },
+    {
+      "id": "cafe",
+      "title": "The café at 18:30",
+      "place": "the café, 18:30",
+      "cast": ["alice", "emily", "sophia", "mia"],
+      "art": "/static/assets/scenes/beat-cafe-day.jpg",
+      "opening": [
+        "The Tuesday crowd got the good table by the window. Nobody at yours is saying the thing they came to say.",
+        "Alice keeps checking the door, the way you check a pocket for keys you know are there."
+      ],
+      "choices": [
+        "Alice, what did you want to tell me this morning?",
+        "Emily, you've been quiet all day.",
+        "Let's just have one ordinary hour. Please."
+      ],
+      "cues": [
+        {
+          "on": "user_line",
+          "match": "morning|quiet|say|ordinary|tell me",
+          "op": "remember_preference",
+          "holder": "alice",
+          "key": "tuesday-unspoken",
+          "proposition": "Alice still has not said what she meant to say this morning.",
+          "confidence": 0.8,
+          "tags": ["tuesday", "alice"]
+        },
+        {
+          "on": "user_line",
+          "match": "morning|quiet|say|ordinary|tell me",
+          "op": "advance_time",
+          "minutes": 30
+        }
+      ],
+      "fallback_lines": {
+        "alice": "One ordinary hour. I'll even put the good cups out.",
+        "emily": "Nothing's wrong. I'd tell you.",
+        "sophia": "Ordinary is doing a lot of heavy lifting for this table.",
+        "mia": "I'll take ordinary. It comes with fries and no follow-up questions."
+      },
+      "next": null,
+      "must_change": false
+    }
+  ],
+  "ending": "neutral-long-tuesday"
+}

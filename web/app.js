@@ -7,6 +7,19 @@ const CAST = window.SWITCH_CAST;
 const ORDER = window.SWITCH_ORDER;
 const SECRET_KEY = "user-leaving-city";
 const SVG_NS = "http://www.w3.org/2000/svg";
+/* Only these vocabulary values may surface in the UI. Anything else is treated
+   as internal policy text and is not rendered. */
+const ACTION_MODES = new Set(["attempt", "result", "continue", "wait"]);
+const RESPONSE_MODES = new Set(["refuse", "negotiate", "limited", "surface", "sincere"]);
+/* Mirrors the take protocol's scene-change invariant. A take scene begins at a
+   take_load / take_scene event; any of these kinds after it means the scene
+   changed and Next scene may advance. */
+const TAKE_BOUNDARY_EVENT_KINDS = new Set(["take_load", "take_scene"]);
+const TAKE_CHANGE_EVENT_KINDS = new Set([
+  "dialogue", "action", "silence", "turn_plan", "boundary_violation",
+  "social_verdict", "item_given", "outfit_change", "relationship_update",
+  "take_cue", "ending", "beat", "branch",
+]);
 
 const state = {
   data: null,
@@ -43,6 +56,29 @@ const state = {
     loadingScenario: null,
     error: "",
     fetchedAt: 0,
+    status: "",
+  },
+  takes: {
+    list: null,
+    current: null,
+    loading: false,
+    loadingTake: null,
+    advancing: false,
+    error: "",
+    status: "",
+    fetchedAt: 0,
+    probed: false,
+    currentFetchedAt: 0,
+    nextNote: "",
+    changed: false,
+    sceneRevision: null,
+    sceneTurn: null,
+    sceneEventKey: null,
+  },
+  safety: {
+    paused: false,
+    busy: false,
+    ready: false,
     status: "",
   },
   studio: { data: null, error: "", loading: false, fetchedAt: 0 },
@@ -135,8 +171,17 @@ async function api(path, options = {}) {
     body = text;
   }
   if (!response.ok) {
-    const detail = body && body.detail ? body.detail : text || response.statusText;
-    throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+    const nested = body && body.detail && typeof body.detail === "object"
+      ? { ...body, ...body.detail }
+      : body;
+    const detail = nested && (nested.detail || nested.message || nested.reason || nested.error)
+      ? (nested.detail || nested.message || nested.reason || nested.error)
+      : (text || response.statusText);
+    const error = new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+    error.status = response.status;
+    error.body = body;
+    error.code = nested && nested.error ? String(nested.error) : "";
+    throw error;
   }
   return body;
 }
@@ -202,6 +247,356 @@ function currentScenario(data) {
     if (value === null) return null;
   }
   return state.worlds.current || null;
+}
+
+/* ---- takes ------------------------------------------------------------- */
+
+/* A take is a linear recording route on top of a scenario. The backend may
+   report it through GET /api/takes/current (the canonical shape) or inline in
+   GET /api/state as take / take_scene. Both paths degrade to "no take". */
+function normalizeActionMode(value) {
+  const text = String(value || "").trim().toLowerCase();
+  return ACTION_MODES.has(text) ? text : "";
+}
+
+function normalizeResponse(value) {
+  const text = String(value || "").trim().toLowerCase();
+  return RESPONSE_MODES.has(text) ? text : "";
+}
+
+function takeSceneIsObject(value) {
+  return Boolean(value && typeof value === "object" && value.id && value.title);
+}
+
+function takeSceneCount(take) {
+  if (!take) return 0;
+  if (Array.isArray(take.scenes)) return take.scenes.length;
+  const count = Number(take.scene_count !== undefined ? take.scene_count : take.scenes_count);
+  return Number.isFinite(count) && count >= 0 ? count : 0;
+}
+
+function takeSceneAt(take, index) {
+  if (!take || !Array.isArray(take.scenes)) return null;
+  const scene = take.scenes[index];
+  return takeSceneIsObject(scene) ? scene : null;
+}
+
+function takeIndexForScene(take, scene) {
+  if (!take || !scene || !Array.isArray(take.scenes)) return null;
+  if (!scene.id) return null;
+  const found = take.scenes.findIndex((item) => item && item.id === scene.id);
+  return found >= 0 ? found : null;
+}
+
+function mergeTakeConfig(incoming, previous) {
+  if (!incoming) return previous || null;
+  if (!previous) return incoming;
+  if (Array.isArray(incoming.scenes) || !Array.isArray(previous.scenes)) return incoming;
+  const same = (incoming.id && previous.id && incoming.id === previous.id)
+    || (!incoming.id && incoming.title && incoming.title === previous.title);
+  return same ? { ...previous, ...incoming, scenes: previous.scenes } : incoming;
+}
+
+function stateRevision(source) {
+  const value = Number(source && source.revision);
+  return Number.isFinite(value) ? value : null;
+}
+
+function stateTurnNumber(source) {
+  const raw = source && source.turn;
+  if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+  if (raw && typeof raw === "object") {
+    const value = Number(raw.number !== undefined ? raw.number : raw.index);
+    if (Number.isFinite(value)) return value;
+  }
+  const direct = Number(source && source.take_turn);
+  return Number.isFinite(direct) ? direct : null;
+}
+
+function lastEventKey(source) {
+  const events = (source && source.events) || [];
+  if (!Array.isArray(events) || !events.length) return null;
+  const last = events[events.length - 1] || {};
+  if (last.id !== undefined && last.id !== null) return String(last.id);
+  if (last.event_id !== undefined && last.event_id !== null) return String(last.event_id);
+  return String(events.length);
+}
+
+function eventIdNumber(event) {
+  const value = Number(event && event.id);
+  return Number.isFinite(value) ? value : null;
+}
+
+/* The backend keeps `take_scene_changed` in meta but does not expose it on
+   /api/state. The same fact is derivable from the event log: a take_load or
+   take_scene event opens a scene, and a turn/cue event after it changes it. */
+function takeSceneChangedFromEvents(source) {
+  const events = source && Array.isArray(source.events) ? source.events : null;
+  if (!events || !events.length) return null;
+  let boundaryIndex = -1;
+  let boundaryId = null;
+  events.forEach((event, index) => {
+    const kind = String((event && event.kind) || "");
+    if (!TAKE_BOUNDARY_EVENT_KINDS.has(kind)) return;
+    const id = eventIdNumber(event);
+    if (id === null) {
+      boundaryIndex = index;
+      boundaryId = null;
+    } else if (boundaryId === null || id >= boundaryId) {
+      boundaryId = id;
+      boundaryIndex = index;
+    }
+  });
+  if (boundaryIndex < 0) return null;
+  const after = boundaryId === null
+    ? events.slice(boundaryIndex + 1)
+    : events.filter((event) => {
+      const id = eventIdNumber(event);
+      return id !== null && id > boundaryId;
+    });
+  return after.some((event) => TAKE_CHANGE_EVENT_KINDS.has(String((event && event.kind) || "")));
+}
+
+/* Fall back to the recorded group turns when /api/state does not carry a
+   numeric `turn`. Each group turn writes one stable turn_id into metadata. */
+function inferredTurnNumber(source) {
+  const direct = stateTurnNumber(source);
+  if (direct !== null) return direct;
+  const events = source && Array.isArray(source.events) ? source.events : [];
+  const ids = new Set();
+  events.forEach((event) => {
+    const meta = eventMeta(event);
+    const id = meta.turn_id || meta.turnId;
+    if (id) ids.add(String(id));
+  });
+  return ids.size;
+}
+
+/* The latest turn plan's action mode, from state.turn when available and from
+   the recorded turn_plan event otherwise. Unknown values are dropped. */
+function latestActionMode(source) {
+  const plan = (source && source.turn && source.turn.plan)
+    || (state.turn && state.turn.plan)
+    || {};
+  const direct = normalizeActionMode(plan.action_mode || plan.actionMode);
+  if (direct) return direct;
+  const events = source && Array.isArray(source.events) ? source.events : [];
+  for (let index = events.length - 1; index >= 0; index -= 1) {
+    const event = events[index];
+    if (String((event && event.kind) || "") !== "turn_plan") continue;
+    const meta = eventMeta(event);
+    const eventPlan = meta.plan && typeof meta.plan === "object" ? meta.plan : {};
+    return normalizeActionMode(
+      eventPlan.action_mode || eventPlan.actionMode
+      || meta.action_mode || meta.actionMode,
+    );
+  }
+  return "";
+}
+
+function setTakeCurrent(raw) {
+  if (!raw) {
+    state.takes.current = null;
+    return null;
+  }
+  const take = raw.take && typeof raw.take === "object" ? raw.take : null;
+  if (!take || !(take.id || take.title)) {
+    state.takes.current = null;
+    return null;
+  }
+  let scene = takeSceneIsObject(raw.scene) ? raw.scene : null;
+  let index = Number(raw.index !== undefined ? raw.index : raw.scene_index);
+  if (!Number.isFinite(index)) index = takeIndexForScene(take, scene);
+  if (!Number.isFinite(index)) index = 0;
+  index = Math.max(0, index);
+  if (!scene) scene = takeSceneAt(take, index);
+  state.takes.current = {
+    take,
+    scene,
+    index,
+    state: raw.state && typeof raw.state === "object" ? raw.state : null,
+  };
+  return state.takes.current;
+}
+
+function takeSceneFromData(data) {
+  if (!data) return null;
+  const candidates = [data.take_scene, data.current_scene, data.scene];
+  for (const value of candidates) {
+    if (takeSceneIsObject(value)) return value;
+  }
+  return null;
+}
+
+function takeIndexFromData(data) {
+  const candidates = [
+    data && data.take_index,
+    data && data.scene_index,
+    data && data.take && data.take.index,
+  ];
+  for (const value of candidates) {
+    const number = Number(value);
+    if (Number.isFinite(number) && number >= 0) return number;
+  }
+  return null;
+}
+
+function currentTakeInfo(data) {
+  const source = data === undefined ? state.data : data;
+  const current = state.takes.current;
+  let take = current ? current.take : null;
+  let scene = current ? current.scene : null;
+  let index = current ? current.index : 0;
+  let explicit = false;
+  if (source && Object.prototype.hasOwnProperty.call(source, "take")) {
+    explicit = true;
+    take = source.take && typeof source.take === "object" ? source.take : null;
+    if (!take) {
+      return { take: null, scene: null, index: 0, count: 0, source };
+    }
+    take = mergeTakeConfig(take, current && current.take);
+  }
+  const directScene = takeSceneFromData(source);
+  if (directScene) scene = directScene;
+  const directIndex = takeIndexFromData(source);
+  if (directIndex !== null) index = directIndex;
+  if (!take && !explicit && current) {
+    take = current.take;
+    scene = current.scene;
+    index = current.index;
+  }
+  if (take && !scene) scene = takeSceneAt(take, index);
+  if (take && scene && directIndex === null) {
+    const found = takeIndexForScene(take, scene);
+    if (found !== null) index = found;
+  }
+  return { take, scene, index, count: takeSceneCount(take), source };
+}
+
+function takeSource(data) {
+  const current = state.takes.current;
+  if (data && (Object.prototype.hasOwnProperty.call(data, "take")
+    || Object.prototype.hasOwnProperty.call(data, "take_scene")
+    || takeSceneIsObject(data.scene))) {
+    return data;
+  }
+  if (current && current.state) return current.state;
+  return data || state.data || {};
+}
+
+function markSceneBaseline(source) {
+  const data = source || state.data || {};
+  state.takes.sceneRevision = stateRevision(data);
+  state.takes.sceneTurn = stateTurnNumber(data);
+  state.takes.sceneEventKey = lastEventKey(data);
+  state.takes.changed = takeSceneChangedFromEvents(data) === true;
+}
+
+function syncTakeChange(data) {
+  if (!state.takes.current) return;
+  const source = takeSource(data);
+  const revision = stateRevision(source);
+  const turn = stateTurnNumber(source);
+  const eventKey = lastEventKey(source);
+  // If the load response carried no revision/event baseline, adopt the first
+  // observed value; later changes still count.
+  if (state.takes.sceneRevision === null && revision !== null) {
+    state.takes.sceneRevision = revision;
+  }
+  if (state.takes.sceneTurn === null && turn !== null) {
+    state.takes.sceneTurn = turn;
+  }
+  if (state.takes.sceneEventKey === null && eventKey !== null) {
+    state.takes.sceneEventKey = eventKey;
+  }
+  if (revision !== null && state.takes.sceneRevision !== null
+    && revision > state.takes.sceneRevision) {
+    state.takes.changed = true;
+  }
+  if (turn !== null && state.takes.sceneTurn !== null && turn > state.takes.sceneTurn) {
+    state.takes.changed = true;
+  }
+  if (eventKey !== null && state.takes.sceneEventKey !== null
+    && eventKey !== state.takes.sceneEventKey) {
+    state.takes.changed = true;
+  }
+  if (takeSceneChangedFromEvents(source) === true) {
+    state.takes.changed = true;
+  }
+  if (source && (source.scene_changed === true || source.take_changed === true
+    || source.changed === true)) {
+    state.takes.changed = true;
+  }
+  const takeState = state.takes.current.take;
+  const sceneState = state.takes.current.scene;
+  if (takeState && (takeState.changed === true || takeState.scene_changed === true)) {
+    state.takes.changed = true;
+  }
+  if (sceneState && (sceneState.changed === true || sceneState.dirty === true
+    || sceneState.player_turn === true)) {
+    state.takes.changed = true;
+  }
+}
+
+function syncTakeState(data) {
+  if (!data) return;
+  const hasTake = Object.prototype.hasOwnProperty.call(data, "take");
+  const scene = takeSceneFromData(data);
+  if (!hasTake && !scene) {
+    syncTakeChange(data);
+    return;
+  }
+  if (hasTake && (!data.take || typeof data.take !== "object")) {
+    state.takes.current = null;
+    state.takes.changed = false;
+    return;
+  }
+  const previous = state.takes.current;
+  const incoming = hasTake ? data.take : (previous ? previous.take : null);
+  const take = mergeTakeConfig(incoming, previous && previous.take);
+  if (!take) {
+    syncTakeChange(data);
+    return;
+  }
+  let index = takeIndexFromData(data);
+  if (index === null) index = previous ? previous.index : 0;
+  const nextScene = scene || takeSceneAt(take, index) || (previous ? previous.scene : null);
+  const changedScene = !previous
+    || previous.index !== index
+    || (previous.take && take.id && previous.take.id !== take.id)
+    || (previous.scene && nextScene && previous.scene.id && nextScene.id
+      && previous.scene.id !== nextScene.id);
+  state.takes.current = { take, scene: nextScene, index, state: data };
+  if (changedScene) markSceneBaseline(data);
+  syncTakeChange(data);
+}
+
+function takeAdvanceState(data) {
+  const info = currentTakeInfo(data);
+  if (!info.take) {
+    return { ok: false, reason: "Load a take below to start a route." };
+  }
+  if (state.safety.paused) {
+    return { ok: false, reason: "The scene is paused. Resume in Studio to advance." };
+  }
+  const scene = info.scene;
+  const count = info.count;
+  const isLast = (scene && scene.next === null)
+    || (count > 0 && info.index >= count - 1);
+  if (isLast) {
+    return { ok: false, reason: "This is the last scene — the route ends here." };
+  }
+  const mustChange = !scene || scene.must_change !== false;
+  if (mustChange && !state.takes.changed) {
+    return { ok: false, reason: "Say a line or let a cue change the scene before advancing." };
+  }
+  const nextNumber = info.index + 2;
+  return {
+    ok: true,
+    reason: count
+      ? `Scene ${nextNumber} of ${count} is ready.`
+      : "The next scene is ready.",
+  };
 }
 
 function scenarioCastIds(data) {
@@ -304,6 +699,12 @@ function scenarioConnections(data) {
 }
 
 function sceneCharacters(data) {
+  const takeInfo = currentTakeInfo(data);
+  const takeScene = takeInfo.take ? takeInfo.scene : null;
+  if (takeScene && Array.isArray(takeScene.cast) && takeScene.cast.length) {
+    const ids = takeScene.cast.map((id) => asCastId(id)).filter((id) => id && CAST[id]);
+    if (ids.length) return ids;
+  }
   const scenarioCast = scenarioCastIds(data);
   if (scenarioCast) return scenarioCast;
   const beat = currentBeat(data);
@@ -425,6 +826,9 @@ function beatArtFor(data, cast) {
    the scenario scene CG, then the authored beat CG. The backdrop is the scene
    CG so the stage still reads as the place, not only the person. */
 function sceneArtFor(data, cast) {
+  const info = currentTakeInfo(data);
+  const takeScene = info.take ? info.scene : null;
+  if (takeScene && takeScene.art) return takeScene.art;
   return scenarioSceneArt(data)
     || outfitArtFor(data, cast.id)
     || castArtFor(data, cast.id)
@@ -432,6 +836,11 @@ function sceneArtFor(data, cast) {
 }
 
 function sceneBackdropFor(data, cast) {
+  const info = currentTakeInfo(data);
+  const takeScene = info.take ? info.scene : null;
+  if (takeScene && (takeScene.art_backdrop || takeScene.art)) {
+    return takeScene.art_backdrop || takeScene.art;
+  }
   return scenarioSceneArt(data) || sceneArtFor(data, cast);
 }
 
@@ -521,6 +930,7 @@ function buildEventEntries(data) {
     if (!text && (mode === "silence" || meta.role === "silent")) {
       text = `${firstNameOf(castId || rawWho)} stays quiet.`;
     }
+    const generator = String(meta.generator || "").toLowerCase();
     entries.push({
       key: `ev-${event.id}`,
       eventId: event.id,
@@ -538,6 +948,11 @@ function buildEventEntries(data) {
         || mode === "whisper" || mode === "whisper_reply",
       silent: mode === "silence" || meta.role === "silent",
       boundary: boundary || mode === "boundary",
+      authored: generator === "authored" || meta.authored === true
+        || meta.fallback === true || event.authored === true,
+      generator,
+      actionMode: normalizeActionMode(meta.action_mode || meta.actionMode),
+      response: normalizeResponse(meta.response),
       turnId: meta.turn_id || meta.turnId || null,
       beatIndex: -1,
       ts: event.created_at,
@@ -567,6 +982,8 @@ function beatFromResponse(raw, fallbackMode, plan) {
   if (!text && (mode === "silence" || raw.role === "silent")) {
     text = `${firstNameOf(castId)} stays quiet.`;
   }
+  const meta = raw.metadata && typeof raw.metadata === "object" ? raw.metadata : {};
+  const generator = String(raw.generator || meta.generator || "").toLowerCase();
   return {
     character: castId,
     castId: CAST[castId] ? castId : null,
@@ -581,6 +998,11 @@ function beatFromResponse(raw, fallbackMode, plan) {
     private: Boolean(raw.private) || mode === "whisper" || mode === "whisper_reply"
       || raw.visibility === "private",
     silent: mode === "silence" || raw.role === "silent",
+    authored: generator === "authored" || raw.authored === true
+      || raw.fallback === true || raw.rehearsal === true,
+    generator,
+    actionMode: normalizeActionMode(raw.action_mode || meta.action_mode || meta.actionMode),
+    response: normalizeResponse(raw.response || meta.response),
     eventId: raw.event_id || null,
   };
 }
@@ -803,8 +1225,12 @@ function renderScenarioOpening(scenario) {
   const box = $("#scenario-opening");
   if (!box) return;
   const opening = scenario && scenario.opening ? scenario.opening : null;
-  const title = opening && opening.title;
-  const line = opening && opening.line;
+  const title = opening && (typeof opening === "object" && !Array.isArray(opening))
+    ? opening.title : "";
+  const rawLine = opening && typeof opening === "object" && !Array.isArray(opening)
+    ? opening.line
+    : opening;
+  const line = Array.isArray(rawLine) ? rawLine.filter(Boolean).join(" ") : rawLine;
   if (!scenario || (!title && !line)) {
     box.hidden = true;
     box.replaceChildren();
@@ -1114,21 +1540,30 @@ function renderStory(data) {
     setArtWithFallback(backdrop, [sceneBackdropFor(data, cast), ...fallbackArt], "");
   }
   const scenario = currentScenario(data);
+  const takeInfo = currentTakeInfo(data);
+  const takeScene = takeInfo.take ? takeInfo.scene : null;
   const opening = scenario && scenario.opening ? scenario.opening : null;
   $("#scene-name").textContent = firstName(cast.name);
   $("#scene-jp").textContent = cast.route;
   $("#scene-mood").textContent = selectedAbsent ? "absent · left the scene" : cast.mood;
-  $("#scene-stamp").textContent = scenario
-    ? `SCENE · ${String(scenario.title || scenario.id || "SCENARIO").toUpperCase()}`
-    : (beat ? `SCENE · ${beat.title.toUpperCase()}` : "SCENE · THE CAFÉ");
-  $("#scene-caption").textContent = scenario
-    ? `${formatTime(data.clock && data.clock.now)} · ${scenario.place || (opening && opening.title) || scenario.title || "the scene"}`
-    : (beat
-      ? `${formatTime(data.clock && data.clock.now)} · ${beat.place || beat.title}`
-      : "18:30 · a Tuesday in late autumn");
+  $("#scene-stamp").textContent = takeScene
+    ? `SCENE ${takeInfo.index + 1}${takeInfo.count ? `/${takeInfo.count}` : ""} · ${String(takeScene.title || takeInfo.take.title || "TAKE").toUpperCase()}`
+    : (scenario
+      ? `SCENE · ${String(scenario.title || scenario.id || "SCENARIO").toUpperCase()}`
+      : (beat ? `SCENE · ${beat.title.toUpperCase()}` : "SCENE · THE CAFÉ"));
+  $("#scene-caption").textContent = takeScene
+    ? `${formatTime(data.clock && data.clock.now)} · ${takeScene.place || scenario && scenario.place || takeInfo.take.title || "the scene"}`
+    : (scenario
+      ? `${formatTime(data.clock && data.clock.now)} · ${scenario.place || (opening && opening.title) || scenario.title || "the scene"}`
+      : (beat
+        ? `${formatTime(data.clock && data.clock.now)} · ${beat.place || beat.title}`
+        : "18:30 · a Tuesday in late autumn"));
 
   renderScenarioItem(data);
-  renderScenarioOpening(scenario);
+  renderScenarioOpening(
+    takeScene && (takeScene.opening || takeScene.title) ? takeScene : scenario,
+  );
+  renderStoryHud(data);
   renderTranscript(data, absent);
   renderChoices(beat, present);
   renderSayBar(beatCast, present, absent);
@@ -1163,15 +1598,164 @@ function renderStory(data) {
   }
 
   const next = $("#scene-next");
-  if (next) next.disabled = state.group.sending;
+  if (next) next.disabled = state.group.sending || state.safety.paused;
 
+  renderSafetyNotice();
   renderHero(data);
   renderCast(data);
   renderArc(data);
   renderPhone(data);
 }
 
-/* ---- scene transcript ------------------------------------------------- */
+/* ---- story HUD + safety ----------------------------------------------- */
+
+function renderStoryHud(data) {
+  data = data || {};
+  const hud = $("#story-hud");
+  if (!hud) return;
+  const info = currentTakeInfo(data);
+  const scenario = currentScenario(data);
+  const beat = currentBeat(data);
+  const scene = info.take ? info.scene : null;
+  const take = info.take;
+  const source = takeSource(data);
+
+  const title = (scene && (scene.title || scene.name))
+    || (take && (take.title || take.id))
+    || (scenario && (scenario.title || scenario.id))
+    || (beat && beat.title)
+    || "The café";
+  const place = (scene && scene.place)
+    || (scenario && scenario.place)
+    || (beat && beat.place)
+    || "a Tuesday in late autumn";
+
+  $("#hud-kicker").textContent = take
+    ? `take · scene ${info.index + 1}${info.count ? ` of ${info.count}` : ""}`
+    : (scenario ? "scenario" : "base canon");
+  $("#hud-title").textContent = title;
+  $("#hud-place").textContent = place;
+
+  const chip = $("#hud-take");
+  if (chip) {
+    chip.hidden = !take;
+    chip.textContent = take
+      ? `${take.title || take.id || "take"} · ${info.index + 1}${info.count ? `/${info.count}` : ""}`
+      : "";
+    chip.title = take && take.id ? `Active take: ${take.id}` : "";
+  }
+
+  const action = latestActionMode(source);
+  const actionChip = $("#hud-action");
+  if (actionChip) {
+    actionChip.hidden = !action;
+    actionChip.textContent = action;
+    actionChip.title = "Action mode for the latest turn";
+  }
+
+  const turn = inferredTurnNumber(source);
+  $("#hud-turn").textContent = turn !== null ? `Turn ${turn}` : "Turn 0";
+
+  const clock = data.clock || {};
+  $("#hud-clock").textContent = formatTime(clock.now) || "--:--";
+  const mode = clockScaleLabel(clock);
+  const modeChip = $("#hud-mode");
+  modeChip.textContent = mode;
+  modeChip.classList.toggle("is-real", mode.startsWith("REAL"));
+  modeChip.title = mode.startsWith("REAL")
+    ? `Real time · story clock runs ${scaleFactor(clock.scale)} wall time`
+    : "Mock time · the story waits for you";
+
+  const revision = stateRevision(source);
+  const revChip = $("#hud-revision");
+  if (revChip) {
+    revChip.hidden = revision === null;
+    revChip.textContent = revision === null ? "" : `rev ${revision}`;
+    revChip.title = "State revision — every turn increments it";
+  }
+}
+
+function renderSafetyNotice() {
+  const box = $("#scene-pause");
+  if (!box) return;
+  box.hidden = !state.safety.paused;
+}
+
+function renderSafety() {
+  const badge = $("#safety-badge");
+  const button = $("#safety-toggle");
+  const status = $("#safety-status");
+  if (badge) {
+    badge.textContent = state.safety.paused ? "Paused" : "Running";
+    badge.classList.toggle("is-paused", state.safety.paused);
+    badge.classList.toggle("is-running", !state.safety.paused);
+  }
+  if (button) {
+    button.textContent = state.safety.paused ? "Resume scene" : "Pause scene";
+    button.disabled = state.safety.busy;
+    button.setAttribute("aria-pressed", state.safety.paused ? "true" : "false");
+    button.classList.toggle("is-paused", state.safety.paused);
+  }
+  if (status) {
+    status.textContent = state.safety.status
+      || (state.safety.paused
+        ? "Paused. New scene and DM lines are on hold until you resume."
+        : "New lines are allowed.");
+  }
+  renderSafetyNotice();
+}
+
+async function setSafety(paused) {
+  if (state.safety.busy) return;
+  const target = Boolean(paused);
+  state.safety.busy = true;
+  state.safety.status = target ? "Pausing the scene…" : "Resuming the scene…";
+  renderSafety();
+  try {
+    const result = await api("/api/safety/pause", {
+      method: "POST",
+      body: JSON.stringify({ paused: target }),
+    });
+    const value = result && Object.prototype.hasOwnProperty.call(result, "paused")
+      ? Boolean(result.paused)
+      : target;
+    state.safety.paused = value;
+    state.safety.ready = true;
+    state.safety.status = value
+      ? "Paused. New scene and DM lines are on hold until you resume."
+      : "Running. New lines are allowed.";
+  } catch (error) {
+    state.safety.status = `Pause control unavailable: ${error.message}`;
+  } finally {
+    state.safety.busy = false;
+    renderSafety();
+    if (state.data) {
+      renderStory(state.data);
+      renderTakes();
+    }
+    if (state.view === "studio") loadStudio(true);
+  }
+}
+
+function syncSafety(data) {
+  if (!data) return;
+  let value = null;
+  if (data.safety && typeof data.safety === "object"
+    && Object.prototype.hasOwnProperty.call(data.safety, "paused")) {
+    value = Boolean(data.safety.paused);
+  } else if (Object.prototype.hasOwnProperty.call(data, "paused")) {
+    value = Boolean(data.paused);
+  } else if (data.meta && Object.prototype.hasOwnProperty.call(data.meta, "paused")) {
+    value = Boolean(data.meta.paused);
+  }
+  if (value !== null && value !== state.safety.paused) {
+    state.safety.paused = value;
+    state.safety.ready = true;
+    state.safety.status = value
+      ? "Paused. New scene and DM lines are on hold until you resume."
+      : "Running. New lines are allowed.";
+  }
+}
 
 function isSpeechBeat(entry) {
   return SPEECH_MODES.has(entry.mode) && !entry.chorus && !entry.silent && !entry.boundary;
@@ -1249,6 +1833,14 @@ function avatarElement(entry, absent) {
   return span;
 }
 
+function turnChip(label, kind, title) {
+  const chip = document.createElement("span");
+  chip.className = `turn-chip ${kind || ""}`.trim();
+  chip.textContent = label;
+  if (title) chip.title = title;
+  return chip;
+}
+
 function speakerPlate(entry, absent) {
   const wrap = document.createElement("div");
   wrap.className = "turn-speaker";
@@ -1279,6 +1871,19 @@ function speakerPlate(entry, absent) {
     tag.textContent = "Boundary";
     wrap.appendChild(tag);
   }
+  if (entry.authored) {
+    wrap.appendChild(turnChip(
+      "authored",
+      "is-authored",
+      "Authored fallback line — this is a normal scene line, not an error.",
+    ));
+  }
+  if (entry.actionMode) {
+    wrap.appendChild(turnChip(entry.actionMode, "is-action", "Action mode"));
+  }
+  if (entry.response) {
+    wrap.appendChild(turnChip(entry.response, `is-response is-${entry.response}`, "Character response"));
+  }
   return wrap;
 }
 
@@ -1296,6 +1901,9 @@ function entryRow(entry, absent, activeKey) {
     text.className = "turn-text";
     text.textContent = entry.text;
     row.append(label, text);
+    if (entry.actionMode) {
+      row.appendChild(turnChip(entry.actionMode, "is-action", "Action mode for this turn"));
+    }
     return row;
   }
 
@@ -1369,6 +1977,15 @@ function chorusRow(group, absent) {
     name.textContent = firstName(entry.speaker);
     plate.appendChild(name);
     line.appendChild(plate);
+    if (entry.authored) {
+      line.appendChild(turnChip("authored", "is-authored", "Authored fallback line — normal scene text, not an error."));
+    }
+    if (entry.actionMode) {
+      line.appendChild(turnChip(entry.actionMode, "is-action", "Action mode"));
+    }
+    if (entry.response) {
+      line.appendChild(turnChip(entry.response, `is-response is-${entry.response}`, "Character response"));
+    }
     names.appendChild(line);
   });
   const body = document.createElement("div");
@@ -1410,7 +2027,17 @@ function renderTranscript(data, absent) {
       });
     }
     const direction = directionText(turn);
-    if (direction) rows.push({ key: `dir-${turn.id}`, direction: true, text: direction });
+    if (direction) {
+      rows.push({
+        key: `dir-${turn.id}`,
+        direction: true,
+        text: direction,
+        actionMode: normalizeActionMode(
+          turn.actionMode
+          || (turn.plan && (turn.plan.action_mode || turn.plan.actionMode)),
+        ),
+      });
+    }
     if (turn.boundary) {
       rows.push({
         key: `boundary-${turn.id}`,
@@ -1568,12 +2195,19 @@ function renderChoices(beat, present) {
   const box = $("#scene-choices");
   if (!box) return;
   const scenario = currentScenario(state.data);
+  const takeInfo = currentTakeInfo(state.data);
+  const takeScene = takeInfo.take ? takeInfo.scene : null;
   const opening = scenario && scenario.opening ? scenario.opening : null;
   const openingChoices = opening && Array.isArray(opening.choices)
     ? opening.choices.filter((choice) => typeof choice === "string" && choice.trim())
     : [];
-  const choices = openingChoices.length ? openingChoices : ((beat && beat.choices) || []);
-  const sig = `${scenario ? scenario.id : ""}|${beat ? beat.id : ""}|${state.group.sending}|${present.join(",")}|${choices.join("|")}`;
+  const takeChoices = takeScene && Array.isArray(takeScene.choices)
+    ? takeScene.choices.filter((choice) => typeof choice === "string" && choice.trim())
+    : [];
+  const choices = takeChoices.length
+    ? takeChoices
+    : (openingChoices.length ? openingChoices : ((beat && beat.choices) || []));
+  const sig = `${takeScene ? (takeScene.id || takeInfo.index) : ""}|${scenario ? scenario.id : ""}|${beat ? beat.id : ""}|${state.group.sending}|${state.safety.paused}|${present.join(",")}|${choices.join("|")}`;
   if (box.dataset.sig === sig) return;
   box.dataset.sig = sig;
   box.replaceChildren();
@@ -1582,7 +2216,7 @@ function renderChoices(beat, present) {
     button.type = "button";
     button.className = "scene-choice";
     button.textContent = text;
-    button.disabled = state.group.sending || !present.length;
+    button.disabled = state.group.sending || state.safety.paused || !present.length;
     button.addEventListener("click", () => sendScene(text));
     box.appendChild(button);
   });
@@ -1621,21 +2255,23 @@ function renderSayBar(beatCast, present, absent) {
     if (state.whisperTarget && CAST[state.whisperTarget] && !absent.has(state.whisperTarget)) {
       select.value = state.whisperTarget;
     }
-    select.disabled = !state.whisper || !present.length;
+    select.disabled = !state.whisper || state.safety.paused || !present.length;
   }
 
   const input = $("#scene-say-input");
   if (input) {
-    input.disabled = state.group.sending || !present.length;
+    input.disabled = state.group.sending || state.safety.paused || !present.length;
     const target = state.whisperTarget ? firstNameOf(state.whisperTarget) : "them";
-    input.placeholder = state.whisper
-      ? `Whisper to ${target}…`
-      : (present.length > 1
-        ? "Say something to the room…"
-        : `Say something to ${present.length ? firstName(CAST[present[0]].name) : "them"}…`);
+    input.placeholder = state.safety.paused
+      ? "Scene paused — resume in Studio"
+      : (state.whisper
+        ? `Whisper to ${target}…`
+        : (present.length > 1
+          ? "Say something to the room…"
+          : `Say something to ${present.length ? firstName(CAST[present[0]].name) : "them"}…`));
   }
   const send = $("#scene-say-send");
-  if (send) send.disabled = state.group.sending || !present.length;
+  if (send) send.disabled = state.group.sending || state.safety.paused || !present.length;
 }
 
 function renderBoundary(data, absent) {
@@ -1676,6 +2312,11 @@ function renderBoundary(data, absent) {
 async function sendScene(text, options = {}) {
   text = String(text || "").trim();
   if (!text || state.group.sending) return;
+  if (state.safety.paused) {
+    state.groupStatus = "The scene is paused. New lines are on hold — resume in Studio when you choose.";
+    renderStory(state.data);
+    return;
+  }
   const whisper = Boolean(options.whisper);
   const data = state.data || {};
   const absent = absentSet(data);
@@ -1728,10 +2369,15 @@ async function sendScene(text, options = {}) {
     const turn = result && result.turn ? result.turn : {};
     state.turn.id = turn.id || state.turn.id;
     state.turn.plan = turn.plan || state.turn.plan;
+    state.turn.actionMode = normalizeActionMode(
+      (state.turn.plan && (state.turn.plan.action_mode || state.turn.plan.actionMode))
+      || (turn.action_mode || turn.actionMode),
+    );
     state.turn.lines = extractTurnLines(result, whisper, state.turn.plan);
     state.turn.lines.forEach((line) => { line.turnId = state.turn.id; });
     state.turn.done = !state.turn.lines.length;
     state.turn.transport = (result && result.transport) || null;
+    if (state.takes.current) state.takes.changed = true;
 
     const boundaryValue = (result && result.boundary)
       || turn.boundary
@@ -1771,7 +2417,15 @@ async function sendScene(text, options = {}) {
   } catch (error) {
     state.group.sending = false;
     state.turn = null;
-    state.groupStatus = `The room didn't answer: ${error.message}`;
+    if (error.status === 423) {
+      state.safety.paused = true;
+      state.safety.ready = true;
+      state.safety.status = "Paused. New scene and DM lines are on hold until you resume.";
+      state.groupStatus = "The scene is paused. New lines are on hold — resume in Studio when you choose.";
+      renderSafety();
+    } else {
+      state.groupStatus = `The room didn't answer: ${error.message}`;
+    }
     renderStory(state.data);
   } finally {
     state.group.sending = false;
@@ -1950,10 +2604,12 @@ function renderPhone(data) {
   const input = $("#phone-input");
   const send = $("#phone-send");
   if (input) {
-    input.disabled = !friend || state.phone.sending;
-    input.placeholder = friend ? `Message ${firstName(cast.name)}…` : "Add as a friend to chat";
+    input.disabled = !friend || state.phone.sending || state.safety.paused;
+    input.placeholder = state.safety.paused
+      ? "Scene paused"
+      : (friend ? `Message ${firstName(cast.name)}…` : "Add as a friend to chat");
   }
-  if (send) send.disabled = !friend || state.phone.sending;
+  if (send) send.disabled = !friend || state.phone.sending || state.safety.paused;
   const avatar = $("#phone-avatar");
   avatar.onerror = () => {
     avatar.onerror = null;
@@ -2224,22 +2880,31 @@ async function sendPhone(event) {
     await refresh();
   } catch (error) {
     state.phone.sending = false;
+    const paused = error.status === 423;
+    if (paused) {
+      state.safety.paused = true;
+      state.safety.ready = true;
+      state.safety.status = "Paused. New scene and DM lines are on hold until you resume.";
+      renderSafety();
+    }
     const failed = document.createElement("div");
     failed.className = "phone-bubble character";
     const label = document.createElement("span");
     label.className = "phone-who";
     label.textContent = "System";
     failed.appendChild(label);
-    failed.appendChild(document.createTextNode(`The line went quiet: ${error.message}`));
+    failed.appendChild(document.createTextNode(paused
+      ? "The scene is paused. This message is on hold — resume in Studio when you choose."
+      : `The line went quiet: ${error.message}`));
     thread.appendChild(failed);
     thread.scrollTop = thread.scrollHeight;
   } finally {
     state.phone.sending = false;
     typing.hidden = true;
     const friend = isFriend(state.data, character);
-    input.disabled = !friend;
-    send.disabled = !friend;
-    if (friend) input.focus();
+    input.disabled = !friend || state.safety.paused;
+    send.disabled = !friend || state.safety.paused;
+    if (friend && !state.safety.paused) input.focus();
     if (!cast) input.placeholder = "Message…";
   }
 }
@@ -2316,7 +2981,9 @@ function castIdsFromScenario(scenario) {
 
 function scenarioEndingMeta(ending) {
   if (!ending) return null;
-  const raw = typeof ending === "string" ? { label: ending, tone: ending } : ending;
+  const raw = typeof ending === "string"
+    ? { label: ending.replace(/[-_]+/g, " "), tone: ending }
+    : ending;
   const toneRaw = String(raw.tone || raw.kind || "").toLowerCase();
   const tone = toneRaw.includes("bad")
     ? "bad"
@@ -2411,6 +3078,7 @@ function scenarioCard(scenario) {
 }
 
 function renderWorlds() {
+  renderTakes();
   const current = currentScenario(state.data);
   const name = $("#worlds-current-name");
   if (name) {
@@ -2564,6 +3232,10 @@ async function loadScenario(id, options = {}) {
     const scenario = (result && result.scenario) || { id };
     state.worlds.current = scenario;
     state.worlds.status = `Loaded ${scenario.title || scenario.id || id}.`;
+    // Loading a scenario is a reset; any take is no longer active.
+    state.takes.current = null;
+    state.takes.changed = false;
+    state.takes.nextNote = "";
     clearScenarioRuntime(scenario);
     if (result && result.state) {
       state.data = result.state;
@@ -2614,6 +3286,9 @@ async function resetCurrentScenario() {
   try {
     await api("/api/dev/reset", { method: "POST", body: "{}" });
     state.worlds.current = null;
+    state.takes.current = null;
+    state.takes.changed = false;
+    state.takes.nextNote = "";
     clearScenarioRuntime(null);
     await refresh();
     state.worlds.status = "Demo world reset to the base canon.";
@@ -2621,6 +3296,360 @@ async function resetCurrentScenario() {
     state.worlds.status = `Reset failed: ${error.message}`;
   }
   renderWorlds();
+}
+
+/* ---- takes shelf ------------------------------------------------------ */
+
+function takeScenarioId(take) {
+  if (!take) return "";
+  if (typeof take.scenario === "string") return take.scenario;
+  if (take.scenario && typeof take.scenario === "object") {
+    return take.scenario.id || take.scenario.title || "";
+  }
+  return take.scenario_id || "";
+}
+
+function takeCard(take) {
+  const current = state.takes.current;
+  const isCurrent = Boolean(current && current.take
+    && ((current.take.id && current.take.id === take.id)
+      || (!current.take.id && current.take.title === take.title)));
+  const count = takeSceneCount(take);
+  const ending = scenarioEndingMeta(take.ending);
+  const scenarioId = takeScenarioId(take);
+  const card = document.createElement("article");
+  card.className = `take-card${isCurrent ? " is-current" : ""}`;
+  card.setAttribute("aria-label", `${take.title || take.id || "Take"} take`);
+
+  const head = document.createElement("header");
+  head.className = "take-card-head";
+  const title = document.createElement("h3");
+  title.textContent = take.title || take.id || "Untitled take";
+  head.appendChild(title);
+  const badge = document.createElement("span");
+  badge.className = `ending-badge ${ending ? ending.tone : "neutral"}`;
+  badge.textContent = ending ? ending.label : "No ending card";
+  head.appendChild(badge);
+  card.appendChild(head);
+
+  const meta = document.createElement("div");
+  meta.className = "take-meta";
+  const scenes = document.createElement("span");
+  scenes.className = "take-scenes";
+  scenes.textContent = count ? `${count} scene${count === 1 ? "" : "s"}` : "scene count not reported";
+  meta.appendChild(scenes);
+  if (scenarioId) {
+    const scenario = document.createElement("code");
+    scenario.textContent = scenarioId;
+    scenario.title = "Source scenario";
+    meta.appendChild(scenario);
+  }
+  if (isCurrent) {
+    const now = document.createElement("span");
+    now.className = "scenario-current-tag";
+    now.textContent = `current · scene ${current.index + 1}`;
+    meta.appendChild(now);
+  }
+  card.appendChild(meta);
+
+  if (Array.isArray(take.scenes) && take.scenes.length) {
+    const beat = document.createElement("p");
+    beat.className = "take-beats";
+    beat.textContent = take.scenes
+      .slice(0, 4)
+      .map((scene, index) => `${index + 1}. ${(scene && (scene.title || scene.id)) || "untitled"}`)
+      .join(" · ")
+      + (take.scenes.length > 4 ? " · …" : "");
+    card.appendChild(beat);
+  }
+
+  const foot = document.createElement("div");
+  foot.className = "take-foot";
+  const load = document.createElement("button");
+  load.type = "button";
+  load.className = "btn primary";
+  const busy = state.takes.loadingTake === take.id;
+  load.textContent = busy ? "Loading…" : (isCurrent ? "Reload & play" : "Load & play");
+  load.disabled = Boolean(state.takes.loadingTake) || state.safety.paused;
+  load.addEventListener("click", () => loadTake(take.id));
+  foot.appendChild(load);
+  if (isCurrent) {
+    const chip = document.createElement("span");
+    chip.className = "take-now";
+    chip.textContent = `scene ${current.index + 1}${count ? ` of ${count}` : ""}`;
+    foot.appendChild(chip);
+  }
+  card.appendChild(foot);
+  return card;
+}
+
+function renderTakes() {
+  const info = currentTakeInfo(state.data);
+  const current = state.takes.current;
+  const take = info.take;
+  const name = $("#takes-current-name");
+  const meta = $("#takes-current-meta");
+  const next = $("#takes-next");
+  const note = $("#takes-next-note");
+  const status = $("#takes-status");
+
+  if (name) name.textContent = take ? (take.title || take.id || "Loaded take") : "No take loaded";
+  if (meta) {
+    if (take) {
+      const bits = [
+        take.id && take.id !== (take.title || "") ? take.id : "",
+        takeScenarioId(take) ? `scenario ${takeScenarioId(take)}` : "",
+        `scene ${info.index + 1}${info.count ? ` of ${info.count}` : ""}`,
+        info.scene && info.scene.title ? info.scene.title : "",
+      ].filter(Boolean);
+      meta.textContent = bits.join(" · ") || "Take loaded.";
+    } else {
+      meta.textContent = "Load a take below to start scene 1.";
+    }
+  }
+
+  const gate = takeAdvanceState(state.data);
+  if (next) {
+    next.disabled = !gate.ok || state.takes.advancing;
+    next.setAttribute("aria-disabled", next.disabled ? "true" : "false");
+    next.title = gate.ok ? gate.reason : (state.takes.nextNote || gate.reason);
+    next.classList.toggle("is-ready", gate.ok && !state.takes.advancing);
+  }
+  if (note) {
+    note.textContent = state.takes.advancing
+      ? "Advancing to the next scene…"
+      : (state.takes.nextNote || gate.reason);
+    note.classList.toggle("is-ready", gate.ok && !state.takes.advancing);
+  }
+  if (status) {
+    status.textContent = state.takes.status
+      || (state.takes.error ? `Takes unavailable: ${state.takes.error}` : "");
+  }
+
+  const grid = $("#takes-grid");
+  if (!grid) return;
+  const list = state.takes.list;
+  const sig = [
+    state.takes.loading ? "l" : "",
+    state.takes.loadingTake || "",
+    state.takes.error || "",
+    take ? `${take.id || take.title}:${info.index}` : "",
+    (list || []).map((item) => `${item && (item.id || item.title)}:${takeSceneCount(item)}`).join(","),
+  ].join("|");
+  if (grid.dataset.sig === sig) return;
+  grid.dataset.sig = sig;
+  grid.replaceChildren();
+
+  if (state.takes.loading && !list) {
+    const loading = document.createElement("p");
+    loading.className = "worlds-empty-line";
+    loading.textContent = "Loading takes…";
+    grid.appendChild(loading);
+    return;
+  }
+  if (state.takes.error && !list) {
+    const empty = document.createElement("article");
+    empty.className = "card worlds-empty";
+    const title = document.createElement("h3");
+    title.textContent = "Takes not connected";
+    const body = document.createElement("p");
+    body.className = "card-sub";
+    body.textContent = "The backend has not shipped GET /api/takes yet. Worlds and the Story keep working.";
+    const retry = document.createElement("button");
+    retry.type = "button";
+    retry.className = "btn";
+    retry.textContent = "Retry";
+    retry.addEventListener("click", () => loadTakes(true));
+    empty.append(title, body, retry);
+    const detail = document.createElement("p");
+    detail.className = "tiny";
+    detail.textContent = state.takes.error;
+    empty.appendChild(detail);
+    grid.appendChild(empty);
+    return;
+  }
+  if (!list || !list.length) {
+    const empty = document.createElement("article");
+    empty.className = "card worlds-empty";
+    const title = document.createElement("h3");
+    title.textContent = list ? "No takes on disk" : "Takes not loaded";
+    const body = document.createElement("p");
+    body.className = "card-sub";
+    body.textContent = list
+      ? "Add a JSON take under world/takes/ and refresh."
+      : "Open Worlds again to fetch the take list.";
+    empty.append(title, body);
+    grid.appendChild(empty);
+    return;
+  }
+  list.forEach((item) => {
+    if (item && (item.id || item.title)) grid.appendChild(takeCard(item));
+  });
+}
+
+async function loadTakes(force = false) {
+  if (state.takes.loading) return;
+  if (!force && state.takes.list && Date.now() - state.takes.fetchedAt < 5000) {
+    renderTakes();
+    return;
+  }
+  state.takes.loading = true;
+  renderTakes();
+  try {
+    const result = await api("/api/takes");
+    state.takes.list = Array.isArray(result) ? result : ((result && result.takes) || []);
+    state.takes.error = "";
+  } catch (error) {
+    state.takes.error = error.message || "not connected";
+  } finally {
+    state.takes.loading = false;
+    state.takes.fetchedAt = Date.now();
+    state.takes.probed = true;
+    renderTakes();
+  }
+}
+
+async function loadTakeCurrent(force = false) {
+  if (!force && state.takes.probed
+    && Date.now() - state.takes.currentFetchedAt < 5000) return;
+  try {
+    const result = await api("/api/takes/current");
+    state.takes.probed = true;
+    state.takes.currentFetchedAt = Date.now();
+    const previous = state.takes.current;
+    const next = setTakeCurrent(result && result.take !== undefined ? result : null);
+    if (next) {
+      const moved = !previous
+        || previous.index !== next.index
+        || (previous.take && previous.take.id && next.take && next.take.id
+          && previous.take.id !== next.take.id);
+      if (moved) markSceneBaseline(result.state || state.data);
+      else syncTakeChange(result.state || state.data);
+    } else {
+      state.takes.changed = false;
+    }
+    if (state.view === "worlds") renderTakes();
+    if (state.view === "story" && state.data) renderStoryHud(state.data);
+  } catch {
+    state.takes.probed = true;
+    state.takes.currentFetchedAt = Date.now();
+  }
+}
+
+async function loadTake(id) {
+  if (!id || state.takes.loadingTake) return;
+  if (state.safety.paused) {
+    state.takes.status = "The scene is paused. Resume in Studio before loading a take.";
+    renderTakes();
+    return;
+  }
+  const listed = (state.takes.list || []).find((item) => item && item.id === id) || null;
+  state.takes.loadingTake = id;
+  state.takes.status = `Loading ${listed ? (listed.title || id) : id}…`;
+  state.takes.nextNote = "";
+  renderTakes();
+  try {
+    const result = await api(`/api/takes/${encodeURIComponent(id)}/load`, {
+      method: "POST",
+      body: "{}",
+    });
+    const raw = {
+      take: result && result.take ? result.take : (listed || { id }),
+      scene: result && result.scene,
+      index: result && result.index,
+      state: result && result.state,
+    };
+    setTakeCurrent(raw);
+    markSceneBaseline((result && result.state) || raw);
+    state.takes.status = `Loaded ${(raw.take && (raw.take.title || raw.take.id)) || id}.`;
+    clearScenarioRuntime({ cast: (raw.scene && raw.scene.cast) || [] });
+    if (result && result.state) {
+      state.data = result.state;
+      if (!state.data.take) state.data.take = raw.take;
+      render(state.data);
+    }
+    await refresh();
+    setView("story");
+  } catch (error) {
+    state.takes.status = `Could not load ${id}: ${error.message}`;
+  } finally {
+    state.takes.loadingTake = null;
+    renderTakes();
+  }
+}
+
+async function advanceTake() {
+  if (state.takes.advancing) return;
+  const gate = takeAdvanceState(state.data);
+  if (!gate.ok) {
+    state.takes.nextNote = gate.reason;
+    renderTakes();
+    return;
+  }
+  state.takes.advancing = true;
+  state.takes.nextNote = "";
+  renderTakes();
+  try {
+    const result = await api("/api/takes/next", {
+      method: "POST",
+      body: "{}",
+    });
+    const raw = {
+      take: result && result.take,
+      scene: result && result.scene,
+      index: result && result.index,
+      state: result && result.state,
+    };
+    if (!raw.take && state.takes.current) raw.take = state.takes.current.take;
+    const next = setTakeCurrent(raw);
+    if (result && result.changed === false) {
+      state.takes.changed = false;
+      state.takes.nextNote = "Nothing has changed yet. Say a line or use a cue before advancing.";
+    } else {
+      markSceneBaseline((result && result.state) || raw);
+      state.takes.changed = false;
+      state.takes.nextNote = "";
+      state.takes.status = next
+        ? `Scene ${next.index + 1}${next.take && takeSceneCount(next.take) ? ` of ${takeSceneCount(next.take)}` : ""} loaded.`
+        : "Scene advanced.";
+    }
+    if (result && result.state) {
+      state.data = result.state;
+      if (!state.data.take && result.take) state.data.take = result.take;
+      render(state.data);
+    }
+    await refresh();
+    const ending = (result && result.ending)
+      || (result && result.done && result.take && result.take.ending);
+    if (ending) {
+      showEnding(ending, (ending && ending.evidence) || [], {
+        subtitle: `${(result.take && (result.take.title || result.take.id)) || "Take"} · take complete`,
+      });
+    }
+  } catch (error) {
+    if (error.status === 409) {
+      const body = error.body || {};
+      const info = body.detail && typeof body.detail === "object"
+        ? { ...body, ...body.detail }
+        : body;
+      const code = error.code || info.error || "";
+      if (code === "STALE_REVISION") {
+        state.takes.nextNote = "The world moved on. Refreshed the latest scene — try again.";
+        await refresh();
+      } else if (code === "NOTHING_CHANGED" || /nothing|change/i.test(error.message)) {
+        state.takes.changed = false;
+        state.takes.nextNote = "Nothing has changed yet. Say a line or use a cue before advancing.";
+      } else {
+        state.takes.nextNote = info.message || info.reason
+          || "The scene cannot advance yet.";
+      }
+    } else {
+      state.takes.nextNote = `Next scene is unavailable: ${error.message}`;
+    }
+  } finally {
+    state.takes.advancing = false;
+    renderTakes();
+  }
 }
 
 /* ---- world tree ------------------------------------------------------- */
@@ -3777,6 +4806,7 @@ function renderStudio() {
   renderStudioAgents(data);
   renderStudioRooms(data);
   renderStudioRecent(data);
+  renderSafety();
 }
 
 async function studioAdvance() {
@@ -3859,7 +4889,11 @@ function setView(view) {
   const meta = VIEW_META[view] || VIEW_META.story;
   $("#view-eyebrow").textContent = meta.eyebrow;
   $("#view-title").textContent = meta.title;
-  if (state.view === "worlds") loadScenarios();
+  if (state.view === "worlds") {
+    loadScenarios();
+    loadTakes();
+    loadTakeCurrent();
+  }
   if (state.data) render(state.data);
   if (view === "story" && state.data) loadPhoneHistory(phoneTarget());
   if (view === "studio") loadStudio(true);
@@ -3879,8 +4913,10 @@ function setTreeLens(lens) {
 function render(data) {
   const scale = renderClockScale(data);
   $("#rail-clock").textContent = formatClock(data.clock.now) + ` · ${scale}`;
+  renderSafety();
   if (state.view === "story") renderStory(data);
   if (state.view === "worlds") renderWorlds();
+  else renderTakes();
   if (state.view === "tree") renderTree(data);
   if (state.view === "ledger") renderLedger(data);
   if (state.view === "studio") maybeLoadStudio();
@@ -3902,7 +4938,10 @@ async function refresh() {
     if (data && Object.prototype.hasOwnProperty.call(data, "scenario")) {
       state.worlds.current = data.scenario || null;
     }
+    syncSafety(data);
+    syncTakeState(data);
     render(data);
+    if (!state.takes.probed) loadTakeCurrent();
     if (!initialProfileOpened) {
       initialProfileOpened = true;
       const profile = new URLSearchParams(location.search).get("profile");
@@ -4325,9 +5364,12 @@ $("#whisper-target").addEventListener("change", (event) => {
 });
 $("#studio-refresh").addEventListener("click", () => loadStudio(true));
 $("#studio-advance").addEventListener("click", studioAdvance);
+$("#safety-toggle").addEventListener("click", () => setSafety(!state.safety.paused));
 $("#worlds-refresh").addEventListener("click", () => loadScenarios(true));
 $("#worlds-reset").addEventListener("click", resetCurrentScenario);
 $("#worlds-evaluate").addEventListener("click", evaluateEnding);
+$("#takes-refresh").addEventListener("click", () => loadTakes(true));
+$("#takes-next").addEventListener("click", advanceTake);
 $("#scene-ending").addEventListener("click", evaluateEnding);
 $("#scene-dm").addEventListener("click", () => {
   const cast = CAST[state.selected];

@@ -517,6 +517,8 @@ def load_scenario(service: WorldService, scenario_id: str) -> dict:
         )
 
     for character, spec in (scenario.get("outfits") or {}).items():
+        if spec.get("apply", True) is False:
+            continue
         service.set_outfit(
             character,
             spec["id"],

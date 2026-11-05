@@ -1,0 +1,90 @@
+{
+  "id": "w2-two-clocks",
+  "title": "Two Clocks",
+  "scenario": "w2-two-clocks",
+  "warm": ["alice"],
+  "scenes": [
+    {
+      "id": "before-six",
+      "title": "Before six",
+      "place": "the café on the corner, before six",
+      "cast": ["alice", "emily", "sophia", "mia"],
+      "art": "/static/assets/scenes/beat-cafe-day.jpg",
+      "opening": [
+        "The café is nearly empty. The clock above the counter is eight minutes slow, and nobody has fixed it.",
+        "Alice is early, at the window table, watching the door like it owes her something."
+      ],
+      "choices": [
+        "You're early too.",
+        "I wanted a table before the crowd got here.",
+        "Is Emily coming, or am I the entertainment?"
+      ],
+      "cues": [
+        {
+          "on": "user_line",
+          "match": "crowd|table|wait|six|early",
+          "op": "advance_time",
+          "minutes": 50
+        },
+        {
+          "on": "user_line",
+          "match": "emily|coming|late",
+          "op": "remember_preference",
+          "holder": "alice",
+          "key": "alice-expects-emily",
+          "proposition": "Alice expects Emily to arrive before the room fills.",
+          "confidence": 0.7,
+          "tags": ["clock", "emily"]
+        }
+      ],
+      "fallback_lines": {
+        "alice": "You're early too. Sit down — the clock's eight minutes wrong, so technically we're both on time."
+      },
+      "next": "cafe",
+      "must_change": true
+    },
+    {
+      "id": "cafe",
+      "title": "The room fills",
+      "place": "the café, just after six",
+      "cast": ["alice", "emily", "sophia", "mia"],
+      "art": "/static/assets/scenes/beat-cafe-day.jpg",
+      "opening": [
+        "By half six the room is full, and the clock has caught up with the crowd.",
+        "Alice hasn't moved from the window. Emily is standing by the door with her coat still on."
+      ],
+      "choices": [
+        "@alice Stay for one more.",
+        "@emily Tell her. I'm right here.",
+        "Let's get some air, all of us."
+      ],
+      "cues": [
+        {
+          "on": "user_line",
+          "match": "stay|tell her|air|one more",
+          "op": "remember_preference",
+          "holder": "emily",
+          "key": "emily-sees-alice-stay",
+          "proposition": "Emily can see that Alice wants to stay.",
+          "confidence": 0.75,
+          "tags": ["clock", "emily", "alice"]
+        },
+        {
+          "on": "user_line",
+          "match": "stay|tell her|air|one more",
+          "op": "advance_time",
+          "minutes": 15
+        }
+      ],
+      "fallback_lines": {
+        "alice": "One more. Then the clock and I are both done for the night.",
+        "emily": "I heard you. I'm waiting to see if she says it herself.",
+        "sophia": "The exit's behind you. You've both known that for an hour.",
+        "mia": "I'll get the next round. Nobody makes a confession on an empty cup."
+      },
+      "next": null,
+      "must_change": false
+    }
+  ],
+  "ending": null
+}

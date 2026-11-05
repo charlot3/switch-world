@@ -1,0 +1,93 @@
+{
+  "id": "w5-good",
+  "title": "The Confession",
+  "scenario": "w5-good",
+  "warm": ["alice", "emily"],
+  "scenes": [
+    {
+      "id": "platform",
+      "title": "The late train",
+      "place": "the station platform, 21:30",
+      "cast": ["alice", "emily", "sophia", "mia"],
+      "art": "/static/assets/scenes/ending-good.jpg",
+      "opening": [
+        "The platform clock says 21:30. The train is late, and nobody has pretended to read for ten minutes.",
+        "Alice holds your ticket like a bookmark, thumb pressed to the corner. Emily stands three steps off, watching the tracks instead of you."
+      ],
+      "choices": [
+        "Alice — I'm staying. The train being late isn't the reason.",
+        "Emily, there's something you should hear from me, not from anyone else.",
+        "Let's not do this on a platform. Give me one minute."
+      ],
+      "cues": [
+        {
+          "on": "user_line",
+          "match": "staying|stay|hear from me|truth|told",
+          "op": "remember_preference",
+          "holder": "emily",
+          "key": "user-staying-truth",
+          "proposition": "The user told Emily they are staying in the city.",
+          "confidence": 0.9,
+          "tags": ["staying", "emily"]
+        },
+        {
+          "on": "user_line",
+          "match": "staying|stay|hear from me|truth|told",
+          "op": "advance_time",
+          "minutes": 10
+        }
+      ],
+      "fallback_lines": {
+        "alice": "Say it again. I'd like to hear it without the train noise.",
+        "emily": "I'm listening. Don't dress it up.",
+        "sophia": "You said 'staying' like it was a question.",
+        "mia": "There are fries in my bag. Nobody decides anything until those are gone."
+      },
+      "next": "last-call",
+      "must_change": true
+    },
+    {
+      "id": "last-call",
+      "title": "Last call",
+      "place": "the platform, last call",
+      "cast": ["alice", "emily", "sophia", "mia"],
+      "art": "/static/assets/scenes/ending-good.jpg",
+      "opening": [
+        "Last call. The announcement repeats itself, patient in a way none of you are.",
+        "Alice looks at Emily, then at you, and folds whatever she meant to say back into her sleeve."
+      ],
+      "choices": [
+        "Alice, say it. Whatever it is, say it now.",
+        "Emily, I should have told you sooner. I know that.",
+        "We can miss this train. It isn't the last one."
+      ],
+      "cues": [
+        {
+          "on": "user_line",
+          "match": "say it|sooner|miss this train|stay",
+          "op": "remember_preference",
+          "holder": "alice",
+          "key": "alice-heard-the-truth",
+          "proposition": "Alice heard the user choose to stay.",
+          "confidence": 0.95,
+          "tags": ["staying", "alice"]
+        },
+        {
+          "on": "user_line",
+          "match": "say it|sooner|miss this train|stay",
+          "op": "ending",
+          "id": "good-confession"
+        }
+      ],
+      "fallback_lines": {
+        "alice": "I heard you the first time. I'm still here.",
+        "emily": "Then say it to me. Not to the platform.",
+        "sophia": "The doors are closing. You have about six seconds to mean it.",
+        "mia": "There's another train in the morning. I'll bring breakfast."
+      },
+      "next": null,
+      "must_change": false
+    }
+  ],
+  "ending": "good-confession"
+}

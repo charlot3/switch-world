@@ -117,22 +117,19 @@ def test_load_resets_the_world_and_seeds_w3(service):
     assert state["friends"] == ["alice"]
     assert state["scenario"]["id"] == "w3-quiet-route"
     assert state["scenario"]["cast"] == ["alice"]
-    assert state["scene_art"] == "/static/assets/scenes/beat-date-alice.jpg"
-    assert state["cast_art"]["alice"].endswith("alice-date-skirt.jpg")
+    assert state["scene_art"] == "/static/assets/portraits/beat-morning-shop.jpg"
+    assert state["cast_art"]["alice"].endswith("alice-cg.jpg")
 
-    # The reset removed the old friend and the old secret.
+    # The reset removed the old friend, the old secret and the pre-baked preference.
     assert not any(
         belief["proposition_key"] == "user-leaving-city"
         for belief in state["beliefs"]
     )
-    belief = next(
-        belief for belief in state["beliefs"]
-        if belief["proposition_key"] == "user-prefers-short-skirt"
+    assert not any(
+        belief["proposition_key"] == "user-prefers-short-skirt"
+        for belief in state["beliefs"]
     )
-    assert belief["holder"] == "alice"
-    assert belief["source_kind"] == "user"
-    assert belief["confidence"] == pytest.approx(0.9)
-    assert belief["visibility"] == "private"
+    assert state["outfits"] == {}
 
     edge = _edge(state, "alice", "user")
     assert (edge["trust"], edge["closeness"], edge["tension"]) == pytest.approx(
@@ -143,7 +140,7 @@ def test_load_resets_the_world_and_seeds_w3(service):
 
 def test_loading_another_scenario_replaces_the_previous_seed(service):
     load_scenario(service, "w3-quiet-route")
-    assert service.outfits()
+    assert service.outfits() == {}
 
     load_scenario(service, "w1-gift")
     state = service.state()
@@ -167,20 +164,26 @@ def test_loading_another_scenario_replaces_the_previous_seed(service):
 
 def test_outfit_is_a_declared_memory_chain(service):
     load_scenario(service, "w3-quiet-route")
-    state = service.state()
-    outfit = state["outfits"]["alice"]
+    assert service.outfits() == {}
+
+    belief = service.remember(
+        "alice",
+        "The user prefers short skirts.",
+        source="user",
+        confidence=0.9,
+        visibility="private",
+        proposition_key="user-prefers-short-skirt",
+    )
+    outfit = service.set_outfit(
+        "alice", "date-skirt", source_belief_id=belief["id"]
+    )
     assert outfit["outfit_id"] == "date-skirt"
     assert outfit["label"] == "the burgundy skirt"
     assert outfit["reason"] == "because you said you like short skirts"
     assert outfit["art"].endswith("alice-date-skirt.jpg")
+    assert outfit["source_belief_id"] == belief["id"]
 
-    belief = next(
-        belief for belief in state["beliefs"]
-        if belief["id"] == outfit["source_belief_id"]
-    )
-    assert belief["proposition_key"] == "user-prefers-short-skirt"
-    assert belief["holder"] == "alice"
-
+    state = service.state()
     event = next(
         event for event in state["events"]
         if event["kind"] == "outfit_change"
@@ -188,7 +191,7 @@ def test_outfit_is_a_declared_memory_chain(service):
     assert event["metadata"]["source_belief_key"] == "user-prefers-short-skirt"
     assert event["metadata"]["outfit_id"] == "date-skirt"
 
-    # A declared outfit can be re-applied; an undeclared one or unknown belief cannot.
+    # A declared outfit can be re-applied; an undeclared one cannot.
     again = service.set_outfit("alice", "date-skirt", reason="for the window seat")
     assert again["reason"] == "for the window seat"
     with pytest.raises(ValueError):

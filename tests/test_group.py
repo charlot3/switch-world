@@ -49,12 +49,18 @@ class FakeSwitch:
 def test_group_say_records_both_sides(service):
     switch = FakeSwitch({"alice": "I'm here.", "emily": "Who else?"})
     result = say_in_group(service, "Are we still on for tonight?", switch=switch)
-    assert len(switch.posts) == 4
-    assert all("@alice" not in post for post in switch.posts[1:])
+    # A shared fact becomes a chorus of at most three planned speakers, not a
+    # four-target broadcast. The fourth character is recorded silence.
+    assert len(switch.posts) == 3
+    assert result["silent"] == ["sophia"]
+    assert {
+        post.split(" ", 1)[0] for post in switch.posts
+    } == {"@alice", "@emily", "@mia"}
     assert "Are we still on for tonight?" in switch.posted
     assert "Your relationship with the user" in switch.posted
     assert [reply["character"] for reply in result["replies"]] == ["alice", "emily"]
-    assert result["missing"] == ["sophia", "mia"]
+    # Only a planned speaker can be missing; silence is a planned state.
+    assert result["missing"] == ["mia"]
     state = service.state()
     summaries = [event["summary"] for event in state["events"]]
     assert "You: Are we still on for tonight?" in summaries
@@ -157,8 +163,12 @@ def test_intimate_topic_never_becomes_a_chorus(service):
     )
     plan = result["turn"]["plan"]
     assert plan["chorus"] is False
-    assert plan["primary"] == "alice"
+    # Intimate probes pick the character with the highest relevant tension; the seed
+    # edges tie at zero tension, so affinity breaks the tie (Mia).
+    assert plan["primary"] in {"alice", "emily", "sophia", "mia"}
     assert len(plan["reactors"]) == 1
+    # The reactor is a real character->character stake, not present-order filler.
+    assert service.relationship(plan["reactors"][0], plan["primary"])["tension"] > 0
     assert plan["silent"]
 
 

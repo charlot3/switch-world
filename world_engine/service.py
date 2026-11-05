@@ -23,6 +23,13 @@ CONNECTION_LABELS = ("close", "steady", "strained", "rival", "distant")
 
 SCENARIO_META = "scenario"
 SCENARIO_ID_META = "scenario_id"
+PAUSE_META = "paused"
+REVISION_META = "revision"
+IDEMPOTENCY_KEEP = 500
+
+
+class IdempotencyConflict(ValueError):
+    """The same request id was reused with a different payload."""
 
 LABELS = {
     "user-leaving-city": "The user is leaving the city",
@@ -686,6 +693,20 @@ class WorldService:
             )
         return {"character": character, "absent": True, "reason": value}
 
+    def mark_present(self, character: str) -> dict:
+        """Bring a character back into the scene (the inverse of `mark_absent`).
+
+        Presence is stored in `meta`; clearing the flag is enough because a reset
+        recreates the database and the base seed has everyone present.
+        """
+        with self._conn() as conn:
+            if not self._character_exists(conn, character):
+                raise ValueError("unknown character: " + character)
+            conn.execute(
+                "DELETE FROM meta WHERE key = ?", (self.ABSENT_PREFIX + character,)
+            )
+        return {"character": character, "absent": False, "reason": ""}
+
     def is_absent(self, character: str) -> bool:
         with self._conn() as conn:
             row = conn.execute(
@@ -1015,6 +1036,14 @@ class WorldService:
                 )
             ]
             scenario = self._current_scenario(conn)
+            revision = self._revision(conn)
+            turn_row = conn.execute(
+                "SELECT COUNT(*) AS n FROM events "
+                "WHERE kind IN ('turn_plan', 'dm', 'whisper', 'take_scene', 'take_load')"
+            ).fetchone()
+            pause_row = conn.execute(
+                "SELECT value FROM meta WHERE key = ?", (PAUSE_META,)
+            ).fetchone()
         events = [self._event_dict(row) for row in events]
         items = self.items()
         item = self._scenario_item(items, scenario)
@@ -1022,6 +1051,9 @@ class WorldService:
         scene_art = (scenario or {}).get("scene_art")
         return {
             "clock": clock,
+            "revision": revision,
+            "turn": int(turn_row["n"]),
+            "paused": bool(pause_row and str(pause_row["value"]) == "1"),
             "characters": characters,
             "beliefs": beliefs,
             "relationships": relationships,
@@ -1110,6 +1142,187 @@ class WorldService:
                 "scale": clock["scale"],
                 "minutes": minutes,
             }
+
+    # ---- revision, pause and idempotency ----------------------------------
+
+    def _revision(self, conn: sqlite3.Connection) -> int:
+        """Monotonic revision: the larger of the event head and the meta counter.
+
+        Every recorded event moves the event head forward, so ordinary turns need no
+        extra write. Pause/resume changes no event, so it bumps the meta counter.
+        """
+        event_head = conn.execute(
+            "SELECT COALESCE(MAX(id), 0) AS head FROM events"
+        ).fetchone()["head"]
+        row = conn.execute(
+            "SELECT value FROM meta WHERE key = ?", (REVISION_META,)
+        ).fetchone()
+        try:
+            meta = int(row["value"]) if row else 0
+        except (TypeError, ValueError):
+            meta = 0
+        return max(int(event_head), meta)
+
+    def revision(self) -> int:
+        with self._conn() as conn:
+            return self._revision(conn)
+
+    def _bump_revision(self, conn: sqlite3.Connection) -> int:
+        value = self._revision(conn) + 1
+        conn.execute(
+            "INSERT INTO meta(key, value) VALUES (?, ?) "
+            "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            (REVISION_META, str(value)),
+        )
+        return value
+
+    def turn(self) -> int:
+        """A human-readable turn count for the story HUD (monotonic per DB)."""
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) AS n FROM events "
+                "WHERE kind IN ('turn_plan', 'dm', 'whisper', 'take_scene', 'take_load')"
+            ).fetchone()
+        return int(row["n"])
+
+    def paused(self) -> bool:
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT value FROM meta WHERE key = ?", (PAUSE_META,)
+            ).fetchone()
+        return bool(row and str(row["value"]) == "1")
+
+    def set_paused(self, paused: bool) -> dict:
+        """Pause or resume the scene. Pause is a state, not a judgment."""
+        with self._conn() as conn:
+            if paused:
+                conn.execute(
+                    "INSERT INTO meta(key, value) VALUES (?, '1') "
+                    "ON CONFLICT(key) DO UPDATE SET value = '1'",
+                    (PAUSE_META,),
+                )
+            else:
+                conn.execute("DELETE FROM meta WHERE key = ?", (PAUSE_META,))
+            revision = self._bump_revision(conn)
+        return {"paused": bool(paused), "revision": revision}
+
+    # ---- off-screen beats -------------------------------------------------
+
+    OFFSCREEN_TEMPLATES = {
+        "promise": "{name} promised to sort something out before the next meet-up.",
+        "rumor": "Word going around: {name} has been unusually quiet about something.",
+        "errand": "{name} slipped out to run an errand and will be back later.",
+    }
+
+    def record_offscreen(
+        self,
+        character: str | None = None,
+        kind: str | None = None,
+    ) -> dict:
+        """One public off-screen beat, with no model call and no belief writes.
+
+        The beat is texture for the time machine: a promise maturing, a rumor, or an
+        errand. It never changes what the user believes; only an in-scene turn does.
+        """
+        kinds = tuple(self.OFFSCREEN_TEMPLATES)
+        present = sorted(CHARACTER_ORDER, key=lambda cid: CHARACTER_ORDER[cid])
+        absent = self.absent_characters()
+        with self._conn() as conn:
+            count = conn.execute(
+                "SELECT COUNT(*) AS n FROM events WHERE kind = 'offscreen'"
+            ).fetchone()["n"]
+            if character:
+                character = self._canonical_actor(conn, character)
+                if character in {"user", "director"}:
+                    raise ValueError("off-screen beats belong to a character")
+            else:
+                pool = absent or present
+                character = pool[int(count) % len(pool)]
+            chosen_kind = kind or kinds[int(count) % len(kinds)]
+            if chosen_kind not in self.OFFSCREEN_TEMPLATES:
+                raise ValueError(
+                    "offscreen kind must be one of " + ", ".join(kinds)
+                )
+            summary = self.OFFSCREEN_TEMPLATES[chosen_kind].format(
+                name=character.title()
+            )
+        return self.record_event(
+            "director",
+            "offscreen",
+            summary,
+            participants=[character],
+            visibility="public",
+            metadata={
+                "offscreen": True,
+                "kind": chosen_kind,
+                "character": character,
+            },
+        )
+
+    # ---- idempotency ------------------------------------------------------
+
+    def idempotent_replay(
+        self, scope: str, request_id: str, digest: str
+    ) -> dict | None:
+        """Return the stored response marked `replayed`, or None.
+
+        Same id + same digest replays; same id + a different digest is a conflict so a
+        client cannot silently turn one request into two different turns.
+        """
+        if not request_id:
+            return None
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT digest, response_json FROM idempotency "
+                "WHERE scope = ? AND request_id = ?",
+                (scope, request_id),
+            ).fetchone()
+        if not row:
+            return None
+        if str(row["digest"]) != str(digest):
+            raise IdempotencyConflict(
+                "request_id was already used with a different payload"
+            )
+        try:
+            data = json.loads(row["response_json"])
+        except (TypeError, ValueError) as exc:
+            raise IdempotencyConflict(
+                "the stored response for this request_id is unreadable"
+            ) from exc
+        if not isinstance(data, dict):
+            raise IdempotencyConflict(
+                "the stored response for this request_id is not an object"
+            )
+        data["replayed"] = True
+        return data
+
+    def store_idempotent(
+        self,
+        scope: str,
+        request_id: str,
+        digest: str,
+        response: Mapping[str, Any],
+    ) -> None:
+        """Store one response per (scope, request_id), keeping the last 500 per scope."""
+        if not request_id:
+            return
+        payload = json.dumps(response, ensure_ascii=False, default=str)
+        with self._conn() as conn:
+            created = self._now(conn)
+            conn.execute(
+                "INSERT INTO idempotency(scope, request_id, digest, response_json, "
+                "created_at) VALUES (?,?,?,?,?) "
+                "ON CONFLICT(scope, request_id) DO UPDATE SET "
+                "digest = excluded.digest, response_json = excluded.response_json, "
+                "created_at = excluded.created_at",
+                (scope, request_id, digest, payload, created),
+            )
+            conn.execute(
+                "DELETE FROM idempotency WHERE scope = ? AND rowid NOT IN ("
+                "  SELECT rowid FROM idempotency WHERE scope = ? "
+                "  ORDER BY created_at DESC, rowid DESC LIMIT ?)",
+                (scope, scope, IDEMPOTENCY_KEEP),
+            )
 
     # ---- scene card -------------------------------------------------------
 

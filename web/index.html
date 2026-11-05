@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>switch-world — a small town, four hearts, one secret</title>
-  <link rel="stylesheet" href="/static/styles.css?v=20261106-03">
-  <script src="/static/cast.js?v=20261106-03" defer></script>
-  <script src="/static/app.js?v=20261106-03" defer></script>
+  <link rel="stylesheet" href="/static/styles.css?v=20261106-04">
+  <script src="/static/cast.js?v=20261106-04" defer></script>
+  <script src="/static/app.js?v=20261106-04" defer></script>
 </head>
 <body>
   <div class="petals" id="petals" aria-hidden="true"></div>
@@ -78,6 +78,21 @@
       <section id="view-story" class="view is-active" aria-label="Story view">
         <div class="story-layout">
           <div class="story-stage">
+        <div class="story-hud" id="story-hud" aria-label="Story status">
+          <div class="hud-main">
+            <span class="eyebrow" id="hud-kicker">Now playing</span>
+            <strong id="hud-title">The café</strong>
+            <span class="hud-place" id="hud-place">a Tuesday in late autumn</span>
+          </div>
+          <div class="hud-facts">
+            <span class="hud-chip is-take" id="hud-take" hidden></span>
+            <span class="hud-chip is-action" id="hud-action" hidden></span>
+            <span class="hud-chip" id="hud-turn">Turn 0</span>
+            <span class="hud-chip" id="hud-clock">--:--</span>
+            <span class="hud-chip is-mode" id="hud-mode">MOCK</span>
+            <span class="hud-chip is-rev" id="hud-revision" hidden></span>
+          </div>
+        </div>
         <div class="scene">
           <div class="scene-art">
             <div class="scene-wash" id="scene-wash"></div>
@@ -119,6 +134,10 @@
               </div>
             </form>
             <p class="scene-status" id="scene-status" role="status"></p>
+            <div class="scene-pause" id="scene-pause" role="note" hidden>
+              <strong>Scene paused</strong>
+              <p>New lines are on hold for a moment. Resume in Studio when you are ready — nothing is wrong.</p>
+            </div>
             <div class="scene-boundary" id="scene-boundary" role="note" hidden></div>
             <div class="scene-actions">
               <button class="btn primary" id="scene-next" type="button">Next beat <span class="kbd">→</span></button>
@@ -193,6 +212,29 @@
 
       <!-- WORLDS -->
       <section id="view-worlds" class="view" aria-label="Worlds view">
+        <div class="takes-shelf" aria-label="Takes">
+          <div class="takes-head">
+            <div>
+              <h3>takes</h3>
+              <span>recordable routes on top of a scenario — the model improvises inside them</span>
+            </div>
+            <button class="btn ghost small" id="takes-refresh" type="button">Refresh</button>
+          </div>
+          <div class="takes-current" id="takes-current">
+            <div class="takes-current-copy">
+              <span class="eyebrow">current take</span>
+              <strong id="takes-current-name">No take loaded</strong>
+              <span class="takes-current-meta" id="takes-current-meta">Load a take below to start scene 1.</span>
+            </div>
+            <div class="takes-current-actions">
+              <button class="btn primary" id="takes-next" type="button">Next scene <span class="kbd">→</span></button>
+            </div>
+          </div>
+          <p class="takes-next-note" id="takes-next-note" role="status">Next scene unlocks after a turn or cue changes the scene.</p>
+          <p class="status" id="takes-status" role="status"></p>
+          <div class="takes-grid" id="takes-grid" aria-live="polite"></div>
+        </div>
+
         <div class="section-head">
           <div>
             <h2>worlds</h2>
@@ -340,6 +382,20 @@
               <button class="btn primary" id="studio-advance" type="button">Advance &amp; play</button>
             </div>
             <p class="status" id="studio-advance-status">Ready.</p>
+          </article>
+
+          <article class="card studio-safety" aria-labelledby="studio-safety-title">
+            <header class="card-head">
+              <div>
+                <h3 id="studio-safety-title">Safety</h3>
+                <p class="card-sub">A pause holds new scene and DM lines without blame. Resume when you choose.</p>
+              </div>
+              <span class="badge" id="safety-badge">Running</span>
+            </header>
+            <div class="button-row">
+              <button class="btn" id="safety-toggle" type="button">Pause scene</button>
+            </div>
+            <p class="status" id="safety-status">New lines are allowed.</p>
           </article>
 
           <article class="card studio-agents" aria-labelledby="studio-agents-title">

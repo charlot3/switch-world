@@ -1,0 +1,91 @@
+{
+  "id": "w1-gift",
+  "title": "The Gift",
+  "scenario": "w1-gift",
+  "warm": ["alice"],
+  "scenes": [
+    {
+      "id": "bookshop",
+      "title": "Early at the bookshop",
+      "place": "the bookshop, before the group arrives",
+      "cast": ["alice"],
+      "art": "/static/assets/scenes/beat-first-meeting.jpg",
+      "opening": [
+        "Before opening, the shop smells of dust and bergamot; the kettle ticks like it is thinking it over.",
+        "Alice is at the returns cart with her back to you, and she has already heard the door."
+      ],
+      "choices": [
+        "@alice I brought you something.",
+        "I wanted you to have it before everyone got loud.",
+        "I can come back when the shop is properly awake."
+      ],
+      "cues": [
+        {
+          "on": "user_line",
+          "match": "brought|something|have it|gift|edition|present",
+          "op": "give_item",
+          "item": "gift-book",
+          "to": "alice"
+        },
+        {
+          "on": "user_line",
+          "match": "brought|something|have it|gift|edition|present",
+          "op": "remember_preference",
+          "holder": "alice",
+          "key": "gift-first-edition",
+          "proposition": "The user brought Alice a wrapped first edition.",
+          "confidence": 1.0,
+          "tags": ["gift", "book"]
+        }
+      ],
+      "fallback_lines": {
+        "alice": "You're early. Either you missed me or the café's still shut. Either way, put your coat down."
+      },
+      "next": "cafe",
+      "must_change": true
+    },
+    {
+      "id": "cafe",
+      "title": "The café, after",
+      "place": "the café around the corner",
+      "cast": ["alice", "emily", "sophia", "mia"],
+      "art": "/static/assets/scenes/beat-cafe-day.jpg",
+      "opening": [
+        "The café fills around you; Alice keeps the book under the table, one hand flat over it.",
+        "Emily notices the hand before she notices the book."
+      ],
+      "choices": [
+        "@alice Show them. It isn't a secret.",
+        "Emily, you have that face. You already know.",
+        "Mia, what do you think of it?"
+      ],
+      "cues": [
+        {
+          "on": "user_line",
+          "match": "show|already know|think|book",
+          "op": "remember_preference",
+          "holder": "emily",
+          "key": "gift-secret",
+          "proposition": "Alice has something from the user she has not shown the group.",
+          "confidence": 0.8,
+          "tags": ["gift", "secret"]
+        },
+        {
+          "on": "user_line",
+          "match": "show|already know|think|book",
+          "op": "advance_time",
+          "minutes": 25
+        }
+      ],
+      "fallback_lines": {
+        "alice": "It isn't a secret. I just haven't decided what I'm doing with it yet.",
+        "emily": "I don't know what it is. I know she's being careful, and Alice is never careful.",
+        "sophia": "You're all waiting for her to say it. Watch her hands instead.",
+        "mia": "She's guarding it like the last slice of something. I'd let her keep it."
+      },
+      "next": null,
+      "must_change": false
+    }
+  ],
+  "ending": null
+}

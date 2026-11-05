@@ -1,0 +1,94 @@
+{
+  "id": "w4-three-of-us",
+  "title": "Three of Us",
+  "scenario": "w4-three-of-us",
+  "warm": ["alice"],
+  "scenes": [
+    {
+      "id": "solo-coffee",
+      "title": "Coffee before the market",
+      "place": "the café, before the night market",
+      "cast": ["alice"],
+      "art": "/static/assets/scenes/beat-cafe-day.jpg",
+      "opening": [
+        "The café is busy with the before-dinner crowd, but Alice has the corner table and a cup she hasn't touched.",
+        "She turns it a quarter turn, then back, and waits until you're sitting before she looks up."
+      ],
+      "choices": [
+        "Can I ask you something before the others get here?",
+        "Are you and Emily okay?",
+        "Mia's meeting us, right? She's never late unless it's on purpose."
+      ],
+      "cues": [
+        {
+          "on": "user_line",
+          "match": "emily|okay|ask|others",
+          "op": "remember_preference",
+          "holder": "alice",
+          "key": "user-asked-about-emily",
+          "proposition": "The user asked Alice about Emily before the market.",
+          "confidence": 0.75,
+          "tags": ["alice", "emily"]
+        }
+      ],
+      "fallback_lines": {
+        "alice": "Ask me when we're walking. I think better when I'm moving, and I've been sitting still too long."
+      },
+      "next": "night-market",
+      "must_change": true
+    },
+    {
+      "id": "night-market",
+      "title": "The night market",
+      "place": "the night market",
+      "cast": ["alice", "emily", "mia"],
+      "art": "/static/assets/scenes/beat-group-outing.jpg",
+      "opening": [
+        "The market is steam and string lights and two songs playing over each other.",
+        "Mia finds you first and puts a paper cup in your hand before she says hello.",
+        "Alice and Emily come from opposite ends of the row and don't quite look at each other."
+      ],
+      "choices": [
+        "@emily Okay, honest — who's been avoiding who?",
+        "Mia, what do you think? You've been quiet for four whole seconds.",
+        "Nobody has to answer that. We can just eat."
+      ],
+      "cues": [
+        {
+          "on": "user_line",
+          "match": "avoiding|honest|who",
+          "op": "remember_preference",
+          "holder": "emily",
+          "key": "user-close-to-alice",
+          "proposition": "The user is closer to Alice than to Emily.",
+          "confidence": 0.8,
+          "tags": ["emily", "alice"]
+        },
+        {
+          "on": "user_line",
+          "match": "mia|think|answer|nobody",
+          "op": "remember_preference",
+          "holder": "mia",
+          "key": "mia-notices-tension",
+          "proposition": "Mia can feel the tension between Alice and Emily.",
+          "confidence": 0.7,
+          "tags": ["mia", "tension"]
+        },
+        {
+          "on": "user_line",
+          "match": "avoiding|honest|who|mia|think",
+          "op": "advance_time",
+          "minutes": 15
+        }
+      ],
+      "fallback_lines": {
+        "alice": "I'm not avoiding anyone. I'm standing right here, which is the opposite, last I checked.",
+        "emily": "I'm not the one who went quiet. Ask her.",
+        "mia": "I think we eat first. Everything's less tragic with something fried."
+      },
+      "next": null,
+      "must_change": false
+    }
+  ],
+  "ending": null
+}

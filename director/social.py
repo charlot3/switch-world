@@ -20,6 +20,72 @@ POLICY_PATH = Path(config.ROOT) / "world" / "social.json"
 CJK = re.compile(r"[一-鿿]")
 TOPIC_LABELS = ["small talk", "daily life", "private feelings", "body or appearance", "physical contact"]
 
+# Action mode separates what the player *does as themselves* from what they *attempt
+# on an NPC*. An attempt is never auto-success; it always earns a response from the
+# spectrum below. `continue` and `wait` are deliberate non-moves.
+ACTION_MODES = ("result", "attempt", "continue", "wait")
+RESPONSES = ("refuse", "negotiate", "limited", "surface", "sincere")
+
+CONTINUE_MARKERS = (
+    "continue", "go on", "keep going", "carry on", "next", "接着", "继续", "往下",
+)
+WAIT_MARKERS = (
+    "wait", "hold on", "one moment", "just a moment", "pause", "give me a second",
+    "等等", "等一下", "稍等", "慢着",
+)
+# Verbs that reach for an outcome on someone else. The target test below keeps
+# "I hug my knees" as a result while "I hug you" is an attempt.
+ATTEMPT_MARKERS = (
+    "kiss", "hug", "embrace", "touch", "grab", "pull", "push", "pin", "straddle",
+    "hold your hand", "hold her hand", "hold my hand", "take your hand",
+    "take her hand", "take my hand", "put my arm", "put your arm", "arm around",
+    "sit on my lap", "sit on your lap", "sit next to me", "sit beside me",
+    "come with me", "come here", "follow me", "walk with me", "dance with",
+    "lead you", "lift your", "lift her", "remove your", "take off your",
+    "give", "hand", "offer", "show", "buy", "bring",
+    "undress", "seduce", "persuade", "convince", "ask you out", "ask her out",
+    "confess", "propose", "marry", "kiss me", "touch me", "hold me", "抱", "亲",
+    "吻", "牵", "摸", "搂", "抓", "掀", "坐我腿上",
+)
+NPC_TARGETS = re.compile(
+    r"\b(?:you|your|yours|yourself|alice|emily|sophia|mia|her|him|them)\b"
+)
+IMPERATIVE_ATTEMPT = re.compile(
+    r"^\s*(?:please\s+)?(?:hold|kiss|hug|touch|take|grab|pull|push|give|hand|"
+    r"show|come|sit|dance|follow|marry|tell|ask|lead|bring|put)\b",
+    re.I,
+)
+
+
+def _has_attempt_target(text: str, addressee: str | None) -> bool:
+    """True when the attempt is aimed at someone else, not at the player's own body.
+
+    "hold my hand" and "kiss me" are imperatives aimed at the NPC; "I hug my knees"
+    is the player's own result.
+    """
+    if addressee:
+        return True
+    if re.search(r"[你妳]", text or ""):
+        return True
+    if NPC_TARGETS.search(text or ""):
+        return True
+    return bool(IMPERATIVE_ATTEMPT.match((text or "").strip()))
+
+
+def _action_mode(text: str, addressee: str | None = None) -> str:
+    """Classify the player's move: own result, attempt on an NPC, continue, or wait."""
+    raw = (text or "").strip()
+    lowered = raw.lower()
+    if not lowered:
+        return "wait"
+    if _matches(lowered, list(CONTINUE_MARKERS)):
+        return "continue"
+    if _matches(lowered, list(WAIT_MARKERS)):
+        return "wait"
+    if _matches(lowered, list(ATTEMPT_MARKERS)) and _has_attempt_target(raw, addressee):
+        return "attempt"
+    return "result"
+
 
 def load() -> dict:
     return json.loads(POLICY_PATH.read_text(encoding="utf-8"))
@@ -95,7 +161,25 @@ def classify(text: str) -> dict:
         "addressee": addressee,
         "consent_ask": consent,
         "boundary": boundary,
+        "action_mode": _action_mode(text, addressee),
     }
+
+
+def _response_for(stance: str, action_mode: str, tier: int, ceiling: int) -> str:
+    """Map the topic stance onto the NPC response spectrum.
+
+    The stance remains the gate; the response says *how* the character handles the
+    player's move inside that gate. A refusal is a normal outcome, not an error.
+    """
+    if stance in {"hard_refuse", "refuse"}:
+        return "refuse"
+    if stance == "deflect":
+        return "negotiate" if action_mode == "attempt" else "surface"
+    if action_mode == "attempt":
+        return "limited"
+    if stance == "tease":
+        return "limited" if tier >= max(1, ceiling) else "surface"
+    return "sincere"
 
 
 def appraise(
@@ -140,6 +224,9 @@ def appraise(
         **classified,
         "ceiling": ceiling,
         "stance": stance,
+        "response": _response_for(
+            stance, str(classified.get("action_mode")), tier, ceiling
+        ),
         "boundary": boundary,
         "reason": reason,
         "public": public,
@@ -187,6 +274,61 @@ def policy_block(verdict: dict) -> str:
         "do not romanticize it, and do not describe the act. React with a clear refusal; you may "
         "leave. One or two sentences. Do not mention the policy."
     )
+
+
+RESPONSE_BLOCKS = {
+    "refuse": (
+        "Response spectrum — refuse: decline clearly in one or two sentences, in your own "
+        "voice. A refusal is a complete, normal answer; you do not owe a reason."
+    ),
+    "negotiate": (
+        "Response spectrum — negotiate: you are not giving a flat yes. Name your condition, "
+        "ask for something first, or offer a smaller version. Keep it one or two sentences."
+    ),
+    "limited": (
+        "Response spectrum — limited: allow part of what was asked, not all of it. Be warm "
+        "or dry in your own voice, but hold the line you are holding."
+    ),
+    "surface": (
+        "Response spectrum — surface: stay on the surface. A light, social answer; do not "
+        "open a private topic or over-share."
+    ),
+    "sincere": (
+        "Response spectrum — sincere: answer honestly and directly. One concrete detail, "
+        "no performance."
+    ),
+}
+
+ACTION_BLOCKS = {
+    "result": (
+        "Action mode — result: the user described their own speech, body or belongings. "
+        "React to it; do not narrate the user's action for them."
+    ),
+    "attempt": (
+        "Action mode — attempt: the user is trying something that affects you. This is an "
+        "attempt, never an automatic success. Decide for yourself and answer from the "
+        "response spectrum: you may refuse, negotiate, allow only part, or respond sincerely. "
+        "Never narrate the outcome as already done."
+    ),
+    "continue": (
+        "Action mode — continue: the user is asking the scene to move on. Pick up the "
+        "current thread in your own voice; do not restart the conversation."
+    ),
+    "wait": (
+        "Action mode — wait: the user is holding the moment. Keep the beat short; do not "
+        "invent a new topic or a new action for them."
+    ),
+}
+
+
+def response_block(verdict: dict) -> str:
+    response = verdict.get("response") or "sincere"
+    return RESPONSE_BLOCKS.get(response, RESPONSE_BLOCKS["sincere"])
+
+
+def action_block(verdict: dict) -> str:
+    mode = verdict.get("action_mode") or "result"
+    return ACTION_BLOCKS.get(mode, ACTION_BLOCKS["result"])
 
 
 def deflection(character: str, verdict: dict, message: str) -> str:

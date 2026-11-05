@@ -39,16 +39,29 @@ def reply_to_dm(
 
     canon = load_canon()
     context = world_context(service)
+    history = [
+        event for event in service.state()["events"]
+        if event["kind"] == "dm" and character in (event.get("participants") or [])
+    ][-8:]
+    history_text = "\n".join(event["summary"] for event in history) or "(no earlier DMs)"
+    memories = service.recall(character, query=message, limit=6)["memories"]
+    memory_text = "\n".join(
+        f"- {item['proposition']} (source {item['source']}, confidence {item['confidence']:.2f})"
+        for item in memories
+    ) or "(nothing relevant)"
     messages = [
         {"role": "system", "content": _system(character, canon, context)},
         {
             "role": "user",
             "content": (
-                "This is a private one-to-one DM with the user, not the café scene. "
+                "This is a private one-to-one DM with the user, not the café scene.\n\n"
+                f"Your own memories and public facts:\n{memory_text}\n\n"
+                f"Recent private DM:\n{history_text}\n\n"
                 f'The user says: "{message}"\n'
                 "Reply in character in 1-3 sentences, dialogue only, no stage directions. "
-                "Do not reveal another character's private facts. All characters are "
-                "adults; keep it 17+ SFW and never explicit. Return the JSON envelope."
+                "Use the history; do not contradict it. Do not reveal another character's "
+                "private facts. All characters are adults; keep it 17+ SFW and never "
+                "explicit. Return the JSON envelope."
             ),
         },
     ]

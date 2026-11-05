@@ -112,9 +112,10 @@ already captured in the feed; it does not generate a new turn. To advance the wo
    type, send; the reply comes through Bifrost/OpenCode and is logged as a private `dm`
    event. This needs no Mattermost login.
 2. **Talk in #world** — open `#world` at
-   <http://127.0.0.1:8065/switch/channels/world>, or use the **DM this character** link.
-   Mattermost may ask you to log in first; the local user is `MATTERMOST_USER` in `.env`.
-   In a channel, address `@alice` / `@emily`; in a DM, no `@` is needed.
+   <http://127.0.0.1:8065/switch/channels/world>. Mattermost may ask you to log in first;
+   the local user is `MATTERMOST_USER` in `.env`. Address `@alice` / `@emily`. In this
+   build direct Mattermost DMs can show only the session status (the bridge posts the reply
+   to Town Square), so use the phone for private DMs and `#world` for live Switch chat.
 3. **Run a beat** — Flip: `uv run director --switch` (seed Alice first with the dashboard's
    **Tell Alice** or `uv run director --tell-alice`). Geek Room: `scripts/run-bifrost.sh`,
    then **Settings → Run Bifrost beat**, or `uv run director --bifrost`.
@@ -389,6 +390,14 @@ and every message in that DM reaches the agent without `@`. In a public or priva
 **channel**, a message must be addressed with `@name`.
 
 The director is a member of `#world` only. It never reads a private DM.
+
+
+> **Known live-DM limitation (observed 2026-11-05):** in the current bridge a Mattermost DM
+> can start a Switch session, but the agent's `post_message` lands in its default room
+> (Town Square), not in the DM. The DM then shows only the `Worked for Ns` session status;
+> the actual reply appears in Town Square. For a working private conversation use the
+> **Story phone** (Bifrost/OpenCode, with history and `dm` events), and for live Switch use
+> **`#world`** with `@alice` / `@emily`. The phone's `↗` opens the live `#world` room.
 
 ## Architecture
 

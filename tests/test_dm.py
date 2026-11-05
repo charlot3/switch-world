@@ -57,6 +57,12 @@ def test_dm_records_a_private_exchange_and_provenance(tmp_path):
         for h in service.who_knows("user-worried-about-group")["holders"]
     )
 
+    # The next turn sees the first exchange in its prompt, so context is not lost.
+    reply_to_dm(service, "alice", "I'm still not sure.", client=client)
+    second_prompt = client.calls[1][1][1]["content"]
+    assert "I don't know how to tell them." in second_prompt
+    assert "quiet" in second_prompt
+
 
 def test_dm_validates_character_and_message(tmp_path):
     service = make_service(tmp_path)

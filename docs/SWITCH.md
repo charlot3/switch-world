@@ -102,7 +102,10 @@ install it, fully quit and reopen Console.
   accounts.
 - Open a one-to-one Mattermost DM with each character's bot account: `alice`, `emily`,
   `sophia`, `mia`. A DM reaches the agent without an `@` mention; Switch creates a room for
-  it. A message in a **channel** must be addressed with `@name`.
+  it. A message in a **channel** must be addressed with `@name`. **Observed limitation:**
+  in this build the agent's reply is posted to its default room (Town Square), so the DM
+  may show only the session status. Use the Story phone for a private DM, or `#world` for
+  live Switch chat.
 - The director belongs to `#world` only. It is never added to a private DM.
 
 ## 4. Register the cast (OpenCode)

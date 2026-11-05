@@ -927,7 +927,7 @@ select {
 .cast-foot { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-top: auto; padding-top: 8px; border-top: 1px solid var(--border); }
 .cast-hearts { color: var(--rose); font-size: 13px; letter-spacing: 0.06em; white-space: nowrap; }
 .cast-hearts .off { color: var(--surface-3); }
-.cast-dm { font-size: 10px; color: var(--muted); text-decoration: none; white-space: nowrap; }
+.cast-dm { border: 0; padding: 0; background: transparent; font-family: var(--sans); font-size: 10px; color: var(--muted); text-decoration: none; white-space: nowrap; cursor: pointer; }
 .cast-dm:hover { color: var(--rose-soft); }
 .cast-actions { display: flex; align-items: center; gap: 5px; margin-left: auto; }
 .cast-action { border: 1px solid var(--border); background: transparent; color: var(--muted); border-radius: 6px; padding: 3px 6px; font-family: var(--sans); font-size: 8.5px; letter-spacing: 0.03em; cursor: pointer; }

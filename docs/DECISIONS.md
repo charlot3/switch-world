@@ -250,3 +250,13 @@ mobile the phone stacks below the scene, with **Message this character** scrolli
 The visible 17+ badge was removed from the dashboard; the underlying SFW/age rules remain
 in the canon and agent prompts. The point is to make the human's input a first-class part
 of the product rather than a link out to another app.
+
+## 2026-11-05 — Mattermost DMs are not a reliable private surface in this bridge
+
+Observed live: a DM message starts a Switch session, but the agent's `post_message` is
+delivered to its default room (Town Square), not the DM; the DM then shows the session
+status ("Worked for 8s. 2 tool calls.") while the actual reply lands in Town Square. The
+agent's DM session also came up with only the Switch MCP tools, not the world MCP, so it
+could not recall/record beliefs. We did not pretend the DM worked: the Story phone is now
+the private-DM surface (Bifrost/OpenCode, with recent DM history and world recall), and
+the live Switch path is `#world`. The README and `docs/SWITCH.md` carry the limitation.

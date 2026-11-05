@@ -439,13 +439,17 @@ function renderCast(data) {
     hearts.setAttribute("aria-label", `${filled} of 5 affinity`);
     foot.appendChild(hearts);
 
-    const dm = document.createElement("a");
-    dm.className = "cast-dm";
-    dm.href = cast.dm;
-    dm.target = "_blank";
-    dm.rel = "noopener";
-    dm.textContent = "DM ↗";
-    foot.appendChild(dm);
+    const chat = document.createElement("button");
+    chat.type = "button";
+    chat.className = "cast-dm";
+    chat.textContent = "Chat";
+    chat.addEventListener("click", (event) => {
+      event.stopPropagation();
+      selectCast(id);
+      $(".story-phone").scrollIntoView({ behavior: "smooth", block: "center" });
+      $("#phone-input").focus();
+    });
+    foot.appendChild(chat);
 
     const actions = document.createElement("div");
     actions.className = "cast-actions";
@@ -472,7 +476,7 @@ function renderPhone(data) {
   avatar.alt = `${cast.name} avatar`;
   $("#phone-name").textContent = cast.name;
   $("#phone-mood").textContent = cast.mood;
-  $("#phone-open").href = cast.dm;
+  $("#phone-open").href = "http://127.0.0.1:8065/switch/channels/world";
   $("#phone-input").placeholder = `Message ${firstName(cast.name)}…`;
   const clock = data.clock && data.clock.now
     ? new Date(data.clock.now).toLocaleTimeString("en-GB", {

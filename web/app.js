@@ -171,6 +171,16 @@ function presentCharacters(data) {
     .filter((id) => CAST[id]);
 }
 
+const BEAT_ART = {
+  "morning-shop": "/static/assets/portraits/beat-morning-shop.jpg",
+  "truck-lunch": "/static/assets/portraits/beat-truck-lunch.jpg",
+};
+
+function sceneArtFor(data, cast) {
+  const beat = currentBeat(data);
+  return (beat && BEAT_ART[beat.id]) || cast.scene || cast.full || cast.portrait;
+}
+
 function isFriend(data, id) {
   return Boolean(data && (data.friends || []).includes(id));
 }
@@ -317,7 +327,7 @@ function renderStory(data) {
     portrait.onerror = null;
     portrait.src = `/static/assets/portraits/${cast.id}-bust.png`;
   };
-  const sceneArt = cast.scene || cast.full || cast.portrait;
+  const sceneArt = sceneArtFor(data, cast);
   portrait.src = sceneArt;
   portrait.alt = `${cast.name} portrait`;
   if (backdrop) {

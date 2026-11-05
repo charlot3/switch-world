@@ -1652,6 +1652,46 @@ $("#motion-toggle").addEventListener("change", (event) => setMotion(event.target
 $("#rel-view").addEventListener("change", () => {
   if (state.data) renderRelationships(state.data);
 });
+/* Some embedded/browser previews block target=_blank popups; navigate the top page
+   directly so Open #world always responds to the click. */
+$$('a[href*="127.0.0.1:8065/switch/channels/world"]').forEach((link) => {
+  link.addEventListener("click", (event) => {
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+    event.preventDefault();
+    try {
+      if (window.top && window.top !== window.self) {
+        window.top.location.href = link.href;
+        return;
+      }
+    } catch {
+      /* cross-origin top; fall back to this window */
+    }
+    window.location.assign(link.href);
+  });
+});
+/* Same problem for the remaining new-tab links: if the browser refuses the popup,
+   navigate the top page instead of failing silently. */
+$$('a[target="_blank"]').forEach((link) => {
+  link.addEventListener("click", (event) => {
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+    event.preventDefault();
+    const opened = window.open(link.href, "_blank");
+    if (opened) {
+      try { opened.opener = null; } catch { /* ignore */ }
+      return;
+    }
+    try {
+      if (window.top && window.top !== window.self) {
+        window.top.location.href = link.href;
+        return;
+      }
+    } catch {
+      /* cross-origin top; fall back to this window */
+    }
+    window.location.assign(link.href);
+  });
+});
+
 $("#arc-canon").addEventListener("click", () => setView("settings"));
 $("#profile-close").addEventListener("click", closeProfile);
 $("#profile-close-2").addEventListener("click", closeProfile);

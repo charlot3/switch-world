@@ -136,8 +136,10 @@ already captured in the feed; it does not generate a new turn. To advance the wo
    `uv run director --beat morning-shop` or `uv run director --arc`.
 
 The header's **Open #world** link points at the verified public Mattermost channel
-(`switch/world`). If it shows a login page, sign in with the `MATTERMOST_USER` credentials
-from `.env`; the channel and the four bot users exist.
+(`switch/world`). It opens in the same tab because embedded previews and some popup
+blockers swallow `target="_blank"`; use browser Back to return, or Cmd/Ctrl-click for a new
+tab. If it shows a login/landing page, sign in with the `MATTERMOST_USER` credentials from
+`.env`; the channel and the four bot users exist.
 
 ![The character sheet: full-body 立绘, profile, private god view, and relationship bars.](docs/profile-sheet.png)
 

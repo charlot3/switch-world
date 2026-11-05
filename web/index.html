@@ -94,6 +94,20 @@
           </div>
         </div>
 
+        <div class="arc-strip" id="arc-strip" aria-label="Authored story arc">
+          <div class="arc-head">
+            <div>
+              <span class="eyebrow" id="arc-act">Act I — The Secret</span>
+              <p class="arc-rule">Authored beats · the cast improvises inside them</p>
+            </div>
+            <div class="arc-status">
+              <span class="arc-branch" id="arc-branch">the café is open</span>
+              <button class="arc-canon" id="arc-canon" type="button">Canon →</button>
+            </div>
+          </div>
+          <ol class="arc-beats" id="arc-beats"></ol>
+        </div>
+
         <div class="secret-banner">
           <div class="secret-main">
             <span class="eyebrow">the secret ledger</span>
@@ -225,6 +239,26 @@
             <p class="tiny">OpenCode configs: <code>agents/&lt;name&gt;/opencode.json</code> · Claude Code fallback: <code>agents/&lt;name&gt;/.mcp.json</code>.</p>
           </article>
 
+          <article class="card setting-card wide">
+            <h3>Canon &amp; worldline</h3>
+            <p class="card-sub">The story is improvised inside authored beats. These facts and invariants are the guardrail: the cast can be wrong, the canon cannot.</p>
+            <div class="canon-summary">
+              <div><span class="eyebrow">act</span><p id="canon-act">Act I — The Secret</p></div>
+              <div><span class="eyebrow">the secret</span><p id="canon-secret">—</p></div>
+            </div>
+            <div class="canon-columns">
+              <div class="canon-column">
+                <span class="eyebrow">fixed facts</span>
+                <ul class="canon-list" id="canon-facts"></ul>
+              </div>
+              <div class="canon-column">
+                <span class="eyebrow">invariants</span>
+                <ul class="canon-list" id="canon-invariants"></ul>
+              </div>
+            </div>
+            <div class="canon-branches" id="canon-branches"></div>
+          </article>
+
           <article class="card setting-card">
             <h3>Submission</h3>
             <p class="card-sub">Flip the Switch · Track 2 — Best Personal or Creative Workflow.</p>
@@ -271,6 +305,45 @@
         <span>Switch is the transport; the dashboard never opens SQLite.</span>
       </footer>
     </main>
+  </div>
+
+  <div id="profile-modal" class="profile-modal" hidden>
+    <div class="profile-backdrop" data-close-profile></div>
+    <article class="profile-sheet" role="dialog" aria-modal="true" aria-labelledby="profile-name">
+      <button class="profile-close" id="profile-close" type="button" aria-label="Close profile">×</button>
+      <div class="profile-art">
+        <img id="profile-art-img" alt="">
+        <span class="profile-art-tag">立绘 · character sheet</span>
+      </div>
+      <div class="profile-copy">
+        <p class="eyebrow" id="profile-route"></p>
+        <div class="profile-title">
+          <h2 id="profile-name"></h2>
+          <span class="jp" id="profile-jp"></span>
+        </div>
+        <p class="profile-role" id="profile-role"></p>
+        <p class="profile-intro" id="profile-intro"></p>
+        <dl class="profile-stats" id="profile-stats"></dl>
+        <div class="profile-section">
+          <span class="eyebrow">likes</span>
+          <p id="profile-likes"></p>
+        </div>
+        <div class="profile-section">
+          <span class="eyebrow">dislikes</span>
+          <p id="profile-dislikes"></p>
+        </div>
+        <div class="profile-section profile-secret">
+          <span class="eyebrow">private · god view</span>
+          <p id="profile-secret"></p>
+        </div>
+        <blockquote id="profile-quote"></blockquote>
+        <div class="profile-rel" id="profile-rel"></div>
+        <div class="profile-actions">
+          <a class="btn primary" id="profile-dm" href="#" target="_blank" rel="noopener">DM this character</a>
+          <button class="btn ghost" id="profile-close-2" type="button">Close</button>
+        </div>
+      </div>
+    </article>
   </div>
 
   <div id="tooltip" class="tooltip" role="tooltip" hidden></div>

@@ -190,3 +190,41 @@ cold image job passed admission. Alice rendered in 190s; Emily, Sophia and Mia f
 at 143–150s. The 832×1216 PNGs are now the primary portraits; the SVG generator stays as the
 fallback. After the render, GPT-SoVITS is started again and ComfyUI is left up, so the studio
 returns to its original usable state.
+
+## 2026-11-04 — Canon, an aligned cast set, and two provenance repairs
+
+**Canon is a read-only story bible, not a prompt.** `world/canon.json` holds public and
+private facts, five authored beats, three branches (disclosure / non-disclosure / partial
+leak) and the invariants. `director/canon.py` gives each character only its own private
+facts, classifies the ending from the ledger, and writes the branch and any warning into the
+feed. The dashboard shows the same canon in the Story arc strip and Settings. The scene is
+free; the worldline is not. See `docs/CANON.md`.
+
+**A suspicion is not a disclosure.** The old live check accepted any belief from
+`character:alice`. Emily's 0.45 "Alice is holding something back" was therefore labelled a
+disclosure, which contradicted the dialogue and the scene card. The classifier now requires
+source `character:alice`, confidence ≥ 0.6 and a content overlap with Alice's own
+statement. The tests cover the suspicion, the direct disclosure, a third-party leak and a
+misattribution (“Alice is leaving”). The live dashboard's first café event was repaired in
+place (`disclosure` → `non_disclosure`), and two validator false-positive warnings caused by
+display-name participants were removed; the static live example keeps a historical note.
+
+**One relationship row per pair.** Live agents occasionally called
+`world__update_relationship("Emily", ...)` with a display name, which created a second row
+next to `"emily"`. The service now resolves ids, names and first names to canonical ids at
+the boundary; `scripts/normalize-relationships.py` folds old rows back together. The profile
+sheet also deduplicates defensively.
+
+**One art flow, two shot types.** The first ComfyUI set was four good images that did not
+read as a set: different crops, light temperatures and head sizes. `scripts/generate-cast-art.py`
+now uses one shared scaffold, a fixed seed per shot type, and a character block as the only
+variable: bust 832×1216 for cards/scene, full-body 768×1344 for the 立绘, and a 512×512
+avatar crop. `PROMPTS.md` and contact sheets make the set reproducible. The first full-body pass
+cropped Alice's feet and varied the camera; the scaffold now asks for the entire figure,
+shoes and breathing room above/below, and the set was regenerated.
+
+**A card is a character sheet.** Cast cards now carry a two-line intro, affinity, Story and
+Profile actions. The profile sheet shows the full-body 立绘, age/height/birthday/specialty,
+likes/dislikes, the private canon line (god view), a quote and outgoing relationship bars.
+The tone stays 17+ SFW; the product is interactive fiction with a provenance engine, not a
+dating sim.

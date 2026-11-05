@@ -61,6 +61,8 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         print("Alice:", result["alice"])
         print("Emily:", result["emily"])
+        print("branch:", result["branch"]["label"], f"({result['branch']['id']})")
+        print("canon:", "holds" if not result["canon_issues"] else "; ".join(result["canon_issues"]))
         print("room:", result["room"]["room_id"])
         print("scene card:", result["card"]["path"])
         return 0
@@ -76,6 +78,8 @@ def main(argv: list[str] | None = None) -> int:
         for line in result["transcript"]:
             print(line)
         print()
+        print(f"branch: {result['branch']['label']} ({result['branch']['id']})")
+        print("canon:", "holds" if not result["canon_issues"] else "; ".join(result["canon_issues"]))
         print(f"scene card: {result['card']['path']}")
         print(f"world clock: {result['clock']['now']}")
     return 0

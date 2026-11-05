@@ -21,14 +21,19 @@ not a fifth criterion.
 | **Hard requirement:** one human + at least one AI agent + a real task, in team chat, connected through Switch | README "The task the human and agents get done together"; the demo's scene and the exported scene card |
 | Use of Switch | README "Why Switch is core"; `docs/SWITCH.md`; `docker compose down` in the demo |
 | Technical execution | one Compose stack, one world-engine command, four character registrations plus the director; a fresh clone reproduces the demo |
-| Creativity and impact | the secret ledger and the who-knows-what dashboard; `docs/ARCHITECTURE.md` |
+| Creativity and impact | the secret ledger and the who-knows-what dashboard; the authored canon/worldline guardrail (`docs/CANON.md`); the cast cards and 立绘 (`docs/CAST.md`); `docs/ARCHITECTURE.md` |
 | Presentation | the 5-minute shot list; README quickstart; no missing steps |
 
 ## Before recording
 
 - [ ] Switch + Mattermost healthy; the five agents registered; `#world` and four DMs exist.
-- [ ] Switch Console connected; **OpenCode** provider **Backend connected**.
-- [ ] World engine up; dashboard renders the seed state; `director --loop` has fired a beat.
+- [ ] Switch Console connected; **Claude Code Signed in** (the live fallback), with the
+      OpenCode configs present as the preferred path; the README explains the Console
+      0.40.1 check.
+- [ ] World engine up; dashboard renders the seed state; the Story arc strip, a Profile
+      sheet, and Settings → Canon & worldline are rehearsed.
+- [ ] The four busts and full-body 立绘 are in `web/assets/portraits/`; Mattermost bot
+      avatars match the same set.
 - [ ] Rehearsed the full demo twice; saved a fallback recording.
 - [ ] `.env`, `.switch/`, `opencode.json`, API keys, and Mattermost admin pages are not
       visible.

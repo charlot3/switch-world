@@ -1,5 +1,11 @@
 # Scene card — Café, 18:30 — live
 
+> **Historical live take (2026-11-03).** The first café attempt in this card
+> predates the branch classifier: Alice withheld the secret, but the event was labelled
+> `disclosure` because any belief from `character:alice` counted. The fix is in
+> `director/canon.py`; the second attempt is the real disclosure. For the corrected
+> contract, see [`scene-card-example-local.md`](scene-card-example-local.md).
+
 **World time:** 2026-11-03T09:00:00+09:00  
 **Generated:** 2026-11-03T16:26:41
 

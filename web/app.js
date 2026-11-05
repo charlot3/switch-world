@@ -269,6 +269,10 @@ function renderStory(data) {
   const scene = $(".scene");
   scene.style.setProperty("--scene-color", cast.color);
   const portrait = $("#scene-portrait");
+  portrait.onerror = () => {
+    portrait.onerror = null;
+    portrait.src = `/static/assets/portraits/${cast.id}.svg`;
+  };
   portrait.src = cast.portrait;
   portrait.alt = `${cast.name} portrait`;
   $("#scene-name").textContent = cast.name;
@@ -301,6 +305,7 @@ function renderStory(data) {
 
   renderHero(data);
   renderCast(data);
+  renderArc(data);
 }
 
 function renderHero(data) {
@@ -323,6 +328,10 @@ function renderHero(data) {
     const chip = document.createElement("span");
     chip.className = "holder-chip";
     const img = document.createElement("img");
+    img.onerror = () => {
+      img.onerror = null;
+      img.src = `/static/assets/portraits/${cast.id}-avatar.svg`;
+    };
     img.src = cast.avatar;
     img.alt = "";
     chip.appendChild(img);
@@ -339,10 +348,28 @@ function renderHero(data) {
   });
 }
 
-function chemistryFor(data, id) {
+function affinityFor(data, id) {
   const edge = (data.relationships || []).find((e) => e.a === id && e.b === "user");
   if (!edge) return 0.4;
   return Math.max(0, Math.min(1, (edge.trust + edge.closeness) / 2 - edge.tension / 2));
+}
+
+function selectCast(id) {
+  state.selected = id;
+  state.lineId = null;
+  renderStory(state.data);
+}
+
+function makeCastAction(label, onClick) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "cast-action";
+  button.textContent = label;
+  button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    onClick();
+  });
+  return button;
 }
 
 function renderCast(data) {
@@ -352,28 +379,20 @@ function renderCast(data) {
     const cast = CAST[id];
     const card = document.createElement("article");
     card.className = "cast-card" + (state.selected === id ? " is-selected" : "");
-    card.tabIndex = 0;
-    card.setAttribute("role", "button");
-    card.setAttribute("aria-label", `Open ${cast.name} in the story view`);
-    card.addEventListener("click", () => {
-      state.selected = id;
-      state.lineId = null;
-      renderStory(state.data);
-    });
-    card.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        state.selected = id;
-        state.lineId = null;
-        renderStory(state.data);
-      }
-    });
+    card.setAttribute("role", "group");
+    card.setAttribute("aria-label", `${cast.name} character card`);
+    card.addEventListener("click", () => selectCast(id));
 
     const art = document.createElement("div");
     art.className = "cast-art";
     const img = document.createElement("img");
+    img.onerror = () => {
+      img.onerror = null;
+      img.src = `/static/assets/portraits/${cast.id}.svg`;
+    };
     img.src = cast.portrait;
     img.alt = `${cast.name} portrait`;
+    img.loading = "lazy";
     art.appendChild(img);
     const role = document.createElement("span");
     role.className = "cast-role";
@@ -395,6 +414,11 @@ function renderCast(data) {
     tagline.className = "cast-tagline";
     tagline.textContent = cast.tagline;
     info.appendChild(tagline);
+    const intro = document.createElement("p");
+    intro.className = "cast-intro";
+    intro.textContent = cast.intro;
+    intro.title = cast.intro;
+    info.appendChild(intro);
 
     const traits = document.createElement("div");
     traits.className = "cast-traits";
@@ -410,10 +434,11 @@ function renderCast(data) {
     foot.className = "cast-foot";
     const hearts = document.createElement("span");
     hearts.className = "cast-hearts";
-    const filled = Math.round(chemistryFor(data, id) * 5);
+    const filled = Math.round(affinityFor(data, id) * 5);
     hearts.textContent = "♥".repeat(filled) + "♡".repeat(5 - filled);
-    hearts.setAttribute("aria-label", `${filled} of 5 chemistry`);
+    hearts.setAttribute("aria-label", `${filled} of 5 affinity`);
     foot.appendChild(hearts);
+
     const dm = document.createElement("a");
     dm.className = "cast-dm";
     dm.href = cast.dm;
@@ -421,9 +446,62 @@ function renderCast(data) {
     dm.rel = "noopener";
     dm.textContent = "DM ↗";
     foot.appendChild(dm);
+
+    const actions = document.createElement("div");
+    actions.className = "cast-actions";
+    actions.appendChild(makeCastAction("Story", () => selectCast(id)));
+    actions.appendChild(makeCastAction("Profile", () => openProfile(id)));
+    foot.appendChild(actions);
     info.appendChild(foot);
     card.appendChild(info);
     grid.appendChild(card);
+  });
+}
+
+/* ---- authored arc ----------------------------------------------------- */
+
+function renderArc(data) {
+  const canon = data.canon || {};
+  const beats = canon.beats || [];
+  const branchEvent = [...(data.events || [])].reverse().find((event) => event.kind === "branch");
+  $("#arc-act").textContent = canon.act || "Act I — The Secret";
+
+  let branchLabel = "the café is open";
+  if (branchEvent) {
+    branchLabel = branchEvent.summary
+      .replace(/^Branch:\s*/, "")
+      .split(" — ")[0] || "act complete";
+  }
+  const branchNode = $("#arc-branch");
+  branchNode.textContent = branchLabel;
+  branchNode.title = branchEvent ? branchEvent.summary : "The authored café beat has not run yet.";
+
+  const list = $("#arc-beats");
+  list.replaceChildren();
+  beats.forEach((beat) => {
+    const item = document.createElement("li");
+    item.className = "arc-beat" + (beat.required ? " is-required" : "");
+    if (beat.id === "cafe") {
+      item.classList.add(branchEvent ? "is-done" : "is-current");
+    }
+    const time = document.createElement("span");
+    time.className = "arc-time";
+    time.textContent = beat.time;
+    item.appendChild(time);
+    const title = document.createElement("span");
+    title.className = "arc-title";
+    title.textContent = beat.title;
+    item.appendChild(title);
+    const place = document.createElement("span");
+    place.className = "arc-place";
+    place.textContent = beat.place;
+    item.appendChild(place);
+    const flag = document.createElement("span");
+    flag.className = "arc-flag";
+    flag.textContent = beat.required ? "required" : "optional";
+    item.appendChild(flag);
+    item.title = beat.goal || "";
+    list.appendChild(item);
   });
 }
 
@@ -882,9 +960,193 @@ function renderFeed(data) {
   });
 }
 
+/* ---- canon ------------------------------------------------------------ */
+
+function renderCanon(data) {
+  const canon = data.canon || {};
+  $("#canon-act").textContent = canon.act || "Act I — The Secret";
+  $("#canon-secret").textContent = (canon.secret && canon.secret.default_text) || "—";
+
+  const facts = $("#canon-facts");
+  facts.replaceChildren();
+  (canon.public_facts || []).forEach((fact) => {
+    const item = document.createElement("li");
+    item.textContent = fact;
+    facts.appendChild(item);
+  });
+
+  const invariants = $("#canon-invariants");
+  invariants.replaceChildren();
+  (canon.invariants || []).forEach((rule) => {
+    const item = document.createElement("li");
+    item.textContent = rule;
+    invariants.appendChild(item);
+  });
+
+  const branches = $("#canon-branches");
+  branches.replaceChildren();
+  (canon.branches || []).forEach((branch) => {
+    const card = document.createElement("article");
+    card.className = "canon-branch";
+    const title = document.createElement("b");
+    title.textContent = branch.label;
+    card.appendChild(title);
+    const id = document.createElement("span");
+    id.textContent = branch.id;
+    card.appendChild(id);
+    const outcome = document.createElement("p");
+    outcome.textContent = branch.outcome;
+    card.appendChild(outcome);
+    card.title = branch.condition || "";
+    branches.appendChild(card);
+  });
+}
+
+/* ---- character sheet -------------------------------------------------- */
+
+let profileReturnFocus = null;
+
+function relBar(key, value) {
+  const bar = document.createElement("div");
+  bar.className = "rel-bar";
+  const label = document.createElement("span");
+  label.className = "rel-label";
+  label.textContent = key;
+  const track = document.createElement("div");
+  track.className = "track";
+  const fill = document.createElement("div");
+  fill.className = `fill ${key}`;
+  fill.style.width = `${Math.max(0, Math.min(1, Number(value) || 0)) * 100}%`;
+  track.appendChild(fill);
+  const amount = document.createElement("span");
+  amount.className = "rel-value";
+  amount.textContent = Number(value || 0).toFixed(2);
+  bar.append(label, track, amount);
+  return bar;
+}
+
+function castIdFor(value) {
+  const raw = String(value || "").trim();
+  const lowered = raw.toLowerCase();
+  if (lowered === "user" || lowered === "you" || lowered === "the user") return "user";
+  if (CAST[lowered]) return lowered;
+  const byName = ORDER.find((id) => {
+    const name = CAST[id].name.toLowerCase();
+    return name === lowered || name.split(" ")[0] === lowered;
+  });
+  return byName || lowered;
+}
+
+function renderProfileRelationships(data, id) {
+  const host = $("#profile-rel");
+  host.replaceChildren();
+  const order = ["user", ...ORDER.filter((other) => other !== id)];
+  const seen = new Set();
+  const edges = (data.relationships || [])
+    .filter((edge) => edge.a === id)
+    .map((edge) => ({ ...edge, b: castIdFor(edge.b) }))
+    .filter((edge) => {
+      if (seen.has(edge.b)) return false;
+      seen.add(edge.b);
+      return true;
+    })
+    .sort((a, b) => order.indexOf(a.b) - order.indexOf(b.b));
+  if (!edges.length) return;
+  const title = document.createElement("div");
+  title.className = "profile-rel-title";
+  title.textContent = "outgoing relationships";
+  host.appendChild(title);
+  const list = document.createElement("div");
+  list.className = "rel-list";
+  edges.forEach((edge) => {
+    const row = document.createElement("div");
+    row.className = "rel-row";
+    const name = document.createElement("div");
+    name.className = "rel-name";
+    name.textContent = edge.b === "user" ? "You" : ((CAST[edge.b] && CAST[edge.b].name) || edge.b);
+    row.appendChild(name);
+    const bars = document.createElement("div");
+    bars.className = "rel-bars";
+    ["trust", "closeness", "tension"].forEach((key) => bars.appendChild(relBar(key, edge[key])));
+    row.appendChild(bars);
+    list.appendChild(row);
+  });
+  host.appendChild(list);
+}
+
+function openProfile(id) {
+  const cast = CAST[id];
+  if (!cast) return;
+  const modal = $("#profile-modal");
+  profileReturnFocus = document.activeElement;
+  modal.style.setProperty("--scene-color", cast.color);
+  $("#profile-route").textContent = cast.route || "";
+  $("#profile-name").textContent = cast.name;
+  $("#profile-jp").textContent = cast.jp;
+  $("#profile-role").textContent = `${cast.role} · ${cast.mood}`;
+  $("#profile-intro").textContent = cast.intro;
+
+  const stats = $("#profile-stats");
+  stats.replaceChildren();
+  const profile = cast.profile || {};
+  [["age", profile.age], ["height", profile.height], ["birthday", profile.birthday],
+   ["specialty", profile.specialty]].forEach(([label, value]) => {
+    if (value == null) return;
+    const row = document.createElement("div");
+    const term = document.createElement("dt");
+    term.textContent = label;
+    const detail = document.createElement("dd");
+    detail.textContent = String(value);
+    row.append(term, detail);
+    stats.appendChild(row);
+  });
+
+  $("#profile-likes").textContent = profile.likes || "—";
+  $("#profile-dislikes").textContent = profile.dislikes || "—";
+  $("#profile-secret").textContent = cast.secret || "—";
+  $("#profile-quote").textContent = cast.quote;
+  $("#profile-dm").href = cast.dm;
+
+  const img = $("#profile-art-img");
+  let fallback = 0;
+  img.onerror = () => {
+    if (fallback === 0) {
+      fallback = 1;
+      img.src = cast.portrait;
+      return;
+    }
+    img.onerror = null;
+    img.src = `/static/assets/portraits/${cast.id}.svg`;
+  };
+  img.style.transform = `scale(${cast.fullScale || 1})`;
+  img.src = cast.full || cast.portrait;
+  img.alt = `${cast.name} full-body character art`;
+
+  renderProfileRelationships(state.data || {}, id);
+  modal.hidden = false;
+  const app = $(".app");
+  if (app) app.inert = true;
+  document.body.classList.add("modal-open");
+  $("#profile-close").focus();
+}
+
+function closeProfile() {
+  const modal = $("#profile-modal");
+  if (!modal || modal.hidden) return;
+  modal.hidden = true;
+  const app = $(".app");
+  if (app) app.inert = false;
+  document.body.classList.remove("modal-open");
+  if (profileReturnFocus && typeof profileReturnFocus.focus === "function") {
+    profileReturnFocus.focus();
+  }
+  profileReturnFocus = null;
+}
+
 /* ---- settings --------------------------------------------------------- */
 
-function renderSettings() {
+function renderSettings(data) {
+  renderCanon(data || state.data || {});
   const list = $("#provider-list");
   list.replaceChildren();
   (window.SWITCH_PROVIDERS || []).forEach((provider) => {
@@ -918,6 +1180,7 @@ const VIEW_META = {
 };
 
 function setView(view) {
+  closeProfile();
   state.view = view;
   $$(".rail-link").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.view === view);
@@ -940,6 +1203,8 @@ function render(data) {
   if (state.view === "settings") renderSettings(data);
 }
 
+let initialProfileOpened = false;
+
 async function refresh() {
   const main = $("#main");
   main.classList.add("refreshing");
@@ -947,6 +1212,11 @@ async function refresh() {
     const data = await api("/api/state");
     state.data = data;
     render(data);
+    if (!initialProfileOpened) {
+      initialProfileOpened = true;
+      const profile = new URLSearchParams(location.search).get("profile");
+      if (profile && CAST[profile]) openProfile(profile);
+    }
     showError(null);
   } catch (error) {
     showError(`Cannot reach the world engine: ${error.message}`);
@@ -1060,6 +1330,15 @@ $("#theme-toggle-2").addEventListener("click", () => setTheme(state.theme === "d
 $("#motion-toggle").addEventListener("change", (event) => setMotion(event.target.checked));
 $("#rel-view").addEventListener("change", () => {
   if (state.data) renderRelationships(state.data);
+});
+$("#arc-canon").addEventListener("click", () => setView("settings"));
+$("#profile-close").addEventListener("click", closeProfile);
+$("#profile-close-2").addEventListener("click", closeProfile);
+$("#profile-modal").addEventListener("click", (event) => {
+  if (event.target.matches("[data-close-profile]")) closeProfile();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closeProfile();
 });
 $("#scene-next").addEventListener("click", nextLine);
 $("#scene-run").addEventListener("click", copyLiveCommand);

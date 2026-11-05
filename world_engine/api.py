@@ -1,6 +1,7 @@
 """FastAPI app: dashboard, read-only API, dev simulation, and the MCP mount."""
 from __future__ import annotations
 
+import json
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
@@ -10,6 +11,13 @@ from fastapi.staticfiles import StaticFiles
 from . import config
 from .mcp_server import create_mcp
 from .service import WorldService
+
+CANON_PATH = config.ROOT / "world" / "canon.json"
+
+
+def load_canon() -> dict:
+    """The authored story bible. It is read-only state, not world state."""
+    return json.loads(CANON_PATH.read_text(encoding="utf-8"))
 
 
 def create_app(service: WorldService | None = None) -> FastAPI:
@@ -42,7 +50,13 @@ def create_app(service: WorldService | None = None) -> FastAPI:
 
     @app.get("/api/state")
     def state():
-        return service.state()
+        data = service.state()
+        data["canon"] = load_canon()
+        return data
+
+    @app.get("/api/canon")
+    def canon():
+        return load_canon()
 
     @app.get("/api/matrix")
     def matrix():

@@ -32,6 +32,21 @@ def test_state_and_dashboard(client):
     assert health.json()["ok"] is True
 
 
+def test_canon_is_exposed(client):
+    response = client.get("/api/canon")
+    assert response.status_code == 200
+    canon = response.json()
+    assert canon["act"] == "Act I — The Secret"
+    assert any("bookshop" in fact for fact in canon["public_facts"])
+    assert [beat["id"] for beat in canon["beats"]][2] == "cafe"
+    assert {branch["id"] for branch in canon["branches"]} == {
+        "disclosure", "non-disclosure", "partial-leak"
+    }
+
+    state = client.get("/api/state").json()
+    assert state["canon"]["secret"]["key"] == "user-leaving-city"
+
+
 def test_tell_alice_and_cafe(client):
     response = client.post("/api/dev/tell-alice", json={})
     assert response.status_code == 200

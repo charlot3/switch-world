@@ -96,6 +96,29 @@ class WorldService:
     def _character_exists(self, conn: sqlite3.Connection, cid: str) -> bool:
         return conn.execute("SELECT 1 FROM characters WHERE id = ?", (cid,)).fetchone() is not None
 
+    def _canonical_actor(self, conn: sqlite3.Connection, value: str) -> str:
+        """Resolve an id, a display name, a first name, or 'you' to a canonical actor.
+
+        Agents write relationship calls in prose. Before this, `other="Emily"` created a
+        second row next to `other="emily"`; the two histories then diverged and the
+        dashboard showed two Emilys. Normalising at the boundary keeps one edge per pair.
+        """
+        raw = (value or "").strip()
+        if not raw:
+            raise ValueError("character is required")
+        lowered = raw.lower()
+        if lowered in {"user", "you", "the user", "me"}:
+            return "user"
+        if lowered in CHARACTER_ORDER or lowered == "director":
+            return lowered
+        row = conn.execute(
+            "SELECT id FROM characters WHERE id = ? OR lower(name) = ? OR lower(name) LIKE ?",
+            (raw, lowered, lowered + " %"),
+        ).fetchone()
+        if row:
+            return row["id"]
+        raise ValueError("unknown character: " + raw)
+
     def clock(self) -> dict[str, str]:
         with self._conn() as conn:
             row = conn.execute("SELECT now, day FROM clock WHERE id = 1").fetchone()
@@ -242,6 +265,7 @@ class WorldService:
 
     def relationship(self, actor: str, other: str) -> dict:
         with self._conn() as conn:
+            other = self._canonical_actor(conn, other)
             row = conn.execute(
                 "SELECT * FROM relationships WHERE a = ? AND b = ?", (actor, other)
             ).fetchone()
@@ -267,11 +291,14 @@ class WorldService:
     ) -> dict:
         if actor == "director":
             raise ValueError("the director does not have relationships")
-        if other == actor:
-            raise ValueError("a character cannot have a relationship with itself")
         with self._conn() as conn:
             if not self._character_exists(conn, actor):
                 raise ValueError("unknown character: " + actor)
+            other = self._canonical_actor(conn, other)
+            if other == actor:
+                raise ValueError("a character cannot have a relationship with itself")
+            if other == "director":
+                raise ValueError("the director does not have relationships")
             now = self._now(conn)
             row = conn.execute(
                 "SELECT * FROM relationships WHERE a = ? AND b = ?", (actor, other)
@@ -316,6 +343,13 @@ class WorldService:
 
     # ---- events -----------------------------------------------------------
 
+    def _canonical_participant(self, conn: sqlite3.Connection, value: str) -> str:
+        """Normalise a participant when it is a known actor; leave unknown labels alone."""
+        try:
+            return self._canonical_actor(conn, value)
+        except ValueError:
+            return str(value).strip()
+
     def record_event(
         self,
         actor: str,
@@ -328,6 +362,7 @@ class WorldService:
             raise ValueError("visibility must be one of " + ", ".join(VISIBILITIES))
         participants = list(participants or [])
         with self._conn() as conn:
+            participants = [self._canonical_participant(conn, p) for p in participants]
             now = self._now(conn)
             cur = conn.execute(
                 """INSERT INTO events(kind, summary, participants_json, visibility, created_at)

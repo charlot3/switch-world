@@ -91,6 +91,28 @@ def test_relationship_update_clamps_and_records(service):
     assert any(e["kind"] == "relationship_update" and "test" in e["summary"] for e in events)
 
 
+def test_relationship_names_resolve_to_one_edge(service):
+    before = service.relationship("alice", "emily")
+    result = service.update_relationship(
+        "alice", "Emily", trust_delta=0.01, reason="name, not id"
+    )
+    assert result["edge"]["b"] == "emily"
+    after = service.relationship("alice", "emily")
+    assert after["trust"] == pytest.approx(min(1.0, before["trust"] + 0.01))
+    rows = [
+        edge for edge in service.state()["relationships"]
+        if edge["a"] == "alice" and str(edge["b"]).lower() == "emily"
+    ]
+    assert len(rows) == 1
+
+
+def test_event_participants_normalize(service):
+    event = service.record_event(
+        "director", "note", "display-name participants", ["Alice", "user", "Emily"], "public"
+    )
+    assert event["participants"] == ["alice", "user", "emily"]
+
+
 def test_matrix_groups_on_proposition_key(service):
     service.remember(
         "alice", "I am leaving.", "user", 1.0, "private", "user-leaving-city"

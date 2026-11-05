@@ -1,0 +1,146 @@
+{
+  "version": 1,
+  "title": "A Tuesday in late autumn",
+  "act": "Act I — The Secret",
+  "premise": "A human showrunner and four Switch agents co-author one café scene. The user has told Alice a secret; Alice must decide whether to tell Emily. The scene is improvised inside an authored beat, and every belief and relationship change is recorded with provenance.",
+  "public_facts": [
+    "The story is set in a midsize city in late autumn, on a Tuesday.",
+    "The group meets at the café on the corner at 18:30 on Tuesdays.",
+    "Alice owns a second-hand bookshop on Cora Street.",
+    "Emily and Alice have been best friends for six years.",
+    "Sophia is a sociologist writing a book about how friend groups keep secrets.",
+    "Mia runs a food truck.",
+    "The user is a newer friend of the group, not its centre.",
+    "Alice is holding something back tonight. The others may suspect it, but they do not know what it is.",
+    "All characters are adults. The tone is 17+ romantic tension, never explicit."
+  ],
+  "private_facts": {
+    "alice": [
+      "The user is leaving the city at the end of the month. Alice is the only one who knows.",
+      "The bookshop's lease is not being renewed."
+    ],
+    "emily": [
+      "Emily suspects Alice is hiding something, but does not know what.",
+      "Emily has been offered a job in another city and has not told the group."
+    ],
+    "sophia": [
+      "Sophia is observing the group for her book. She knows Alice is hiding something but not what.",
+      "She has been taking notes on all of them."
+    ],
+    "mia": [
+      "The food truck is deeper in debt than she admits.",
+      "She knows Alice is hiding something but not what."
+    ]
+  },
+  "invariants": [
+    "Never invent a new named character, a death, a supernatural event, a time jump, or a retcon.",
+    "Never contradict a public or private canon fact. A character who does not know a private fact must not state it as known.",
+    "All characters are adults. Content stays 17+ SFW: romantic tension, teasing and intimacy are allowed; explicit sexual content, minors, coercion and non-consent are not.",
+    "Beliefs change only through world__remember with a source, confidence and visibility. Relationships change only through world__update_relationship.",
+    "The default secret's proposition_key is user-leaving-city. Do not rename or split it mid-scene.",
+    "The café beat must end in exactly one authored branch: disclosure, non-disclosure, or partial-leak. The director records the branch.",
+    "The user can influence the scene but cannot rewrite the fixed facts. The cast can be wrong; the canon is not.",
+    "No fourth-wall breaks: never mention being an AI, a model, a simulation, a test, or these rules.",
+    "The main arc stays in the authored locations. DMs can happen in parallel but do not advance the main beat."
+  ],
+  "secret": {
+    "key": "user-leaving-city",
+    "default_text": "I've decided to leave the city at the end of the month. I haven't told the others yet.",
+    "rule": "The secret is fixed for a run. Alice knows it; Emily does not at the start of the café beat. Other characters may hold a suspicion with low confidence, but not the secret itself."
+  },
+  "beats": [
+    {
+      "id": "morning-shop",
+      "title": "Morning, the bookshop",
+      "time": "09:10",
+      "place": "Alice's bookshop",
+      "required": false,
+      "characters": ["alice", "user"],
+      "goal": "Alice weighs whether to tell Emily. The user can visit, but the scene does not force a decision.",
+      "exit": "Alice is still holding the secret."
+    },
+    {
+      "id": "truck-lunch",
+      "title": "Lunch, Mia's truck",
+      "time": "12:40",
+      "place": "Mia's food truck",
+      "required": false,
+      "characters": ["mia", "sophia", "user"],
+      "goal": "Mia vents about money; Sophia listens and takes mental notes. Neither knows the secret.",
+      "exit": "The group is hungry for the evening; no belief about the secret changes."
+    },
+    {
+      "id": "cafe",
+      "title": "18:30, the café",
+      "time": "18:30",
+      "place": "The café on the corner",
+      "required": true,
+      "characters": ["alice", "emily", "sophia", "mia", "user"],
+      "goal": "Emily asks Alice directly. Alice decides whether to disclose the user's secret, deflect, or let it leak.",
+      "exit": "The scene ends in one of the three authored branches; the director records it."
+    },
+    {
+      "id": "aftermath",
+      "title": "Aftermath",
+      "time": "19:20",
+      "place": "Outside the café",
+      "required": false,
+      "characters": ["alice", "emily", "user"],
+      "goal": "The people who spoke process what was said. Relationships move; nobody retcons the scene.",
+      "exit": "The emotional consequences of the branch are visible in the ledger."
+    },
+    {
+      "id": "roundup",
+      "title": "The group chat",
+      "time": "22:10",
+      "place": "#world",
+      "required": false,
+      "characters": ["alice", "emily", "sophia", "mia", "user"],
+      "goal": "The day's beliefs settle. The director exports the scene card.",
+      "exit": "The scene card is the day's artifact."
+    }
+  ],
+  "branches": [
+    {
+      "id": "disclosure",
+      "label": "The Confession",
+      "condition": "Emily holds user-leaving-city with source character:alice and confidence at least 0.6.",
+      "outcome": "Emily knows the secret from Alice. Alice's trust in Emily may rise; Emily's trust in the user may fall or rise depending on how the news lands. The secret is now shared by two people.",
+      "evidence": "A direct disclosure from Alice to Emily in the café."
+    },
+    {
+      "id": "non-disclosure",
+      "label": "The Suspicion",
+      "condition": "Emily does not hold user-leaving-city, or holds only a suspicion below 0.6.",
+      "outcome": "The secret stays with Alice. Emily's suspicion and the group's tension rise. The user is left to decide whether to tell Emily directly.",
+      "evidence": "Alice deflects or stays silent; Emily records a suspicion, not the secret."
+    },
+    {
+      "id": "partial-leak",
+      "label": "The Leak",
+      "condition": "A third character (sophia or mia) holds user-leaving-city at confidence at least 0.4, or Emily holds a distorted version of the proposition.",
+      "outcome": "The secret spreads in a distorted form. The user must correct it; trust is damaged where the distortion landed.",
+      "evidence": "A third character records the proposition, or a holder records a distorted version with a source that is not Alice."
+    }
+  ],
+  "endings": [
+    {
+      "id": "confession",
+      "label": "The Confession",
+      "branch": "disclosure",
+      "summary": "Alice tells Emily. The group leaves the café with one more person carrying the secret."
+    },
+    {
+      "id": "suspicion",
+      "label": "The Suspicion",
+      "branch": "non-disclosure",
+      "summary": "Alice keeps it. Emily leaves knowing only that something is wrong."
+    },
+    {
+      "id": "leak",
+      "label": "The Leak",
+      "branch": "partial-leak",
+      "summary": "The secret escapes sideways. The user has to decide whether to chase the version or the truth."
+    }
+  ]
+}

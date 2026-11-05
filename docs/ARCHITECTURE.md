@@ -80,18 +80,27 @@ reads room history to chain turns.
 A beat:
 
 1. Read the world state and the world clock.
-2. Pick the next authored beat (e.g. "Alice and Emily meet at the café").
+2. Run the required authored beat (the café; the canon lists four optional beats for a
+   longer run).
 3. Post a scene prompt into `#world`, addressed to one character:
    `@alice It is 18:30 at the café. Emily is here. You have something on your mind.`
 4. Read the room history for Alice's reply, then address Emily with it:
    `@emily Alice says: "…" — how do you respond?`
-5. Wait for Emily's reply; record the public event and the disclosure.
-6. Export the **scene card** (summary, beliefs, provenance, relationship deltas).
-7. Advance the clock; stop after the authored beats for the day.
+5. Wait for Emily's reply, then classify the ending **from the ledger** with
+   `director/canon.py`: a `character:alice` source, a confidence floor, and a content
+   match against Alice's own statement. A suspicion is not a disclosure.
+6. Record the public event, the authored branch, and any canon warning.
+7. Export the **scene card** (summary, beliefs, provenance, relationship deltas).
+8. Advance the clock; stop after the authored beats for the day.
 
 Why a script and not an LLM scheduler: the demo needs deterministic ordering, bounded
 cost, and no double-fired scenes. The LLM is used for dialogue and the disclosure decision,
 not for deciding whether the world ticks. Author the beats; let the model act inside them.
+
+The canon is a **read-only story bible** (`world/canon.json`, loaded by
+`director/canon.py`), not a database table. It gives each character its public facts, its
+own private facts and the invariants; the director keeps the full file. That split is what
+lets the scene be free without leaking Emily's private facts into Alice's prompt.
 
 ### 4. Characters (`agents/<name>/`)
 
@@ -152,6 +161,10 @@ Rules:
 - **Events are immutable.** Corrections are new events with `supersedes` set.
 - **Relationships are directed.** Alice's view of Emily and Emily's view of Alice are
   separate rows; asymmetry is a feature, not a bug.
+- **Relationship endpoints are canonical ids.** The service resolves a display name or a
+  first name (`"Emily"`, `"Alice Moreau"`, `"you"`) to the id before writing, so one pair
+  has one row. `scripts/normalize-relationships.py` repairs older databases that predate
+  this rule.
 - **Visibility** is `private` (holder only), `shared` (participants of the source event),
   or `public` (feed).
 - **Shared secrets:** when a belief is recorded with `source_kind=character`, the receiving
@@ -173,9 +186,10 @@ director ──reads history, then "@emily Alice says: …"──▶  #world
 Emily ──world__remember("Alice is leaving…", source=character:alice, confidence=0.8,
                          proposition_key=user-leaving-city)──▶  world engine
 Emily ──world__update_relationship(alice, trust_delta=-0.1, reason="heard second-hand")──▶  world engine
-director ──world__record_event(disclosure, participants=[alice, emily])──▶  feed
-dashboard ──Alice 1.0 (user), Emily 0.8 (Alice), Sophia/Mia absent──▶  screen
-director ──exports scene-card.md──▶  artifact
+director ──branch_for(ledger) → disclosure (confidence 0.8, content match)──▶  branch
+director ──world__record_event(branch, participants=[alice, emily])──▶  feed
+dashboard ──Alice 1.0 (user), Emily 0.8 (Alice), Sophia/Mia absent; arc = The Confession──▶  screen
+director ──exports scene-card.md + branch event──▶  artifact
 user  ──DM Emily: "hey"──▶  Emily
 Emily ──world__recall() includes the belief and the changed relationship──▶  reply
 ```
@@ -188,6 +202,9 @@ Emily ──world__recall() includes the belief and the changed relationship─�
 | Alice withholds and the scene stalls | the director has a second, authored prompt: Emily asks directly once |
 | A character invents knowledge | `world__recall` is the only source of relationship facts; the prompt forbids invention; the dashboard shows the source |
 | A character reads another's private belief | token → character mapping on the server; no `character_id` parameter |
+| A character records a suspicion as a disclosure | `branch_for` requires source `character:alice`, confidence ≥ 0.6 and a content match; a low-confidence "Alice is hiding something" stays `non-disclosure` |
+| An agent writes a relationship with a display name | the service resolves names to ids at the boundary; `scripts/normalize-relationships.py` repairs old rows |
+| The scene wanders off the worldline | authored beats + `world/canon.json` + `director/canon.py`; the director records the branch and any warning |
 | The world double-fires a beat | beats have ids and states; the director is single-writer; a tick is idempotent |
 | Switch is down | no rooms and no sessions; the director's posts fail; the dashboard still renders the last state |
 | LLM cost/latency blows up | 4 characters, 1 simulated day, 5 authored beats (2 optional), on-demand ticks |
@@ -196,24 +213,30 @@ Emily ──world__recall() includes the belief and the changed relationship─�
 
 ## Non-goals
 
-- 3D world, sprites, maps.
-- Image or voice generation.
+- 3D world, animated sprites, maps.
+- In-loop image or voice generation; the cast art is a pre-generated set.
 - Real-time clock, free-roaming schedules.
 - A general agent framework.
 - Public multi-user signup.
 
-## Prototype status (2026-11-03)
+## Prototype status (2026-11-04)
 
 Runnable now, no Switch required:
 
 - **World engine** (`world_engine/`): SQLite schema, seed loader, the seven MCP tools with
-  token scoping, the REST/dashboard API, and the scene-card export.
-- **Dashboard** (`web/`): the belief matrix with provenance tooltips, directed relationship
-  bars with a table view, the event feed, and the dev harness (Tell Alice / Run café beat /
-  Reset).
+  token scoping, relationship-name normalization, the REST/dashboard API, canon exposure,
+  and the scene-card export.
+- **Canon** (`world/canon.json`, `director/canon.py`): public/private facts, five authored
+  beats, three branches, structural validation, and the branch classifier.
+- **Dashboard** (`web/`): the galgame Story view with an authored arc strip and character
+  cards, the profile sheet (立绘, intro, stats, private god-view, relationship bars), the
+  belief matrix with provenance tooltips, directed relationship bars with a table view, the
+  event feed, the World Tree, and the dev harness.
+- **Cast art** (`scripts/generate-cast-art.py`): one shared prompt scaffold, fixed seeds,
+  bust + full-body + avatar set, `PROMPTS.md` and contact sheets.
 - **Local café beat** (`director/simulate.py`): authored dialogue that exercises the same
-  state writes as the Switch-driven director.
-- **Tests** (`tests/`): `uv run pytest` covers the service, the API and the beat.
+  state writes as the Switch-driven director, including the branch event.
+- **Tests** (`tests/`): `uv run pytest` covers the service, the API, the canon and the beat.
 
 Next (the Switch path):
 

@@ -11,21 +11,26 @@ import time
 from world_engine.service import WorldService
 
 from . import DEMO_KEY
+from .canon import brief, branch_for, load as load_canon, record_branch, validate
 from .switch_client import SwitchClient
 
 ALICE_PROMPT = (
+    "{canon}\n\n"
     "It is 18:30 at the café. Emily is here, and she notices you're distracted. She asks "
-    "you directly: \"Is something wrong?\" The user told you in a private DM that they are "
-    "leaving the city at the end of the month; they haven't told the others. You decide "
-    "whether to tell Emily. If you tell her, say it in this room, then call world__remember "
-    "with source user and proposition_key {key} so the record stays honest. If you keep it, "
-    "say so honestly. Keep it to a few sentences."
+    "you directly: \"Is something wrong?\" A friend of yours — the person who has been "
+    "coming around lately — told you in a private DM that they are leaving the city at the "
+    "end of the month; they haven't told the others. You decide whether to tell Emily. If "
+    "you tell her, say it in this room, then call world__remember with source user and "
+    "proposition_key {key} so the record stays honest. If you keep it, say so honestly. "
+    "Keep it to a few sentences, and do not call them 'the user' in the room."
 )
 
 EMILY_PROMPT = (
+    "{canon}\n\n"
     'Alice says: "{alice}" — how do you respond? If you learned something from her, call '
     "world__remember with source character:alice, a confidence below 1.0 and "
-    "proposition_key {key}. If your view of Alice or the user changed, call "
+    "proposition_key {key}. If she only dodged, you may remember a suspicion instead, but "
+    "do not record it as the secret itself. If your view of Alice or the user changed, call "
     "world__update_relationship with a short reason. Keep it to a few sentences."
 )
 
@@ -38,6 +43,7 @@ def run_cafe_switch(
 ) -> dict:
     service = service or WorldService()
     switch = switch or SwitchClient()
+    canon = load_canon()
     room = switch.find_room(room_name)
     room_id = room["room_id"]
 
@@ -57,7 +63,10 @@ def run_cafe_switch(
     )
 
     started = int(time.time() * 1000) - 1000
-    switch.post(room_id, "@alice " + ALICE_PROMPT.format(key=DEMO_KEY))
+    switch.post(
+        room_id,
+        "@alice " + ALICE_PROMPT.format(canon=brief("alice", canon), key=DEMO_KEY),
+    )
     alice_event = switch.wait_for(room_id, "alice", started, timeout=timeout)
     if alice_event is None:
         service.record_event("director", "no_reply", "Alice did not answer in the room.", ["alice"], "public")
@@ -68,7 +77,14 @@ def run_cafe_switch(
     service.record_event("alice", "dialogue", "Alice: " + alice, ["alice"], "public")
 
     started = int(time.time() * 1000) - 1000
-    switch.post(room_id, "@emily " + EMILY_PROMPT.format(alice=alice.replace('"', "'"), key=DEMO_KEY))
+    switch.post(
+        room_id,
+        "@emily " + EMILY_PROMPT.format(
+            canon=brief("emily", canon),
+            alice=alice.replace('"', "'"),
+            key=DEMO_KEY,
+        ),
+    )
     emily_event = switch.wait_for(room_id, "emily", started, timeout=timeout)
     emily = (emily_event.get("body") or "").strip() if emily_event else ""
 
@@ -77,13 +93,17 @@ def run_cafe_switch(
     else:
         service.record_event("director", "no_reply", "Emily did not answer in the room.", ["emily"], "public")
 
-    # The characters' MCP calls update beliefs/relationships. Decide from the world state
-    # whether Emily learned it from Alice, not from the fact that she replied.
+    # The characters' MCP calls update beliefs/relationships. Classify from the
+    # ledger: a source of character:alice is necessary but not sufficient — the
+    # belief must also be about the secret, not a suspicion that Alice is hiding
+    # something, and it must clear the confidence floor.
     holders = service.who_knows(DEMO_KEY)["holders"]
-    shared = any(
-        h["holder"] == "emily" and str(h["source"]).startswith("character:alice")
-        for h in holders
-    )
+    branch = branch_for(service, DEMO_KEY)
+    issues = validate(service, canon)
+    shared = branch["id"] == "disclosure"
+    participants = ["alice", "emily"] + [
+        h["holder"] for h in holders if h["holder"] in {"sophia", "mia"}
+    ]
     service.record_event(
         "director",
         "disclosure" if shared else "scene_turn",
@@ -92,11 +112,14 @@ def run_cafe_switch(
         participants=["alice", "emily"],
         visibility="public",
     )
+    record_branch(service, branch, issues, participants=participants)
     service.advance_time("director", 30)
     service.record_event("director", "scene_end", "The café scene ends.", ["alice", "emily"], "public")
-    card = service.scene_card("Café, 18:30")
+    card = service.scene_card(f"Café, 18:30 — {branch['id']}")
     return {
         "shared": shared,
+        "branch": branch,
+        "canon_issues": issues,
         "alice": alice,
         "emily": emily,
         "card": card,

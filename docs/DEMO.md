@@ -19,7 +19,8 @@ the preferred connector; Console 0.40.1's check is blocked, so the live cast use
       Mattermost DMs opened.
 - [ ] Mattermost account linked in Console (**This is me**).
 - [ ] World engine up on `127.0.0.1:8890`; dashboard open on the **Story** view, with
-      **World Tree** and **Settings** rehearsed.
+      the **arc strip**, **Profile** sheet, **World Tree** and **Settings → Canon &
+      worldline** rehearsed.
 - [ ] The `director` agent is in `#world`; `uv run director --switch` has been rehearsed
       end to end. For an ambient beat before recording, use `--loop 60` if time allows.
 - [ ] Seed state loaded: private beliefs, relationship edges, empty feed.
@@ -90,9 +91,15 @@ Emily calls `world__update_relationship` with a reason. The feed shows the publi
 
 Dashboard **Story** and **World Tree**:
 
+- the **authored arc strip**: Act I, five beats, the café marked **required**, and the
+  branch the ledger chose — *The Confession* or *The Suspicion*, not a label the prose
+  invented;
 - the belief matrix: Alice 1.00 (user), Emily 0.80 (Alice), Sophia/Mia absent;
 - the provenance drawer: `user → Alice → Emily`, timestamps, confidence;
-- the relationship edge: Emily → Alice trust moved, Emily → user trust moved.
+- the relationship edge: Emily → Alice trust moved, Emily → user trust moved;
+- the **Profile** sheet for one character: full-body 立绘, intro, profile stats, the
+  private god-view line, and the outgoing trust/closeness/tension bars. This is a character
+  card, not a dating-sim stat screen; the romance is 17+ texture around a provenance engine.
 
 Open the DM with Emily:
 
@@ -109,8 +116,10 @@ links.
 
 ### 4:00–4:45 — Switch is core
 
-Show the dashboard **Settings** view: the Switch/Mattermost links, provider status, and
-world controls.
+Show the dashboard **Settings** view: the Switch/Mattermost links, provider status, world
+controls, and the **Canon & worldline** card (public facts, invariants, the three branches).
+Say: "The scene is free; the worldline is not. The canon is the guardrail, and the director
+checks the ledger rather than trusting the prose."
 
 Back in Switch Console or a terminal:
 
@@ -157,6 +166,9 @@ Show the README's **Why Switch is core** and **MCP model** sections, and the rep
 2. **Technical execution:** one Compose stack, one world-engine command, four character
    registrations plus the director; the README reproduces it.
 3. **Creativity/impact:** the secret ledger and provenance panel — a visible model of who
-   knows what, not another chat UI.
+   knows what, not another chat UI — plus an authored canon that keeps a multi-agent scene
+   on its worldline.
 4. **Presentation:** this shot list, the README's Switch section, and the 5-minute video.
-5. **The task:** a human + four agents co-produced a scene and exported its scene card.
+5. **The task:** a human + four agents co-produced a scene and exported its scene card;
+   the cast cards and 立绘 make the world legible without turning the product into a dating
+   sim.

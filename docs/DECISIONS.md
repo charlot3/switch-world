@@ -270,3 +270,17 @@ returns scene + private DM messages for that character, and reports `has_more`/`
 The phone shows the recent 100 and a **Load older** control for the rows above; the DM
 prompt also carries the last 100 DMs. The user's turn is recorded before the model call so
 the auto-refresh cannot remove it while the character is thinking.
+
+## 2026-11-05 — Demo reset, Switch logs, and the layer split
+
+The demo needs a fast reset: `scripts/reset-demo.sh flip|geekroom|all [--artifacts]` posts
+the world-engine reset, clearing beliefs/relationships/events, phone DMs and the scene card;
+`--artifacts` also clears exports, Bifrost logs and the local token budget. It does not
+pretend to erase Mattermost/Switch room history.
+
+Switch's role is intentionally narrow and explicit: rooms, agent identities, sessions and
+delivery. The world engine owns provenance/state, the director owns authored beats, Bifrost
+owns Geek Room model routing, Tavily owns real-world input, and the dashboard/phone are
+projections/write surfaces. `uv run director --switch-log` and `GET /api/switch-log` export
+the raw room events (room, event id, sender, timestamp, body) instead of hiding them behind
+the world feed.

@@ -164,12 +164,62 @@ world runs:
   model session and permissions;
 - every surface is a **Switch room** mapped to a Mattermost channel or DM;
 - the director advances the world by posting addressed messages into those rooms;
-- the user talks to a character by opening a Mattermost DM with that character's bot;
-- **stop Switch and the world cannot advance** — no rooms, no sessions, no delivery, and
-  the director's posts fail. The dashboard still renders the last state, which proves it is
-  a read-only projection, not the world.
+- the user talks to the live cast in `#world`; the phone DM is a local Bifrost DM, not a
+  Switch room;
+- **stop Switch and the live world cannot advance** — no rooms, no sessions, no delivery,
+  and the director's Switch posts fail. The dashboard still renders the last state, which
+  proves it is a read-only projection, not the world.
 
-`docker compose down` is the "remove Switch" test, and the demo shows it.
+`docker compose down` is the "remove Switch" test, and the demo shows it. In the Geek Room
+edition the phone DM, local authored beats and Tavily path can still run without Switch;
+the live four-agent café path cannot.
+
+### What Switch is doing — and what it is not
+
+| Layer | Responsibility |
+| --- | --- |
+| **Switch** | rooms, agent identities, message delivery, sessions, Console credentials |
+| **World engine (MCP)** | beliefs, provenance, relationships, events, scene card |
+| **Director** | authored beats, branch checks, post/record choreography |
+| **Bifrost** | Geek Room model routing, fallbacks, per-character budgets and logs |
+| **Tavily** | real-world input and live retrieval |
+| **Dashboard / phone** | read-only projection; phone DM is a Bifrost write surface |
+
+Switch is not the world state, and in the Geek Room edition it is not the model router.
+Removing Switch stops the live rooms and Switch-driven beats; it does not delete the
+world DB, the phone DM or the local beat runner.
+
+### Switch logs
+
+```sh
+uv run director --switch-log --room all
+# detailed room/event/sender/timestamp/body JSONL -> data/exports/switch-log-*.jsonl
+```
+
+The dashboard's Settings → **Switch room log (JSONL)** link serves
+`/api/switch-log?room=all`. For the transport containers:
+
+```sh
+docker logs -f 0310-switch-1
+docker logs -f 0310-gateway-1
+```
+
+Switch Console's **Show activity** on a session is the per-agent view. The world engine's
+event feed is a different layer: it is the provenance projection, not the raw Switch
+transport log.
+
+### Quick demo reset
+
+```sh
+scripts/reset-demo.sh flip              # 8890 world DB + phone DMs
+scripts/reset-demo.sh geekroom          # 8891 world DB + phone DMs
+scripts/reset-demo.sh all --artifacts   # both + exports / Bifrost logs / budget
+```
+
+This resets the **world state**, not the Mattermost/Switch room transcript. For a fresh
+chat transcript, create a new room/channel or recreate the Switch stack; the world engine
+does not delete another app's history. The dashboard's **Reset demo** button does the same
+world reset.
 
 ## Run the local prototype
 

@@ -67,12 +67,18 @@ def _identity(character: str, limit: int = 3200) -> str:
     return path.read_text(encoding="utf-8")[:limit]
 
 
-def _system(character: str, canon: dict, context: str) -> str:
+def _system(
+    character: str,
+    canon: dict,
+    context: str,
+    clock: str | None = None,
+) -> str:
     return (
         f"You are {character.title()}, a character in a small interactive-fiction world.\n\n"
         f"{_identity(character)}\n\n"
         f"{brief(character, canon)}\n\n"
         f"{TONE}\n\n"
+        f"Current world time: {clock or 'unknown; do not invent a time of day.'}\n"
         f"Latest shared real-world event: {context or 'none yet.'}\n\n"
         f"{SCHEMA}"
     )
@@ -168,7 +174,7 @@ def run_cafe_bifrost(
     alice_messages = [
         {
             "role": "system",
-            "content": _system("alice", canon, context),
+            "content": _system("alice", canon, context, clock=service.clock()["now"]),
         },
         {
             "role": "user",
@@ -191,7 +197,7 @@ def run_cafe_bifrost(
     emily_messages = [
         {
             "role": "system",
-            "content": _system("emily", canon, context),
+            "content": _system("emily", canon, context, clock=service.clock()["now"]),
         },
         {
             "role": "user",
@@ -289,7 +295,7 @@ def run_beat_bifrost(
         if not prompt:
             continue
         messages = [
-            {"role": "system", "content": _system(character, canon, context)},
+            {"role": "system", "content": _system(character, canon, context, clock=service.clock()["now"])},
             {"role": "user", "content": prompt},
         ]
         envelope = _parse_envelope(client.chat_json(character, messages), character)

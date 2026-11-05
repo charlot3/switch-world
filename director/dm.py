@@ -39,30 +39,39 @@ def reply_to_dm(
 
     canon = load_canon()
     context = world_context(service)
-    history = [
-        message for message in service.phone_history(character, limit=100)["messages"]
-        if message["kind"] == "dm"
-    ]
+    phone = service.phone_history(character, limit=100)["messages"]
+    history = [message for message in phone if message["kind"] == "dm"]
+    scene = [message for message in phone if message["kind"] == "scene"][-6:]
     history_text = "\n".join(
         ("You: " if message["role"] == "user" else f"{character.title()}: ") + message["text"]
         for message in history
     ) or "(no earlier DMs)"
+    scene_text = "\n".join(
+        f"{character.title()}: {message['text']}" for message in scene
+    ) or "(no recent café lines)"
+    clock = service.clock()["now"]
     memories = service.recall(character, query=message, limit=6)["memories"]
     memory_text = "\n".join(
         f"- {item['proposition']} (source {item['source']}, confidence {item['confidence']:.2f})"
         for item in memories
     ) or "(nothing relevant)"
     messages = [
-        {"role": "system", "content": _system(character, canon, context)},
+        {"role": "system", "content": _system(character, canon, context, clock=clock)},
         {
             "role": "user",
             "content": (
-                "This is a private one-to-one DM with the user, not the café scene.\n\n"
+                "This is a private text DM with the user, not the café scene. Do not describe the user \n"
+                "as physically present or sitting across from you; you are texting.\n\n"
+                f"Current world time: {clock}\n"
                 f"Your own memories and public facts:\n{memory_text}\n\n"
+                f"Recent café context (public):\n{scene_text}\n\n"
                 f"Recent private DM:\n{history_text}\n\n"
                 f'The user says: "{message}"\n'
-                "Reply in character in 1-3 sentences, dialogue only, no stage directions. "
-                "Use the history; do not contradict it. Do not reveal another character's "
+                "Answer the user's actual question in the first sentence. Alice may be "
+                "warm and self-protective, but she must not avoid a direct question with "
+                "another question. Use the time and history; do not claim it is closing "
+                "time unless the clock is evening. Reply in character in 1-3 sentences, "
+                "dialogue only, no stage directions. Do not reveal another character's "
                 "private facts. All characters are adults; keep it 17+ SFW and never "
                 "explicit. Return the JSON envelope."
             ),

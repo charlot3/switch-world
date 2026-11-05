@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>switch-world — a small town, four hearts, one secret</title>
-  <link rel="stylesheet" href="/static/styles.css">
-  <script src="/static/cast.js" defer></script>
-  <script src="/static/app.js" defer></script>
+  <link rel="stylesheet" href="/static/styles.css?v=20261105-5">
+  <script src="/static/cast.js?v=20261105-5" defer></script>
+  <script src="/static/app.js?v=20261105-5" defer></script>
 </head>
 <body>
   <div class="petals" id="petals" aria-hidden="true"></div>
@@ -259,6 +259,7 @@
             <a class="link-row" href="http://127.0.0.1:8065/switch/channels/world" target="_blank" rel="noopener">Mattermost · #world <span>↗</span></a>
             <a class="link-row" href="http://127.0.0.1:3000" target="_blank" rel="noopener">Switch Gateway <span>↗</span></a>
             <a class="link-row" href="http://127.0.0.1:8000/health" target="_blank" rel="noopener">Switch API health <span>↗</span></a>
+            <a class="link-row" href="/api/switch-log?room=all" target="_blank" rel="noopener">Switch room log (JSONL) <span>↗</span></a>
             <p class="tiny">Five agents in the room: alice, emily, sophia, mia, director. Messages in <code>#world</code> must address <code>@name</code>. If #world asks for a login, use <code>MATTERMOST_USER</code> / <code>MATTERMOST_USER_PASSWORD</code> from <code>.env</code>; the channel is <code>switch/world</code>.</p>
           </article>
 
@@ -344,7 +345,7 @@
             </label>
             <div class="button-row">
               <button class="btn" id="tell-alice" type="button">Tell Alice</button>
-              <button class="btn ghost" id="reset" type="button">Reset world</button>
+              <button class="btn ghost" id="reset" type="button">Reset demo</button>
             </div>
             <div class="command-row">
               <code>uv run director --switch</code>

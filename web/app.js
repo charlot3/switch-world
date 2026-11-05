@@ -1588,10 +1588,10 @@ async function runArc() {
 }
 
 async function resetWorld() {
-  if (!window.confirm("Reset the world state? This re-seeds the demo.")) return;
+  if (!window.confirm("Reset the world state, phone DMs, and current scene card? Switch/Mattermost room history stays.")) return;
   try {
     await api("/api/dev/reset", { method: "POST", body: "{}" });
-    $("#status").textContent = "World reset to the seed state.";
+    $("#status").textContent = "Demo world reset. Switch/Mattermost history is unchanged.";
     $("#card-preview").hidden = true;
     $("#card-preview").textContent = "";
     $("#card-path").textContent = "No card loaded yet.";

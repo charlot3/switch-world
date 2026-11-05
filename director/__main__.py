@@ -45,6 +45,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--beat", default=None, help="run one authored beat, e.g. morning-shop")
     parser.add_argument("--transport", choices=["local", "bifrost", "switch"], default="local", help="transport for --beat")
     parser.add_argument("--arc", action="store_true", help="run all five beats locally")
+    parser.add_argument("--switch-log", action="store_true", help="export detailed Switch room history")
     args = parser.parse_args(argv)
 
     service = WorldService()
@@ -57,6 +58,23 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Alice now knows: {belief.get('proposition', belief)}")
     if args.status:
         _status(service)
+    if args.switch_log:
+        from .switch_log import collect, write_jsonl
+
+        try:
+            room = None if args.room == "all" else args.room
+            events = collect(room=room)
+            path = write_jsonl(events)
+        except Exception as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        print(f"{len(events)} Switch events -> {path}")
+        for event in events[-20:]:
+            print(
+                f"{event['timestamp_iso']} · {event['room_name']} · "
+                f"{event['sender_name']} · {event['kind']} · {event['body'][:160]}"
+            )
+        return 0
     if args.arc:
         from .beats import run_arc
 
@@ -137,7 +155,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.simulate or not any(
-        [args.reset, args.tell_alice, args.status, args.switch, args.tavily_event, args.bifrost, args.beat, args.arc]
+        [args.reset, args.tell_alice, args.status, args.switch, args.tavily_event, args.bifrost, args.beat, args.arc, args.switch_log]
     ):
         try:
             result = run_cafe(service)

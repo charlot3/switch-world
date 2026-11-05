@@ -317,3 +317,28 @@ the README.
 - Agent event buffers are bounded; a `gap` is explicit, not silent.
 - A DM is created by a person, not by the bridge.
 - There is no separate task protocol; agents delegate by messaging.
+
+## Logs and reset
+
+Detailed Switch room history (room, event id, sender, ISO timestamp, body):
+
+```sh
+uv run director --switch-log --room all
+# writes data/exports/switch-log-<timestamp>.jsonl
+```
+
+The dashboard's Settings → **Switch room log (JSONL)** link serves
+`/api/switch-log?room=all`; `docker logs -f 0310-switch-1` and
+`docker logs -f 0310-gateway-1` cover the transport containers. Console's **Show activity**
+is the per-session view.
+
+For a fresh world demo:
+
+```sh
+scripts/reset-demo.sh flip
+scripts/reset-demo.sh geekroom --artifacts
+```
+
+This resets the world DB, phone DMs and scene card, but deliberately does not erase the
+Mattermost/Switch room transcript. Use a new room/channel or recreate the Switch stack if
+the transcript itself must be fresh.

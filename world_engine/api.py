@@ -183,6 +183,21 @@ def create_app(service: WorldService | None = None) -> FastAPI:
         except Exception as exc:
             raise HTTPException(502, f"Bifrost beat failed: {exc}") from exc
 
+    @app.get("/api/switch-log")
+    def switch_log(room: str | None = "world"):
+        from director.switch_log import collect
+
+        try:
+            events = collect(room=None if room in (None, "all") else room)
+        except Exception as exc:
+            raise HTTPException(502, f"Switch log failed: {exc}") from exc
+        body = "\n".join(json.dumps(event, ensure_ascii=False) for event in events)
+        return PlainTextResponse(
+            body,
+            media_type="application/x-ndjson; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="switch-log.jsonl"'},
+        )
+
     @app.get("/api/bifrost/usage")
     def bifrost_usage():
         from gateway.bifrost import BifrostClient

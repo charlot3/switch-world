@@ -53,6 +53,16 @@ For relationships, use a list of:
  "closeness_delta": 0.0, "tension_delta": 0.0, "reason": "short reason"}
 No markdown, no code fences, no text outside the JSON."""
 
+LANGUAGE_AND_VOICE = (
+    "Language: mirror the language of the user's latest message. If it is Chinese, reply "
+    "in natural conversational Chinese in the same script; do not translate an English "
+    "line and do not switch to English unless the user does. "
+    "Voice: sound like a person texting. In a DM use 1-2 sentences, concrete detail and "
+    "subtext, not a neat emotional summary. Avoid therapy-speak, customer-support tone, "
+    "bullet points, and a question at the end of every reply. No stage directions, no "
+    "narration."
+)
+
 TONE = (
     "All characters are adults. The tone is 17+ romantic tension, SFW: teasing, "
     "glances and unfinished sentences are allowed; explicit content, minors and "
@@ -78,6 +88,7 @@ def _system(
         f"{_identity(character)}\n\n"
         f"{brief(character, canon)}\n\n"
         f"{TONE}\n\n"
+        f"{LANGUAGE_AND_VOICE}\n\n"
         f"Current world time: {clock or 'unknown; do not invent a time of day.'}\n"
         f"Latest shared real-world event: {context or 'none yet.'}\n\n"
         f"{SCHEMA}"

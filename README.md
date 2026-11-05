@@ -89,7 +89,9 @@ Four views. The Story scene, tree and ledger are read-only projections; the phon
   Bifrost/OpenCode, and records private `dm` events. The thread loads up to **100** recent
   scene + DM messages, with **Load older** as a database-backed cursor for anything above
   that; the user's turn is written before the model call, so it stays visible while the
-  typing indicator runs. On mobile
+  typing indicator runs. It mirrors the language of the last message: a Chinese message
+  gets natural spoken Chinese, using the per-character `中文口吻` sample as a register, not
+  an English translation. On mobile
   it stacks below the scene. Cast cards with a two-line intro, affinity hearts, **Chat**
   and **Profile** actions sit below. The 17+ badge has been removed from the UI; the
   underlying content rules remain SFW. History is per world instance; Mattermost DMs are

@@ -89,3 +89,24 @@ def test_user_turn_is_recorded_before_the_model_thinks(tmp_path):
 
     result = reply_to_dm(service, "alice", "hello", client=InspectingBifrost())
     assert result["reply"] == "Hi."
+
+
+def test_dm_prompt_has_language_and_voice_contract(tmp_path):
+    service = make_service(tmp_path)
+    captured = {}
+
+    class CapturingBifrost:
+        def chat_json(self, character, messages, **kwargs):
+            captured["messages"] = messages
+            return {"reply": "先吃饭。天塌了也得先吃饭。", "memory": None, "relationships": []}
+
+        def usage_summary(self):
+            return {}
+
+    reply_to_dm(service, "mia", "你今天还好吗？", client=CapturingBifrost())
+    system = captured["messages"][0]["content"]
+    user = captured["messages"][1]["content"]
+    assert "Language:" in system
+    assert "中文口吻" in system
+    assert "1-2 sentences" in user
+    assert "natural spoken Chinese" in user

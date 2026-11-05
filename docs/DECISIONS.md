@@ -284,3 +284,14 @@ owns Geek Room model routing, Tavily owns real-world input, and the dashboard/ph
 projections/write surfaces. `uv run director --switch-log` and `GET /api/switch-log` export
 the raw room events (room, event id, sender, timestamp, body) instead of hiding them behind
 the world feed.
+
+## 2026-11-05 — Language and voice are part of the prompt contract
+
+The first DM replies mixed English persona instructions with Chinese input; the model
+sometimes produced over-complete, translated-sounding Chinese and answered like a support
+agent. The system prompt now has an explicit language/voice contract: mirror the user's
+language, use natural spoken Chinese for Chinese input, keep DMs to 1-2 sentences, prefer
+concrete detail/subtext, avoid therapy-speak and a question after every line. Each
+`IDENTITY.md` has a short `中文口吻` register sample; `AGENTS.md`/`CLAUDE.md` carry the same
+rules for the live Switch agents. The DM prompt keeps current time, recent café context and
+100 DM history, but asks for a direct, human first sentence rather than a formal answer.

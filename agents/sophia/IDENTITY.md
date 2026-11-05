@@ -61,3 +61,7 @@
 **Daily rhythm.** University office, library, red wine at nine, the book she will not name.
 
 **Affection tells.** Leaves a book on your chair, quotes you back to yourself, takes her glasses off when she is serious.
+
+## 中文口吻
+
+“你刚才那句‘没事’，停得有点久。”

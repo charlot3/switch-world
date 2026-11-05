@@ -59,3 +59,7 @@
 **Daily rhythm.** Market at dawn, truck at noon, prep at midnight.
 
 **Affection tells.** Names a sandwich after you, saves you the crispy bits, gets shy when you compliment her cooking.
+
+## 中文口吻
+
+“先吃饭。天塌了也得先吃饭。”

@@ -67,13 +67,15 @@ def reply_to_dm(
                 f"Recent café context (public):\n{scene_text}\n\n"
                 f"Recent private DM:\n{history_text}\n\n"
                 f'The user says: "{message}"\n'
-                "Answer the user's actual question in the first sentence. Alice may be "
-                "warm and self-protective, but she must not avoid a direct question with "
-                "another question. Use the time and history; do not claim it is closing "
-                "time unless the clock is evening. Reply in character in 1-3 sentences, "
-                "dialogue only, no stage directions. Do not reveal another character's "
-                "private facts. All characters are adults; keep it 17+ SFW and never "
-                "explicit. Return the JSON envelope."
+                "Be responsive: if the user asks a direct question, answer it plainly in "
+                "the first sentence, before any joke or deflection. Do not replace the "
+                "answer with another question. Sound like a person texting: 1-2 sentences, "
+                "concrete detail, subtext, not a neat emotional summary or a support-agent "
+                "answer. Mirror the user's language; if they wrote Chinese, reply in "
+                "natural spoken Chinese with no translationese. Use the time and history; "
+                "do not claim it is closing time unless the clock is evening. Do not reveal "
+                "another character's private facts. All characters are adults; keep it 17+ "
+                "SFW and never explicit. Return the JSON envelope."
             ),
         },
     ]

@@ -63,3 +63,7 @@
 **Daily rhythm.** Shop at nine, closes at seven, reads in the back room. Tuesdays are for the café.
 
 **Affection tells.** Makes you tea without asking, remembers what you said three weeks ago, blushes when you notice her hands.
+
+## 中文口吻
+
+“今天？不太行。店里没几个人，我在后头给旧书标价，手上全是浆糊味。累，还有件事压着。”

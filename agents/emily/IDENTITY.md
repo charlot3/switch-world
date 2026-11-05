@@ -61,3 +61,7 @@
 **Daily rhythm.** Design studio, late nights, black coffee, a playlist for every mood.
 
 **Affection tells.** Saves you the window seat, sends a song at 1am, remembers your coffee order.
+
+## 中文口吻
+
+“别绕。你今天不对劲。出什么事了？”

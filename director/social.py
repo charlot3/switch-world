@@ -49,6 +49,16 @@ META_LINE_MARKERS = (
     "following the instructions",
     "just a character",
     "only a character",
+    # A character never returns code, a local path, or an agent's tool log.
+    "```",
+    "/users/",
+    "tool calls",
+    "tool call",
+    "worked for",
+    "**working",
+    "world__remember",
+    "world__update_relationship",
+    "mcp__",
 )
 
 # Absence/availability phrases are anchored to first person and (for "here"/"in this
@@ -87,13 +97,27 @@ def _is_meta_line(line: str) -> bool:
 
 
 def _strip_meta(text: str) -> str:
-    """Drop whole lines that are stage machinery rather than a character's line."""
-    kept = [line for line in (text or "").splitlines() if not _is_meta_line(line)]
+    """Drop whole lines that are stage machinery rather than a character's line.
+
+    A fenced code block is dropped as a block: an agent that reached for a tool
+    can return a shell command whose fence markers sit on their own lines, and
+    the inner lines carry no marker of their own.
+    """
+    kept: list[str] = []
+    in_fence = False
+    for line in (text or "").splitlines():
+        if line.strip().startswith("```"):
+            in_fence = not in_fence
+            continue
+        if in_fence or _is_meta_line(line):
+            continue
+        kept.append(line)
     return "\n".join(kept).strip()
 
 
 def clean_scene_line(text: str | None) -> str:
     """Drop Switch placeholders and stage machinery; "" means there is no real line."""
+    text = _strip_meta(text)
     kept = [
         line
         for line in (text or "").splitlines()

@@ -598,3 +598,14 @@ def test_group_say_drops_bare_offline_reply(service):
     )
     assert result["replies"] == []
     assert result["turn"]["lines"][0]["mode"] == "silence"
+
+
+def test_strip_meta_drops_tool_output_and_code_blocks():
+    from director.group import _strip_meta
+
+    assert (
+        _strip_meta("```\ncd /Users/charlot3/work\n```\nThe soup is on.")
+        == "The soup is on."
+    )
+    assert _strip_meta("``` cd /Users/charlot3/work ```") == ""
+    assert _strip_meta("**Worked for 16s. 3 tool calls.**") == ""

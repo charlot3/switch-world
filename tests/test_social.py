@@ -88,3 +88,25 @@ def test_dm_prompt_carries_the_relationship_contract(tmp_path):
     assert "Your relationship with the user right now" in system
     assert "Cordial (2/5)" in system
     assert "Not yet:" in system
+
+
+def test_public_body_is_a_limited_contract_at_close(tmp_path):
+    from world_engine.scenarios import load_scenario
+
+    service = make_service(tmp_path)
+    load_scenario(service, "w3-quiet-route")
+    verdict = social.appraise(service, "alice", "what are you wearing?", public=True)
+    assert verdict["stars"] == 4
+    assert verdict["ceiling"] == 3
+    assert verdict["stance"] == "tease"
+    assert verdict["response"] == "limited"
+
+
+def test_public_body_is_still_guarded_at_two_stars(tmp_path):
+    from world_engine.scenarios import load_scenario
+
+    service = make_service(tmp_path)
+    load_scenario(service, "w2-two-clocks")
+    verdict = social.appraise(service, "alice", "what are you wearing?", public=True)
+    assert verdict["stars"] <= 3
+    assert verdict["stance"] in {"deflect", "refuse"}

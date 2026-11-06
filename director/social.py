@@ -193,7 +193,10 @@ def appraise(
     classified = classify(text)
     tier = int(classified["tier"])
     ceiling = int(state["ceiling"])
-    if public and tier >= 2:
+    # Public is more guarded, except for a tasteful appearance/body compliment at
+    # Close (4 stars): that is the "contract" tier, where she may flirt a little and
+    # still set the limit. Lower affinity still drops a tier in public.
+    if public and tier >= 2 and not (classified["topic"] == "body" and state["stars"] >= 4):
         ceiling -= 1
     if state["tension"] >= 0.35:
         ceiling -= 1

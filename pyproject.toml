@@ -32,3 +32,4 @@ packages = ["world_engine", "director", "gateway"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+asyncio_default_fixture_loop_scope = "function"

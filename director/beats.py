@@ -17,7 +17,7 @@ from datetime import datetime
 from world_engine.service import WorldService
 
 from . import DEMO_KEY
-from .canon import branch_for, load as load_canon, record_branch, validate
+from .canon import branch_for, load as load_canon, validate
 from .clock import advance_to_beat
 from .simulate import run_cafe, user_tells_alice
 

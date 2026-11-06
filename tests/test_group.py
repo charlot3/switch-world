@@ -80,7 +80,9 @@ class RelaySwitch(FakeSwitch):
 
 def test_group_say_records_both_sides(service):
     switch = FakeSwitch({"alice": "I'm here.", "emily": "Who else?"})
-    result = say_in_group(service, "Are we still on for tonight?", switch=switch)
+    result = say_in_group(
+        service, "Are we still on for tonight?", switch=switch, timeout=1.0
+    )
     # A shared fact becomes a chorus of at most three planned speakers, not a
     # four-target broadcast. The fourth character is recorded silence.
     assert len(switch.posts) == 3

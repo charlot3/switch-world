@@ -252,10 +252,6 @@ def classify(text: str) -> dict:
         lowered,
         ["force", "grab", "lift", "without asking", "强", "掀", "抓", "摸", "搂"],
     )
-    imperative = _matches(
-        lowered,
-        ["kiss me", "touch me", "hold me", "亲我", "吻我", "抱我", "亲一下"],
-    )
     boundary = "none"
     tier = int(topic["tier"])
     if tier == 4:
@@ -301,7 +297,6 @@ def appraise(
     text: str,
     public: bool = False,
 ) -> dict:
-    policy = load()
     state = affinity(service, character)
     classified = classify(text)
     tier = int(classified["tier"])

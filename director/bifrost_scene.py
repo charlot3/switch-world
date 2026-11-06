@@ -28,7 +28,6 @@ from .beats import (
     _canon_warning,
     _ensure_secret,
     _record_beat,
-    advance_to,
     get_beat,
     prompts_for,
 )

@@ -65,7 +65,11 @@ uv run --env-file .env world-engine
 ```
 
 The live agents use `agents/<name>/CLAUDE.md` and `.mcp.json` (the Claude Code fallback).
-The OpenCode configs remain at `agents/<name>/opencode.json` for the preferred path.
+The OpenCode configs remain at `agents/<name>/opencode.json` for the preferred path. They
+set both `model` and `small_model` to `opencode-go/deepseek-v4.1-flash`: OpenCode uses the
+small model for title/summary tasks, and leaving it unset can fall back to a provider
+default (the `gpt-6-luna` entry visible in some OpenCode catalogs). Regenerate with
+`scripts/render-agent-configs.sh`.
 
 The **director** is a Console-managed Switch agent (`director`) in `#world`; it owns no
 model session. The live café beat is:
@@ -305,6 +309,15 @@ four Mattermost bot accounts with `scripts/update-mattermost-avatars.sh`, so the
 and the chat share one face per character. The tone is **17+ romantic tension, SFW**:
 all characters are adults, fully clothed, and no explicit content. The live agents'
 `CLAUDE.md` carries the same tone and canon rules.
+
+## Architecture at a glance
+
+![The switch-world architecture: player → dashboard → conductor → Switch → four agents → MCP → SQLite, with Bifrost/OpenCode/DeepSeek, Tavily and the offline art pipeline.](docs/architecture.png)
+
+The short version: **Switch owns delivery and sessions, the world engine owns facts and
+provenance, the conductor owns the gates and the ending, and the model owns the sentence.**
+The full graph and component notes are in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md);
+the editable Mermaid source is [`docs/architecture.mmd`](docs/architecture.mmd).
 
 ## Why Switch is core
 

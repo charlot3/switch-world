@@ -126,3 +126,16 @@ def test_whisper_validates_target_and_message(service):
         whisper_to_character(service, "alice", "hello", client=FakeBifrost())
     with pytest.raises(ValueError):
         whisper_to_character(service, "emily", "   ", client=FakeBifrost())
+
+
+def test_whisper_respects_the_take_cast(service):
+    from world_engine.takes import load_take
+
+    load_take(service, "w3-quiet-route")
+    client = FakeBifrost({"alice": "Ask me."})
+    result = whisper_to_character(service, "alice", "Can I ask you something?", client=client)
+    assert result["observers"] == []
+    assert all(character == "alice" for character, _ in client.calls)
+
+    with pytest.raises(ValueError, match="not in the scene"):
+        whisper_to_character(service, "emily", "Are you there?", client=client)

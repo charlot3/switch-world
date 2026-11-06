@@ -90,6 +90,15 @@ def whisper_to_character(
         raise ValueError(f"unknown character: {to}")
     if service.is_absent(to):
         raise ValueError(f"{to.title()} is not in the scene")
+    scene_state = service.state()
+    scene = scene_state.get("scene") or {}
+    cast = (
+        scene.get("cast")
+        or (scene_state.get("scenario") or {}).get("cast")
+        or list(DEFAULT_CHARACTERS)
+    )
+    if to not in cast:
+        raise ValueError(f"{to.title()} is not in the scene")
     if not message:
         raise ValueError("message is required")
     if len(message) > MAX_MESSAGE:
@@ -151,8 +160,8 @@ def whisper_to_character(
     social.apply_deltas(service, to, verdict)
 
     present = [
-        c for c in DEFAULT_CHARACTERS
-        if c != to and not service.is_absent(c)
+        c for c in cast
+        if c != to and c in DEFAULT_CHARACTERS and not service.is_absent(c)
     ]
     observers = present[:MAX_OBSERVERS]
     observer_lines: list[dict] = []

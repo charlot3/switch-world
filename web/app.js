@@ -2376,6 +2376,12 @@ async function sendScene(text, options = {}) {
     state.turn.lines = extractTurnLines(result, whisper, state.turn.plan);
     state.turn.lines.forEach((line) => { line.turnId = state.turn.id; });
     state.turn.done = !state.turn.lines.length;
+    if (whisper && state.turn.lines.length) {
+      // The private answer is the point of a whisper; show it immediately instead of
+      // hiding it behind the Next control. Observer reactions still use Next.
+      state.turn.index = 1;
+      state.turn.done = state.turn.lines.length <= 1;
+    }
     state.turn.transport = (result && result.transport) || null;
     if (state.takes.current) state.takes.changed = true;
 

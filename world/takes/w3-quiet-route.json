@@ -40,15 +40,6 @@
         },
         {
           "on": "user_line",
-          "match": "skirt|friday|wear|dress",
-          "op": "set_outfit",
-          "character": "alice",
-          "outfit": "date-skirt",
-          "source_belief": "user-prefers-short-skirt",
-          "reason": "because you said Friday"
-        },
-        {
-          "on": "user_line",
           "match": "quiet|walk|home|route",
           "op": "remember_preference",
           "holder": "alice",
@@ -110,7 +101,16 @@
         "alice": "Then we take the long way. It's not far, and the station's not going anywhere."
       },
       "next": null,
-      "must_change": false
+      "must_change": false,
+      "enter_cues": [
+        {
+          "op": "set_outfit",
+          "character": "alice",
+          "outfit": "date-skirt",
+          "source_belief": "user-prefers-short-skirt",
+          "reason": "because you said Friday"
+        }
+      ]
     }
   ],
   "ending": null

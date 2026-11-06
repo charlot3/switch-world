@@ -1,5 +1,39 @@
 # Architecture
 
+![switch-world architecture](architecture.png)
+
+## The graph
+
+```
+player ──▶ dashboard (Story/Takes · Phone · Worlds · Studio)
+              │
+              ├──▶ conductor (Take Player · social gate · boundary · whisper · clock)
+              │        │
+              │        └──▶ director (turn plan: primary / reactors / silence)
+              │                 │
+              │                 ▼
+              │            Switch Gateway + API ──▶ Mattermost #world
+              │                 │                       │
+              │                 │                       ├── Alice / Emily / Sophia / Mia
+              │                 │                       │   (four independent OpenCode sessions)
+              │                 │                       └── director agent
+              │                 │
+              │                 └── scoped MCP tools ──▶ world engine (FastAPI + MCP)
+              │                                              │
+              └────────────── /api/state projection ◀────────┤
+                                                             ▼
+                                                         SQLite
+                                    beliefs · events · relationships · scenarios
+                                    takes · outfits · idempotency
+```
+
+**Boundaries:** Switch owns delivery and sessions; the world engine owns facts, provenance
+and the ending; the conductor owns the gates and who speaks; the model owns the sentence.
+Bifrost routes phone/whisper/beat calls through the OpenCode shim to DeepSeek v4.1 Flash
+(both `model` and `small_model`), Tavily writes a shared world event, and the rin-studio /
+ComfyUI pipeline produces the CG/outfit/prop set offline.
+
+
 ## Shape
 
 ```

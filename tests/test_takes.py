@@ -154,13 +154,9 @@ def test_cue_set_outfit_uses_the_declared_scenario_outfit(service):
     take = get_take("w3-quiet-route")
     load_take(service, "w3-quiet-route")
 
-    result = apply_cues(service, take, 0, user_line="That skirt is unfair.")
-    outfit_rows = [row for row in result["applied"] if row["op"] == "set_outfit"]
-    assert len(outfit_rows) == 1
-    assert outfit_rows[0]["character"] == "alice"
-    assert outfit_rows[0]["outfit"] == "date-skirt"
-    assert outfit_rows[0]["source_belief_key"] == "user-prefers-short-skirt"
-
+    apply_cues(service, take, 0, user_line="That skirt is unfair.")
+    advanced = next_scene(service)
+    assert advanced["scene"]["id"] == "quiet-walk"
     outfit = service.state()["outfits"]["alice"]
     assert outfit["outfit_id"] == "date-skirt"
     assert outfit["source_belief_key"] == "user-prefers-short-skirt"

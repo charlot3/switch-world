@@ -1,0 +1,79 @@
+flowchart TB
+  classDef play fill:#241a2e,stroke:#e0607e,color:#f7edf3,stroke-width:1.5px
+  classDef conductor fill:#1b1422,stroke:#bd7f24,color:#f7edf3,stroke-width:1.5px
+  classDef switch fill:#2a1620,stroke:#8b7bd8,color:#f7edf3,stroke-width:1.5px
+  classDef engine fill:#1b1422,stroke:#e0607e,color:#f7edf3,stroke-width:1.5px
+  classDef model fill:#14101b,stroke:#6fe0a8,color:#f7edf3,stroke-width:1.2px
+  classDef art fill:#14101b,stroke:#e8c07a,color:#f7edf3,stroke-width:1.2px
+
+  subgraph PLAY["1 · PLAY SURFACES"]
+    direction LR
+    P["Player<br/>choices · free text · whisper"]:::play
+    D["Dashboard<br/>Story / Takes · Phone · Worlds · Studio"]:::play
+  end
+
+  subgraph CONDUCTOR["2 · CONDUCTOR — code decides, model writes"]
+    direction LR
+    T["Take Player<br/>scene graph · cues · fallbacks"]:::conductor
+    S["Social gate<br/>live affinity · topic ceiling<br/>response spectrum"]:::conductor
+    B["Boundary + consent<br/>witness beliefs · pause"]:::conductor
+    W["Whisper<br/>target-only words<br/>observer reactions"]:::conductor
+    C["Clock<br/>mock · real xN · offscreen"]:::conductor
+    DIR["Director<br/>turn plan · primary / reactors / silence"]:::conductor
+  end
+
+  subgraph SWITCH["3 · SWITCH TRANSPORT"]
+    direction LR
+    SW["Switch Gateway + API<br/>rooms · sessions · delivery"]:::switch
+    MM["Mattermost #world<br/>public room + directed messages"]:::switch
+    AG["Alice · Emily · Sophia · Mia<br/>four independent OpenCode sessions"]:::switch
+    DR["director agent<br/>posts beats / cues"]:::switch
+  end
+
+  subgraph ENGINE["4 · WORLD ENGINE — source of truth"]
+    direction LR
+    API["FastAPI /api/*<br/>dashboard · take · studio"]:::engine
+    MCP["World MCP<br/>scoped bearer tokens"]:::engine
+    DB[("SQLite<br/>beliefs · events · relationships<br/>scenarios · takes · outfits · idempotency")]:::engine
+  end
+
+  subgraph MODELS["5 · MODELS & REAL WORLD"]
+    direction LR
+    BF["Bifrost<br/>per-character routing"]:::model
+    OC["OpenCode shim<br/>opencode run"]:::model
+    DS["DeepSeek v4.1 Flash<br/>model + small_model"]:::model
+    TV["Tavily<br/>live world event"]:::model
+  end
+
+  subgraph ART["6 · OFFLINE ART PIPELINE"]
+    direction LR
+    RS["rin-studio / ComfyUI"]:::art
+    A["web/assets<br/>CG · outfits · props"]:::art
+  end
+
+  P -->|"1"| D
+  D -->|"2"| T
+  T -->|"3"| S
+  S -->|"4"| DIR
+  S --> B
+  S --> W
+  C --> DIR
+  DIR -->|"5"| SW
+  SW --> MM
+  MM --> AG
+  SW --> DR
+  AG -->|"6 · MCP calls + memories"| MCP
+  DR -->|"writes"| API
+  MCP --> DB
+  API --> DB
+  DB -->|"7 · state projection"| API
+  API --> D
+  D -->|"phone / whisper / beats"| BF
+  BF --> OC
+  OC --> DS
+  AG -->|"session model"| DS
+  TV -->|"shared event"| API
+  RS --> A
+  A --> D
+
+  LEGEND["Switch owns delivery and sessions<br/>Engine owns facts, provenance and endings<br/>Code owns the gates; the model owns the sentence"]:::engine

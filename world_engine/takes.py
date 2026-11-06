@@ -516,7 +516,13 @@ def _sync_presence(service: WorldService, take: dict, scene: dict) -> None:
 # ---- cues -----------------------------------------------------------------
 
 
-def _cue_matches(cue: dict, user_line: str, choice: int | None) -> bool:
+def _cue_matches(
+    cue: dict, user_line: str, choice: int | None, phase: str = "turn"
+) -> bool:
+    if phase == "enter":
+        return True
+    if cue.get("on") == "scene_enter":
+        return False
     if "choice" in cue:
         if choice is not None and int(cue["choice"]) == int(choice):
             return True
@@ -636,6 +642,7 @@ def apply_cues(
     index: int | None = None,
     user_line: str = "",
     choice: int | None = None,
+    phase: str = "turn",
 ) -> dict:
     """Run the current scene's matching cues after a player turn or choice.
 
@@ -649,8 +656,9 @@ def apply_cues(
             raise TakeError("no take is loaded")
     scene = take["scenes"][index]
     applied: list[dict] = []
-    for cue in scene.get("cues") or []:
-        if not _cue_matches(cue, user_line, choice):
+    cues = scene.get("enter_cues") if phase == "enter" else scene.get("cues")
+    for cue in cues or []:
+        if not _cue_matches(cue, user_line, choice, phase):
             continue
         try:
             result = _apply_cue(service, take, scene, cue)
@@ -772,6 +780,10 @@ def next_scene(service: WorldService, force: bool = False) -> dict:
     with service._conn() as conn:
         _set_meta(conn, TAKE_INDEX_META, str(next_index))
     _begin_scene(service, event.get("id"))
+    if next_scene_data.get("enter_cues"):
+        apply_cues(
+            service, take, next_index, user_line="", choice=None, phase="enter"
+        )
 
     return {
         "take": _summary(take),

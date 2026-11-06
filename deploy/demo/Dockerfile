@@ -15,6 +15,7 @@ WORKDIR /app
 
 # Build inputs for `pip install .` (the package list lives in pyproject.toml).
 COPY pyproject.toml ./
+COPY switch_world ./switch_world
 COPY world_engine ./world_engine
 COPY director ./director
 COPY gateway ./gateway

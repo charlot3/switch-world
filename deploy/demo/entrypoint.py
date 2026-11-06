@@ -46,13 +46,14 @@ def _fail(message: str) -> None:
 
 
 def main() -> None:
-    from world_engine import config
+    from switch_world.config import load_settings
+    from switch_world.container import build_container
     from world_engine.api import create_app
     from world_engine.scenarios import load_scenario
-    from world_engine.service import WorldService
 
-    data_dir = Path(os.environ["WORLD_DATA_DIR"])
-    db_path = Path(os.environ["WORLD_DB"])
+    settings = load_settings(os.environ)
+    data_dir = settings.data_dir
+    db_path = settings.db_path
 
     try:
         data_dir.mkdir(parents=True, exist_ok=True)
@@ -64,14 +65,15 @@ def main() -> None:
             "On the host run: sudo chown -R 10001:10001 deploy/demo/data"
         )
 
-    if config.DEV_MODE:
+    if settings.dev_mode:
         print(
             "switch-world-demo: WARNING WORLD_DEV is enabled; mutating dev "
             "endpoints will be exposed to guests.",
             file=sys.stderr,
         )
 
-    service = WorldService(db_path=db_path, state_dir=config.STATE_DIR)
+    container = build_container(settings)
+    service = container.service
 
     # Seed once. `load_scenario` resets the database, so it must never run on an
     # ordinary restart. current_scenario_id() is None for a fresh/base DB only;
@@ -95,10 +97,10 @@ def main() -> None:
     else:
         print(f"switch-world-demo: database already seeded with {current!r}")
 
-    app = create_app(service)
+    app = create_app(service, settings)
 
-    host = os.environ.get("WORLD_ENGINE_HOST", "0.0.0.0")
-    port = int(os.environ.get("WORLD_ENGINE_PORT", "8893"))
+    host = settings.host
+    port = settings.port
     print(f"switch-world-demo: serving on http://{host}:{port}  db={db_path}")
 
     import uvicorn

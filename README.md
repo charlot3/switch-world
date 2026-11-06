@@ -785,6 +785,15 @@ user ── Mattermost channel/DM ── Switch room ── Switch agent (Alice)
 5. **Dashboard** — polls `/api/state` for the projection; writes only through
    `/api/group/say`, `/api/dm` and `/api/clock/*`; never opens SQLite itself.
 
+The application is assembled explicitly in `switch_world/`. `load_settings(os.environ)` is
+a pure function over the environment, `build_container(settings)` constructs the
+`WorldService`, and `switch_world.interfaces.http.app` builds the FastAPI app.
+`create_app(service, settings)` takes those resolved settings for dev/agent endpoint
+gating; callers that omit them (older tests) fall back to the ambient
+`world_engine.config` shim. Importing `world_engine.api` only re-exports `create_app`: it
+never constructs the app, opens the database or binds a socket. `world_engine/config.py`
+remains as a lazy compatibility shim for older callers and tests.
+
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and [`docs/SWITCH.md`](docs/SWITCH.md).
 
 ## Quickstart

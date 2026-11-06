@@ -1,47 +1,59 @@
-"""Paths, tokens and the world clock defaults.
+"""Compatibility shim over :mod:`switch_world.config`.
 
-The prototype runs with deterministic dev tokens so `uv run world-engine` works
-without any setup. Real agent configs are generated from `.env` by
-scripts/render-agent-configs.sh.
+New code should call ``switch_world.config.load_settings(os.environ)`` and pass
+the resulting Settings to the composition root. This module keeps the
+historical module-level names working for existing callers and tests.
+
+Values are resolved lazily on first access, so importing this module does not
+read the environment. Assigning an attribute directly (as tests do with
+``monkeypatch.setattr(config, "DEV_MODE", False)``) shadows the lazy value, and
+:func:`refresh` rebuilds the cached Settings from the current environment.
 """
 from __future__ import annotations
 
 import os
-from pathlib import Path
+from typing import Any
 
-ROOT = Path(__file__).resolve().parent.parent
-STATE_DIR = ROOT / "world" / "state"
-WEB_DIR = ROOT / "web"
+from switch_world.config import DEV_TOKENS, Settings, load_settings
 
-DATA_DIR = Path(os.environ.get("WORLD_DATA_DIR", ROOT / "data"))
-DB_PATH = Path(os.environ.get("WORLD_DB", DATA_DIR / "world.sqlite"))
-EXPORT_DIR = DATA_DIR / "exports"
+_SETTINGS: Settings | None = None
 
-HOST = os.environ.get("WORLD_ENGINE_HOST", "127.0.0.1")
-PORT = int(os.environ.get("WORLD_ENGINE_PORT", "8890"))
-DEV_MODE = os.environ.get("WORLD_DEV", "1").lower() not in ("0", "false", "no")
-# "switch" (default): group replies come from live Switch agents.
-# "cloud": no Console is available, so one DeepSeek call answers each planned
-# speaker. The planning, addressing, relay and recording paths are identical.
-AGENT_MODE = os.environ.get("WORLD_AGENT_MODE", "switch").strip().lower()
-
-WORLD_START = os.environ.get("WORLD_START", "2026-11-03T08:00:00+09:00")
-WORLD_DAY = os.environ.get("WORLD_DAY", "2026-11-03")
-
-DEV_TOKENS = {
-    "dev-alice": "alice",
-    "dev-emily": "emily",
-    "dev-sophia": "sophia",
-    "dev-mia": "mia",
-    "dev-director": "director",
+_FIELDS = {
+    "ROOT": "root",
+    "STATE_DIR": "state_dir",
+    "WEB_DIR": "web_dir",
+    "DATA_DIR": "data_dir",
+    "DB_PATH": "db_path",
+    "EXPORT_DIR": "export_dir",
+    "HOST": "host",
+    "PORT": "port",
+    "DEV_MODE": "dev_mode",
+    "AGENT_MODE": "agent_mode",
+    "WORLD_START": "world_start",
+    "WORLD_DAY": "world_day",
 }
 
 
-def token_map() -> dict[str, str]:
-    """token -> actor id. Env tokens override the dev defaults."""
-    mapping = dict(DEV_TOKENS)
-    for name in ("ALICE", "EMILY", "SOPHIA", "MIA", "DIRECTOR"):
-        value = os.environ.get("WORLD_TOKEN_" + name)
-        if value:
-            mapping[value] = name.lower()
-    return mapping
+def _settings() -> Settings:
+    global _SETTINGS
+    if _SETTINGS is None:
+        _SETTINGS = load_settings(os.environ)
+    return _SETTINGS
+
+
+def refresh() -> Settings:
+    """Rebuild the cached Settings from the current process environment."""
+    global _SETTINGS
+    _SETTINGS = load_settings(os.environ)
+    return _SETTINGS
+
+
+def __getattr__(name: str) -> Any:
+    field = _FIELDS.get(name)
+    if field is not None:
+        return getattr(_settings(), field)
+    if name == "token_map":
+        return _settings().token_map
+    if name == "DEV_TOKENS":
+        return DEV_TOKENS
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

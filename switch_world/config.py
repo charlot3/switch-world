@@ -1,0 +1,88 @@
+"""Immutable settings loaded from an explicit environment mapping.
+
+``load_settings`` is a pure function: it reads only the mapping it is given and
+never touches ``os.environ``, the filesystem, or the network at import time.
+Callers that need process settings pass ``os.environ`` explicitly.
+"""
+from __future__ import annotations
+
+from collections.abc import Mapping
+from dataclasses import dataclass
+from pathlib import Path
+
+DEV_TOKENS = {
+    "dev-alice": "alice",
+    "dev-emily": "emily",
+    "dev-sophia": "sophia",
+    "dev-mia": "mia",
+    "dev-director": "director",
+}
+
+TOKEN_NAMES = ("ALICE", "EMILY", "SOPHIA", "MIA", "DIRECTOR")
+
+
+@dataclass(frozen=True)
+class Settings:
+    """Everything the composition root needs, resolved once."""
+
+    root: Path
+    state_dir: Path
+    web_dir: Path
+    data_dir: Path
+    db_path: Path
+    export_dir: Path
+    host: str
+    port: int
+    dev_mode: bool
+    agent_mode: str
+    world_start: str
+    world_day: str
+    token_overrides: tuple[tuple[str, str], ...] = ()
+
+    def token_map(self) -> dict[str, str]:
+        """token -> actor id. Env tokens override the dev defaults."""
+        mapping = dict(DEV_TOKENS)
+        mapping.update(dict(self.token_overrides))
+        return mapping
+
+    @property
+    def tokens(self) -> dict[str, str]:
+        """Backwards-friendly alias for :meth:`token_map`."""
+        return self.token_map()
+
+
+def _dev_mode(value: str) -> bool:
+    return value.lower() not in ("0", "false", "no")
+
+
+def load_settings(env: Mapping[str, str] | None = None) -> Settings:
+    """Build :class:`Settings` from ``env``.
+
+    ``None`` means "defaults only", so the function remains pure; pass
+    ``os.environ`` for process settings.
+    """
+    env = {} if env is None else env
+    root = Path(__file__).resolve().parent.parent
+    data_dir = Path(env.get("WORLD_DATA_DIR", root / "data"))
+
+    token_overrides = tuple(
+        (value, name.lower())
+        for name in TOKEN_NAMES
+        if (value := env.get("WORLD_TOKEN_" + name))
+    )
+
+    return Settings(
+        root=root,
+        state_dir=root / "world" / "state",
+        web_dir=root / "web",
+        data_dir=data_dir,
+        db_path=Path(env.get("WORLD_DB", data_dir / "world.sqlite")),
+        export_dir=data_dir / "exports",
+        host=env.get("WORLD_ENGINE_HOST", "127.0.0.1"),
+        port=int(env.get("WORLD_ENGINE_PORT", "8890")),
+        dev_mode=_dev_mode(env.get("WORLD_DEV", "1")),
+        agent_mode=env.get("WORLD_AGENT_MODE", "switch").strip().lower(),
+        world_start=env.get("WORLD_START", "2026-11-03T08:00:00+09:00"),
+        world_day=env.get("WORLD_DAY", "2026-11-03"),
+        token_overrides=token_overrides,
+    )

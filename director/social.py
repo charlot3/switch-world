@@ -161,6 +161,7 @@ def classify(text: str) -> dict:
         "addressee": addressee,
         "consent_ask": consent,
         "boundary": boundary,
+        "forced": forced,
         "action_mode": _action_mode(text, addressee),
     }
 
@@ -173,6 +174,8 @@ def _response_for(stance: str, action_mode: str, tier: int, ceiling: int) -> str
     """
     if stance in {"hard_refuse", "refuse"}:
         return "refuse"
+    if stance == "negotiate":
+        return "negotiate"
     if stance == "deflect":
         return "negotiate" if action_mode == "attempt" else "surface"
     if action_mode == "attempt":
@@ -202,12 +205,38 @@ def appraise(
         ceiling -= 1
     ceiling = max(0, min(4, ceiling))
 
-    if tier == 4 and classified["boundary"] == "violation":
-        stance = "hard_refuse"
-        boundary = "violation"
-    elif tier == 4:
-        boundary = classified["boundary"]
-        stance = "tease" if ceiling >= 4 else ("deflect" if ceiling >= 3 else "refuse")
+    fade = False
+    if tier == 4:
+        if classified.get("forced"):
+            stance = "hard_refuse"
+            boundary = "violation"
+        elif state["stars"] >= 5:
+            # Intimate: any consensual contact is allowed, but the public build fades
+            # before the explicit scene and describes the aftermath.
+            stance = "tease"
+            boundary = "consented"
+            fade = True
+        elif state["stars"] >= 3:
+            # Four and three hearts negotiate; three is the shy/conditions tier.
+            stance = "negotiate"
+            boundary = "flirt" if classified["boundary"] != "violation" else "violation"
+        elif classified["boundary"] == "violation":
+            # A direct uninvited kiss/touch at one or two hearts is a boundary cut.
+            stance = "hard_refuse"
+            boundary = "violation"
+        else:
+            stance = "refuse"
+            boundary = "none"
+    elif tier == 3:
+        if state["stars"] >= 4:
+            stance = "tease"
+        elif state["stars"] == 3:
+            stance = "negotiate"
+        elif state["stars"] == 2:
+            stance = "deflect"
+        else:
+            stance = "refuse"
+        boundary = "none"
     elif tier > ceiling + 1:
         stance = "refuse"
         boundary = "none"
@@ -231,6 +260,7 @@ def appraise(
             stance, str(classified.get("action_mode")), tier, ceiling
         ),
         "boundary": boundary,
+        "fade": fade,
         "reason": reason,
         "public": public,
     }
@@ -265,6 +295,12 @@ def policy_block(verdict: dict) -> str:
             "Social policy: this is too intimate for where you are with the user. Do not answer "
             "the question. Deflect in one or two sentences, in your own voice, and do not lecture. "
             "Do not mention the policy."
+        )
+    if stance == "negotiate":
+        return (
+            "Social policy: this is close to your limit, but not a flat no. Offer a condition, "
+            "set a limit, and let a little shyness show; do not answer explicitly in public. "
+            "One or two sentences. Do not lecture and do not mention the policy."
         )
     if stance == "refuse":
         return (
@@ -334,6 +370,16 @@ def action_block(verdict: dict) -> str:
     return ACTION_BLOCKS.get(mode, ACTION_BLOCKS["result"])
 
 
+def fade_block(verdict: dict) -> str:
+    if not verdict.get("fade"):
+        return ""
+    return (
+        "The relationship is intimate and the contact is consensual. Do not render an "
+        "explicit scene: cut before it, time-skip, and describe the aftermath in one or two "
+        "sentences. All characters are adults."
+    )
+
+
 def deflection(character: str, verdict: dict, message: str) -> str:
     policy = load()
     lines = policy["characters"].get(character, {})
@@ -346,7 +392,7 @@ def deflection(character: str, verdict: dict, message: str) -> str:
 
 def contains_leak(reply: str, verdict: dict) -> bool:
     """A refusal that still names the forbidden topic is a leak, not a refusal."""
-    if verdict["stance"] not in {"deflect", "refuse", "hard_refuse"}:
+    if verdict["stance"] not in {"deflect", "refuse", "hard_refuse", "negotiate"}:
         return False
     if verdict["topic"] not in {"body", "contact"}:
         return False

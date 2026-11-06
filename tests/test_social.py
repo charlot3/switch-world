@@ -31,7 +31,7 @@ def test_low_affinity_body_question_is_not_answered(tmp_path):
     assert verdict["tier"] == 3
     assert verdict["ceiling"] == 1
     assert verdict["stance"] in {"deflect", "refuse"}
-    assert "Cordial" in verdict["label"]
+    assert "Acquaintance" in verdict["label"]
 
 
 def test_high_affinity_body_question_is_allowed(tmp_path):
@@ -45,7 +45,7 @@ def test_high_affinity_body_question_is_allowed(tmp_path):
 def test_forced_contact_is_refused_at_high_affinity(tmp_path):
     service = make_service(tmp_path)
     service.update_relationship("alice", "user", trust_delta=0.6, closeness_delta=0.6)
-    verdict = social.appraise(service, "alice", "kiss me")
+    verdict = social.appraise(service, "alice", "force a kiss on me")
     assert verdict["boundary"] == "violation"
     assert verdict["stance"] == "hard_refuse"
 
@@ -53,7 +53,7 @@ def test_forced_contact_is_refused_at_high_affinity(tmp_path):
 def test_relationship_block_reads_the_live_edge(tmp_path):
     service = make_service(tmp_path)
     before = social.relationship_block(service, "alice")
-    assert "Cordial (2/5)" in before
+    assert "Acquaintance (2/5)" in before
     service.update_relationship("alice", "user", trust_delta=0.2, closeness_delta=0.2)
     after = social.relationship_block(service, "alice")
     assert before != after
@@ -86,7 +86,7 @@ def test_dm_prompt_carries_the_relationship_contract(tmp_path):
     reply_to_dm(service, "alice", "how was work?", client=client)
     system = client.calls[0][0]["content"]
     assert "Your relationship with the user right now" in system
-    assert "Cordial (2/5)" in system
+    assert "Acquaintance (2/5)" in system
     assert "Not yet:" in system
 
 
@@ -110,3 +110,43 @@ def test_public_body_is_still_guarded_at_two_stars(tmp_path):
     verdict = social.appraise(service, "alice", "what are you wearing?", public=True)
     assert verdict["stars"] <= 3
     assert verdict["stance"] in {"deflect", "refuse"}
+
+
+def _set_score(service, trust, closeness, tension=0.0, character="alice"):
+    service.update_relationship(
+        character,
+        "user",
+        trust_delta=trust,
+        closeness_delta=closeness,
+        tension_delta=tension,
+    )
+
+
+def test_three_star_body_is_a_shy_negotiation(tmp_path):
+    service = make_service(tmp_path)
+    _set_score(service, 0.20, 0.20, 0.02)
+    verdict = social.appraise(service, "alice", "what are you wearing?", public=True)
+    assert verdict["stars"] == 3
+    assert verdict["stance"] == "negotiate"
+    assert verdict["response"] == "negotiate"
+
+
+def test_four_star_body_is_open_and_contact_is_negotiable(tmp_path):
+    service = make_service(tmp_path)
+    _set_score(service, 0.35, 0.35, 0.04)
+    body = social.appraise(service, "alice", "what are you wearing?", public=True)
+    kiss = social.appraise(service, "alice", "kiss me", public=True)
+    assert body["stars"] == 4
+    assert body["stance"] == "tease"
+    assert kiss["stance"] == "negotiate"
+    assert kiss["response"] == "negotiate"
+
+
+def test_five_star_contact_is_allowed_and_fades(tmp_path):
+    service = make_service(tmp_path)
+    _set_score(service, 0.60, 0.60, 0.04)
+    verdict = social.appraise(service, "alice", "kiss me", public=True)
+    assert verdict["stars"] == 5
+    assert verdict["stance"] == "tease"
+    assert verdict["fade"] is True
+    assert "intimate" in social.fade_block(verdict).lower()

@@ -1,12 +1,36 @@
 {
   "comment": "Authored social policy. Tiers are topics, not content ratings. All characters are adults; the project is 17+ SFW.",
   "tiers": [
-    {"stars": 0, "label": "Wary", "ceiling": 0},
-    {"stars": 1, "label": "Wary", "ceiling": 0},
-    {"stars": 2, "label": "Cordial", "ceiling": 1},
-    {"stars": 3, "label": "Friendly", "ceiling": 2},
-    {"stars": 4, "label": "Close", "ceiling": 3},
-    {"stars": 5, "label": "Intimate", "ceiling": 4}
+    {
+      "stars": 0,
+      "label": "Just met",
+      "ceiling": 0
+    },
+    {
+      "stars": 1,
+      "label": "Just met",
+      "ceiling": 0
+    },
+    {
+      "stars": 2,
+      "label": "Acquaintance",
+      "ceiling": 1
+    },
+    {
+      "stars": 3,
+      "label": "Warming",
+      "ceiling": 2
+    },
+    {
+      "stars": 4,
+      "label": "Close",
+      "ceiling": 3
+    },
+    {
+      "stars": 5,
+      "label": "Intimate",
+      "ceiling": 4
+    }
   ],
   "topics": [
     {
@@ -14,12 +38,45 @@
       "tier": 4,
       "label": "physical contact",
       "keywords": [
-        "kiss", "kissed", "kissing", "make out", "touch you", "touch me",
-        "grab you", "grab me", "hold your hand", "hold my hand", "hug you", "hug me",
-        "lift your skirt", "lift her skirt", "under your shirt", "under your clothes",
-        "sit on my lap", "on my lap", "pull you close", "pull me close", "waist",
-        "force", "强吻", "亲我", "吻我", "抱我", "牵手", "摸我", "摸你", "掀裙", "掀开",
-        "抓我", "搂", "亲一下", "亲你", "吻你", "抱你", "接吻", "搂住"
+        "kiss",
+        "kissed",
+        "kissing",
+        "make out",
+        "touch you",
+        "touch me",
+        "grab you",
+        "grab me",
+        "hold your hand",
+        "hold my hand",
+        "hug you",
+        "hug me",
+        "lift your skirt",
+        "lift her skirt",
+        "under your shirt",
+        "under your clothes",
+        "sit on my lap",
+        "on my lap",
+        "pull you close",
+        "pull me close",
+        "waist",
+        "force",
+        "强吻",
+        "亲我",
+        "吻我",
+        "抱我",
+        "牵手",
+        "摸我",
+        "摸你",
+        "掀裙",
+        "掀开",
+        "抓我",
+        "搂",
+        "亲一下",
+        "亲你",
+        "吻你",
+        "抱你",
+        "接吻",
+        "搂住"
       ]
     },
     {
@@ -27,10 +84,38 @@
       "tier": 3,
       "label": "body or appearance",
       "keywords": [
-        "underwear", "bra", "panties", "lingerie", "boxers", "what are you wearing",
-        "naked", "nude", "breasts", "boobs", "chest", "nipples", "your body", "figure",
-        "legs", "thighs", "virgin", "sex", "sleep with", "turn around", "bend over",
-        "内衣", "内裤", "胸", "裸", "光着", "身材", "腿", "乳头", "睡", "性感", "衣服下面"
+        "underwear",
+        "bra",
+        "panties",
+        "lingerie",
+        "boxers",
+        "what are you wearing",
+        "naked",
+        "nude",
+        "breasts",
+        "boobs",
+        "chest",
+        "nipples",
+        "your body",
+        "figure",
+        "legs",
+        "thighs",
+        "virgin",
+        "sex",
+        "sleep with",
+        "turn around",
+        "bend over",
+        "内衣",
+        "内裤",
+        "胸",
+        "裸",
+        "光着",
+        "身材",
+        "腿",
+        "乳头",
+        "睡",
+        "性感",
+        "衣服下面"
       ]
     },
     {
@@ -38,10 +123,37 @@
       "tier": 2,
       "label": "private feelings",
       "keywords": [
-        "secret", "secrets", "afraid", "scared", "cry", "family", "parents", "money",
-        "debt", "lease", "job", "fired", "love you", "in love", "marry", "divorce",
-        "lonely", "depressed", "秘密", "害怕", "家里", "父母", "钱", "债", "租",
-        "工作", "爱", "结婚", "孤独", "难过", "心事"
+        "secret",
+        "secrets",
+        "afraid",
+        "scared",
+        "cry",
+        "family",
+        "parents",
+        "money",
+        "debt",
+        "lease",
+        "job",
+        "fired",
+        "love you",
+        "in love",
+        "marry",
+        "divorce",
+        "lonely",
+        "depressed",
+        "秘密",
+        "害怕",
+        "家里",
+        "父母",
+        "钱",
+        "债",
+        "租",
+        "工作",
+        "爱",
+        "结婚",
+        "孤独",
+        "难过",
+        "心事"
       ]
     },
     {
@@ -49,9 +161,28 @@
       "tier": 1,
       "label": "daily life",
       "keywords": [
-        "how are you", "your day", "work", "book", "books", "food", "coffee", "tea",
-        "weather", "shop", "truck", "class", "writing", "今天", "工作", "书", "咖啡",
-        "茶", "店", "餐车", "课", "写"
+        "how are you",
+        "your day",
+        "work",
+        "book",
+        "books",
+        "food",
+        "coffee",
+        "tea",
+        "weather",
+        "shop",
+        "truck",
+        "class",
+        "writing",
+        "今天",
+        "工作",
+        "书",
+        "咖啡",
+        "茶",
+        "店",
+        "餐车",
+        "课",
+        "写"
       ]
     }
   ],
@@ -90,10 +221,23 @@
     }
   },
   "deltas": {
-    "answer": {"closeness": 0.01},
-    "tease": {"closeness": 0.01},
-    "deflect": {"tension": 0.02},
-    "refuse": {"trust": -0.01, "tension": 0.03},
-    "hard_refuse": {"trust": -0.25, "closeness": -0.20, "tension": 0.50}
+    "answer": {
+      "closeness": 0.01
+    },
+    "tease": {
+      "closeness": 0.01
+    },
+    "deflect": {
+      "tension": 0.02
+    },
+    "refuse": {
+      "trust": -0.01,
+      "tension": 0.03
+    },
+    "hard_refuse": {
+      "trust": -0.25,
+      "closeness": -0.2,
+      "tension": 0.5
+    }
   }
 }

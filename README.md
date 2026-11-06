@@ -256,8 +256,14 @@ deltas. `director/social.py` classifies the incoming line before the model call:
 
 - an intimate topic above the current ceiling gets a constrained deflect/refuse prompt;
 - a refusal that leaks the topic is replaced with the character's authored line;
-- uninvited contact is a hard refusal at any affinity, with a large trust/tension
-  consequence and a public `social_verdict` event;
+- **1–2 hearts**: body/appearance is deflected; a direct uninvited kiss/touch is a
+  boundary cut with a large trust/tension consequence and a public `social_verdict`;
+- **3 hearts**: body and contact are negotiated with visible shyness, not flat-refused;
+- **4 hearts**: body/appearance is open (a limited, tasteful tease) and contact is
+  negotiated; public body/appearance is exempt from the public penalty;
+- **5 hearts**: consensual contact is allowed, but the public build **fades before the
+  explicit scene and describes the aftermath** in the model's line; the private mature
+  branch can opt into more, but the public submission never renders it;
 - group turns post a separate contract to each character, so the same question can get
   four different answers instead of four copies.
 

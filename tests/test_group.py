@@ -233,7 +233,7 @@ def test_turn_wait_is_capped_at_35_seconds(service, monkeypatch):
 def test_boundary_violation_cuts_the_act_and_marks_the_target_absent(service):
     before = service.relationship("alice", "user")
     switch = FakeSwitch({})
-    result = say_in_group(service, "kiss me", switch=switch, timeout=1)
+    result = say_in_group(service, "force a kiss", switch=switch, timeout=1)
     turn = result["turn"]
     assert turn["plan"]["boundary"] == "violation"
     assert turn["plan"]["primary"] == "alice"

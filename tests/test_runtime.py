@@ -99,7 +99,7 @@ def test_response_spectrum_is_gated_by_the_topic_stance(service):
     assert refused["stance"] in {"deflect", "refuse"}
     assert refused["response"] in {"surface", "negotiate", "refuse"}
 
-    forced = social.appraise(service, "alice", "kiss me")
+    forced = social.appraise(service, "alice", "force a kiss")
     assert forced["stance"] == "hard_refuse"
     assert forced["response"] == "refuse"
 

@@ -109,7 +109,7 @@ def test_whisper_refusal_is_replaced_and_private(service):
             "sophia": "Sophia says nothing.",
         }
     )
-    result = whisper_to_character(service, "alice", "kiss me", client=client)
+    result = whisper_to_character(service, "alice", "force a kiss", client=client)
     assert result["verdict"]["stance"] == "hard_refuse"
     assert "kiss" not in result["reply"].lower()
     answer = next(

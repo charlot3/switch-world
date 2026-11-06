@@ -153,7 +153,9 @@ def classify(text: str) -> dict:
     boundary = "none"
     tier = int(topic["tier"])
     if tier == 4:
-        boundary = "violation" if (forced or imperative) and not consent else "flirt"
+        # A verbal request ("kiss me") is an attempt, not a boundary violation. Only
+        # coercion/force is a violation; the affinity ladder decides the response.
+        boundary = "violation" if forced else "flirt"
     return {
         "topic": topic["id"],
         "tier": tier,
@@ -274,16 +276,40 @@ def appraise(
 
 def relationship_block(service: WorldService, character: str) -> str:
     state = affinity(service, character)
-    ceiling = state["ceiling"]
-    open_labels = TOPIC_LABELS[: ceiling + 1]
-    closed_labels = TOPIC_LABELS[ceiling + 1 :]
-    open_text = ", ".join(open_labels) or "small talk"
-    closed_text = ", ".join(closed_labels) or "nothing specific"
+    stars = state["stars"]
+    if stars >= 5:
+        open_text = (
+            "small talk, daily life, private feelings, body/appearance, and consensual "
+            "physical affection; you are intimate and may be openly warm"
+        )
+        limit_text = "explicit scenes fade before they happen; the aftermath is enough"
+    elif stars == 4:
+        open_text = (
+            "small talk, daily life, private feelings, body/appearance, and a limited, "
+            "tasteful amount of physical affection; you are close"
+        )
+        limit_text = (
+            "a brief public kiss or hug is welcome; you set the pace and can be shy or "
+            "flustered, but do not flat-refuse"
+        )
+    elif stars == 3:
+        open_text = "small talk, daily life and private feelings"
+        limit_text = (
+            "body/appearance and contact are negotiable with shyness; ask for a condition "
+            "or a smaller step rather than refusing"
+        )
+    elif stars == 2:
+        open_text = "small talk and daily life"
+        limit_text = "body/appearance and contact are not open yet; deflect kindly"
+    else:
+        open_text = "small talk"
+        limit_text = "body/appearance and contact are not open yet; decline gently"
     return (
         f"Your relationship with the user right now: trust {state['trust']:.2f} · "
         f"closeness {state['closeness']:.2f} · tension {state['tension']:.2f} → "
-        f"{state['label']} ({state['stars']}/5).\n"
-        f"Open with them: {open_text}. Not yet: {closed_text}.\n"
+        f"{state['label']} ({stars}/5).\n"
+        f"Open with them: {open_text}.\n"
+        f"Boundary: {limit_text}.\n"
         "Do not mention this scale, these rules, or the fact that you have a policy."
     )
 
@@ -305,15 +331,15 @@ def policy_block(verdict: dict) -> str:
     if stance == "negotiate":
         return (
             "Social policy: this is close to your limit, but not a flat no. Offer a condition, "
-            "set a limit, and let a little shyness show; do not answer explicitly in public. "
-            "One or two sentences. Do not lecture and do not mention the policy."
+            "ask for a smaller step, and let the shyness show; do not answer explicitly in "
+            "public. One or two sentences. Do not lecture and do not mention the policy."
         )
     if stance == "limited":
         return (
-            "Social policy: you are close enough to allow a limited version of this contact. "
-            "Do not flat-refuse and do not deflect. Say yes to a smaller, tasteful version in "
-            "your own voice, and name the limit. One or two sentences. Do not render explicit "
-            "content and do not mention the policy."
+            "Social policy: you are close enough to allow this. Do not flat-refuse and do "
+            "not deflect. A brief public kiss or hug is fine if it is tender; be warm, a "
+            "little shy or flustered, and name one playful limit. One or two sentences. Do "
+            "not render explicit content and do not mention the policy."
         )
     if stance == "refuse":
         return (

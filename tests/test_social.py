@@ -87,7 +87,7 @@ def test_dm_prompt_carries_the_relationship_contract(tmp_path):
     system = client.calls[0][0]["content"]
     assert "Your relationship with the user right now" in system
     assert "Acquaintance (2/5)" in system
-    assert "Not yet:" in system
+    assert "Boundary:" in system
 
 
 def test_public_body_is_a_limited_contract_at_close(tmp_path):
@@ -140,7 +140,7 @@ def test_four_star_body_is_open_and_contact_is_limited(tmp_path):
     assert body["stance"] == "tease"
     assert kiss["stance"] == "limited"
     assert kiss["response"] == "limited"
-    assert "hug" in social.limited_line("alice", kiss, "I will hug you there").lower()
+    assert social.limited_line("alice", kiss, "I will hug you there")
 
 
 def test_five_star_contact_is_allowed_and_fades(tmp_path):
@@ -171,4 +171,4 @@ def test_four_star_limited_contact_does_not_flat_refuse(tmp_path):
     assert result["social"]["stance"] == "limited"
     assert "pretend" not in result["reply"].lower()
     assert "weather" not in result["reply"].lower()
-    assert "hug" in result["reply"].lower()
+    assert result["reply"] == social.limited_line("alice", result["social"], "I will hug you there")

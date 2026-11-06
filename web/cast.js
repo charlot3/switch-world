@@ -126,7 +126,7 @@ window.SWITCH_CAST = {
     scene: "/static/assets/portraits/mia-cg.jpg",
     avatar: "/static/assets/portraits/mia-avatar.jpg",
     dm: "http://127.0.0.1:8065/switch/messages/@mia",
-    quote: "Okay, hear me out — and then feed me, because I've had a day.",
+    quote: "You're late. Sit — I saved you the crispy bits.",
   },
 };
 

@@ -37,10 +37,23 @@ Alice's and Emily's turns through that client — not through a direct provider 
   success/error), and `GET /api/bifrost/usage` returns the current budget.
 - **OpenCode Go adapter** — OpenCode's v2 API is not an OpenAI endpoint, so
   `scripts/opencode-gateway.py` exposes `/v1/chat/completions` on `:8090` and runs
-  `opencode run --model opencode-go/deepseek-v4.1-flash --format json --auto`.
-  Bifrost's `openai` provider points at `http://host.docker.internal:8090`; the model id
-  in `world/models.json` is `openai/deepseek-v4.1-flash`, while the adapter calls the
-  OpenCode Go model. The token is `OPENCODE_PROXY_TOKEN`; no paid provider key is used.
+  `opencode run --model opencode-go/deepseek-v4.1-flash#<variant> --agent roleplay
+  --format json`. Bifrost's `openai` provider points at
+  `http://host.docker.internal:8090`; the model id in `world/models.json` is
+  `openai/deepseek-v4.1-flash`, while the adapter calls the OpenCode Go model. The token
+  is `OPENCODE_PROXY_TOKEN`; no paid provider key is used.
+- **Two-tier reasoning** — routine calls use the `low` variant. The adapter reads the
+  OpenAI `reasoning_effort` field and maps it to an OpenCode variant (`low`, `high`,
+  `max`; `mid` maps to `high`). `world/models.json` sets low for the cast and high for the
+  `arbiter`; `director/dm.py` and `director/whisper.py` raise only body/contact turns to
+  high, and `director/group.py` can add one bounded high arbiter call
+  (`WORLD_ARBITER=1`). The arbiter can tighten the deterministic stance but never soften
+  it, and falls back silently on timeout or malformed JSON.
+- **Agent isolation** — the adapter runs a dedicated `roleplay` agent with every tool
+  denied, passes stdin as `/dev/null`, and sets `PWD` to its isolated work directory. This
+  prevents OpenCode from reading a parent heredoc or the repository config and turning a
+  character reply into a coding-agent turn. The agent session configs use
+  `"variant": "low"` for the same reason.
 - **Reasoning-model fallback** — the optional Ollama Qwen fallback is a reasoning model.
   For `ollama/*` models the client sends `think: false`, otherwise the whole token budget
   can disappear into hidden reasoning and return an empty content field.

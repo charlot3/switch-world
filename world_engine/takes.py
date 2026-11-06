@@ -38,6 +38,7 @@ TAKE_ORDER = [
     "w5-good",
     "w5-bad",
     "w6-long-tuesday",
+    "w7-last-call",
 ]
 
 TAKE_META = "take"

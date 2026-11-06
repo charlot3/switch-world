@@ -40,3 +40,10 @@ scratch/
 
 # macOS
 .DS_Store
+
+# Generated demo media stays local; GitHub does not need 200 MB of cuts.
+docs/*.mp4
+docs/*.wav
+docs/*-poster.jpg
+docs/setsuna-audition/
+deploy/demo/data/

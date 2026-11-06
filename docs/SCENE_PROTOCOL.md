@@ -44,6 +44,18 @@ Every turn records a `turn_plan` event with the plan and a `turn_id`. Every beat
 accepts it; `/api/state` returns `metadata` on each event; `phone_history` ignores every
 non-DM kind.
 
+### Agent-to-agent mentions
+
+A planned speaker may address another **present** character with `@name` in its reply (or by a direct leading name such as “Emily —”). The
+director relays exactly **one** follow-up prompt to that character; the relay reply is
+recorded as a normal beat and appears in the turn log. This is capped at one hop: an `@`
+inside the relayed reply is not relayed again, so there are no chains. Delivery is public
+scene delivery — the whole room and every present agent see it — not a private room or a
+whisper.
+
+The addressed character may record the exchange as a belief and cite the speaker:
+`world__remember(..., source="character:<sender>")`.
+
 ## API
 
 ### `POST /api/group/say`

@@ -30,7 +30,10 @@ player ──▶ dashboard (Story/Takes · Phone · Worlds · Studio)
 **Boundaries:** Switch owns delivery and sessions; the world engine owns facts, provenance
 and the ending; the conductor owns the gates and who speaks; the model owns the sentence.
 Bifrost routes phone/whisper/beat calls through the OpenCode shim to DeepSeek v4.1 Flash
-(both `model` and `small_model`), Tavily writes a shared world event, and the rin-studio /
+(both `model` and `small_model`). Routine calls run at the `low` reasoning variant; a
+body/contact turn can raise the same call to `high`, and the director's optional arbiter
+adds one bounded high-reasoning check that can tighten but never soften the deterministic
+social gate. Tavily writes a shared world event, and the rin-studio /
 ComfyUI pipeline produces the CG/outfit/prop set offline.
 
 
@@ -95,7 +98,7 @@ The MCP tools are the only write path for characters:
 | `world__remember(proposition, source, confidence, visibility, proposition_key?)` | character | writes a belief owned by the calling character; source is `user`, `event:<id>`, `character:<id>` or `observation`; omit `proposition_key` only for an ad-hoc fact |
 | `world__relationship(other)` | character | the calling character's view of another character |
 | `world__update_relationship(other, trust_delta, closeness_delta, tension_delta, reason)` | character | adjusts the calling character's outgoing edge, clamps to 0..1, appends an event |
-| `world__record_event(kind, summary, participants, visibility)` | character / director | append-only event; returns the event id |
+| `world__record_event(kind, summary, participants, visibility)` | director | append-only event; director-only so a character cannot write an arbitrary public line; returns the event id |
 | `world__who_knows(proposition_key)` | director | the full matrix with provenance |
 | `world__advance_time(minutes)` | director | moves the world clock and enqueues the next beat |
 

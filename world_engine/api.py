@@ -346,8 +346,8 @@ def create_app(service: WorldService | None = None) -> FastAPI:
 
     @app.post("/api/friends/{character}")
     def add_friend(character: str):
-        if not config.DEV_MODE:
-            raise HTTPException(404)
+        # Befriending is a social action, not an authored-beat mutation: the
+        # guest demo keeps it available with WORLD_DEV=0 so the phone can unlock.
         try:
             friend = service.add_friend(character)
         except ValueError as exc:
@@ -486,10 +486,16 @@ def create_app(service: WorldService | None = None) -> FastAPI:
             return replayed
         _check_revision(service, _expected_revision(payload))
         try:
+            switch_client = None
+            if config.AGENT_MODE == "cloud":
+                from director.cloud_switch import CloudSwitch
+
+                switch_client = CloudSwitch()
             result = say_in_group(
                 service,
                 message,
                 characters=characters if isinstance(characters, list) else None,
+                switch=switch_client,
                 timeout=float(payload.get("timeout") or 45.0),
             )
         except ValueError as exc:

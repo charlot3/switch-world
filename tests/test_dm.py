@@ -64,6 +64,29 @@ def test_dm_records_a_private_exchange_and_provenance(tmp_path):
     assert "quiet" in second_prompt
 
 
+def test_dm_meta_reply_is_replaced(tmp_path):
+    service = make_service(tmp_path)
+    client = FakeBifrost({
+        "reply": "@user — I'm not online in this room, @director.",
+        "memory": None,
+        "relationships": [],
+    })
+    result = reply_to_dm(service, "alice", "are you there?", client=client)
+
+    assert result["reply"]
+    assert "@user" not in result["reply"]
+    assert "@director" not in result["reply"]
+    replies = [
+        event for event in service.state()["events"]
+        if event["kind"] == "dm" and event["summary"].startswith("Alice:")
+    ]
+    assert replies
+    assert all(
+        "@user" not in event["summary"] and "@director" not in event["summary"]
+        for event in replies
+    )
+
+
 def test_dm_validates_character_and_message(tmp_path):
     service = make_service(tmp_path)
     with pytest.raises(ValueError):

@@ -1,0 +1,109 @@
+{
+  "id": "w7-last-call",
+  "title": "Last Call",
+  "scenario": "w7-last-call",
+  "warm": [
+    "mia"
+  ],
+  "scenes": [
+    {
+      "id": "truck-dusk",
+      "title": "Last call",
+      "place": "Mia's food truck, after the lunch rush",
+      "cast": [
+        "mia"
+      ],
+      "art": "/static/assets/portraits/beat-truck-lunch.jpg",
+      "opening": [
+        "The lunch crowd is gone. Mia is scraping the flat-top, apron loose, hair escaping its tie.",
+        "She sees you and doesn't bother hiding the grin. \"You're late. I was starting to invent a regular who looks like you.\"",
+        "\"Sit. I saved you the crispy bits — and I'm not sharing them with anyone else.\""
+      ],
+      "choices": [
+        "Save me the crispy bits. I'm not sharing either.",
+        "You're in a good mood. What's the occasion?",
+        "Close up early. Walk with me."
+      ],
+      "cues": [
+        {
+          "on": "user_line",
+          "match": "crispy|fries|share|save",
+          "op": "remember_preference",
+          "holder": "mia",
+          "key": "user-shares-mia-fries",
+          "proposition": "The user shares Mia's fries.",
+          "confidence": 0.85,
+          "tags": [
+            "mia",
+            "food",
+            "ritual"
+          ]
+        },
+        {
+          "on": "user_line",
+          "match": "close|early|walk|with me",
+          "op": "remember_preference",
+          "holder": "mia",
+          "key": "user-wants-mia-after-shift",
+          "proposition": "The user wants Mia after her shift.",
+          "confidence": 0.8,
+          "tags": [
+            "mia",
+            "after-shift"
+          ]
+        }
+      ],
+      "fallback_lines": {
+        "mia": "Crispy bits first. Then we'll see about the rest."
+      },
+      "next": "after-rush",
+      "must_change": true
+    },
+    {
+      "id": "after-rush",
+      "title": "After the rush",
+      "place": "the café down the block, after the truck closes",
+      "cast": [
+        "mia"
+      ],
+      "art": "/static/assets/scenes/beat-cafe-day.jpg",
+      "opening": [
+        "Mia locks the truck, then leans against it instead of leaving.",
+        "Without the counter between you she is quieter — not shy, just honest.",
+        "\"I'm not good at the part after the joke,\" she says. \"So you go first.\""
+      ],
+      "choices": [
+        "You don't have to be 'on' with me.",
+        "I like this version of you.",
+        "Come here."
+      ],
+      "cues": [
+        {
+          "on": "user_line",
+          "match": "on|quiet|honest|version",
+          "op": "remember_preference",
+          "holder": "mia",
+          "key": "user-likes-quiet-mia",
+          "proposition": "The user likes the quiet version of Mia.",
+          "confidence": 0.85,
+          "tags": [
+            "mia",
+            "quiet"
+          ]
+        },
+        {
+          "on": "user_line",
+          "match": "come here|close|kiss|stay",
+          "op": "advance_time",
+          "minutes": 10
+        }
+      ],
+      "fallback_lines": {
+        "mia": "Okay. No joke. I'm glad you're here."
+      },
+      "next": null,
+      "must_change": false
+    }
+  ],
+  "ending": null
+}

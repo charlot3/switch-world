@@ -99,6 +99,24 @@ def test_bifrost_can_run_a_partial_beat(tmp_path):
     assert result["bifrost"]["requests"] == 1
 
 
+def test_bifrost_meta_reply_is_skipped_as_no_reply(tmp_path):
+    service = make_service(tmp_path)
+    client = FakeBifrost({
+        "alice": {
+            "reply": "Starting a session to handle this. @user is not online.",
+            "memory": None,
+            "relationships": [],
+        }
+    })
+    result = run_beat(service, "morning-shop", transport="bifrost", client=client)
+    assert result["transcript"] == []
+    assert result["turns"] == []
+    assert service.events(kind="no_reply")
+    dialogues = service.events(kind="dialogue")
+    assert all("starting a session" not in event["summary"].lower() for event in dialogues)
+    assert all("@user" not in event["summary"] for event in dialogues)
+
+
 def test_branch_and_arc_survive_more_than_50_events(tmp_path):
     service = make_service(tmp_path)
     run_local_beat(service, "cafe")

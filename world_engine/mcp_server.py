@@ -132,9 +132,9 @@ def create_mcp(service: WorldService) -> MCPServer:
         participants: list[str] | None = None,
         visibility: str = "public",
     ) -> dict:
-        """Append an event to the world log. Events are immutable."""
+        """Director-only: append an event to the world log. Events are immutable."""
         return service.record_event(
-            actor(ctx),
+            director(ctx),
             kind=kind,
             summary=summary,
             participants=participants or [],

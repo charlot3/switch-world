@@ -21,7 +21,10 @@ fi
 : "${OPENCODE_MODEL:=opencode-go/deepseek-v4.1-flash}"
 : "${OPENCODE_GATEWAY_PORT:=8090}"
 : "${OPENCODE_TIMEOUT:=240}"
+: "${OPENCODE_DEFAULT_VARIANT:=low}"
+: "${OPENCODE_AGENT:=roleplay}"
 export OPENCODE_PROXY_TOKEN OPENCODE_MODEL OPENCODE_GATEWAY_PORT OPENCODE_TIMEOUT
+export OPENCODE_DEFAULT_VARIANT OPENCODE_AGENT
 
 if curl -sf "http://127.0.0.1:${OPENCODE_GATEWAY_PORT}/health" >/dev/null 2>&1; then
   echo "OpenCode gateway already running on :${OPENCODE_GATEWAY_PORT}"

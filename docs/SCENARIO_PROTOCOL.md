@@ -103,6 +103,7 @@ dashboard's phone thread, selected cast and turn playback.
 
 `w1-gift` (bookshop gift), `w2-two-clocks` (17:40 → 18:30), `w3-quiet-route` (solo date,
 outfit + preference), `w4-three-of-us` (three-person night market), `w5-good` and
-`w5-bad` (same setup, opposite ending), `w6-long-tuesday` (existing arc fallback).
+`w5-bad` (same setup, opposite ending), `w6-long-tuesday` (existing arc fallback),
+`w7-last-call` (4-heart Mia showcase: eager truck-counter teasing, then the quiet version).
 
 The exact edge/belief values are in the demo design notes; keep them small and auditable.

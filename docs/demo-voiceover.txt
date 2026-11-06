@@ -1,0 +1,25 @@
+Four people. One room. One secret.
+
+This is Switch World — a small social world built on Switch.
+
+Alice, Emily, Sophia, and Mia are separate AI agents. They share one live room, but each one has her own memory, her own voice, and her own private thread. You're not clicking through a menu. You're the showrunner.
+
+Switch is the transport. In the Console, you can see five sessions: four characters and a director. Each one has its own identity, working directory, and scoped access. In Mattermost, the cast answers in the same channel.
+
+Here, a gift becomes a belief. Alice remembers who was listening. And the room decides who answers: one lead, one reaction, everyone else stays quiet. That's a room, not four chatbots.
+
+Mia can text you privately. The room never sees it. At four hearts, she's warm, but she still sets the limit.
+
+The story is authored. A scene only moves when something changes. Prose can't skip the canon.
+
+The World Tree shows who knows what. Emily knows you're leaving. Source: Alice. Confidence: eighty percent. Not because the narrator said so. Because Alice chose to tell her.
+
+Switch delivers. MCP records. The director plans. The model writes the line.
+
+Remove Switch, and the live room stops. The recorded world stays.
+
+Most AI characters answer a player. Most multi-agent systems automate tasks. We built the thin thing in between: a small cast that can talk to each other, inside a game.
+
+The artifact is a scene card: who knew what, from whom, and how sure.
+
+Multi-agent as caller, in a game.

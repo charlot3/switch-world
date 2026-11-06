@@ -20,6 +20,10 @@ EXPORT_DIR = DATA_DIR / "exports"
 HOST = os.environ.get("WORLD_ENGINE_HOST", "127.0.0.1")
 PORT = int(os.environ.get("WORLD_ENGINE_PORT", "8890"))
 DEV_MODE = os.environ.get("WORLD_DEV", "1").lower() not in ("0", "false", "no")
+# "switch" (default): group replies come from live Switch agents.
+# "cloud": no Console is available, so one DeepSeek call answers each planned
+# speaker. The planning, addressing, relay and recording paths are identical.
+AGENT_MODE = os.environ.get("WORLD_AGENT_MODE", "switch").strip().lower()
 
 WORLD_START = os.environ.get("WORLD_START", "2026-11-03T08:00:00+09:00")
 WORLD_DAY = os.environ.get("WORLD_DAY", "2026-11-03")

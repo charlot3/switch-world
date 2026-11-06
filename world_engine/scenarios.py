@@ -38,6 +38,7 @@ SCENARIO_ORDER = [
     "w5-good",
     "w5-bad",
     "w6-long-tuesday",
+    "w7-last-call",
 ]
 
 _ID = re.compile(r"^[a-z0-9][a-z0-9-]*$")

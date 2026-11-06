@@ -22,6 +22,7 @@ from .beats import (
 )
 from .canon import brief, branch_for, load as load_canon, record_branch, validate
 from .clock import advance_to_beat
+from .social import clean_scene_line
 from .switch_client import SwitchClient
 
 ALICE_PROMPT = (
@@ -83,7 +84,12 @@ def run_cafe_switch(
         card = service.scene_card("Café, 18:30 — no reply")
         return {"shared": None, "alice": None, "emily": None, "card": card, "room": room}
 
-    alice = (alice_event.get("body") or "").strip()
+    alice = clean_scene_line(alice_event.get("body")) if alice_event else ""
+    if not alice:
+        service.record_event("director", "no_reply", "Alice did not answer in the room.", ["alice"], "public")
+        card = service.scene_card("Café, 18:30 — no reply")
+        return {"shared": None, "alice": None, "emily": None, "card": card, "room": room}
+
     service.record_event("alice", "dialogue", "Alice: " + alice, ["alice"], "public")
 
     started = int(time.time() * 1000) - 1000
@@ -96,7 +102,7 @@ def run_cafe_switch(
         ),
     )
     emily_event = switch.wait_for(room_id, "emily", started, timeout=timeout)
-    emily = (emily_event.get("body") or "").strip() if emily_event else ""
+    emily = clean_scene_line(emily_event.get("body")) if emily_event else ""
 
     if emily:
         service.record_event("emily", "dialogue", "Emily: " + emily, ["emily"], "public")
@@ -208,7 +214,12 @@ def run_beat_switch(
                 "director", "no_reply", f"{character.title()} did not answer.", [character], "public"
             )
             continue
-        reply = (event.get("body") or "").strip()
+        reply = clean_scene_line(event.get("body"))
+        if not reply:
+            service.record_event(
+                "director", "no_reply", f"{character.title()} did not answer.", [character], "public"
+            )
+            continue
         service.record_event(
             character, "dialogue", f"{character.title()}: {reply}", [character], "public"
         )

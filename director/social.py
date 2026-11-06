@@ -20,6 +20,88 @@ POLICY_PATH = Path(config.ROOT) / "world" / "social.json"
 CJK = re.compile(r"[一-鿿]")
 TOPIC_LABELS = ["small talk", "daily life", "private feelings", "body or appearance", "physical contact"]
 
+# Switch emits these while it boots an agent session. They are not in-character
+# replies; a line made only of one is treated as no reply at all.
+PLACEHOLDERS = (
+    "starting a session to handle this",
+    "starting a session",
+    "starting a new session",
+    "session is starting",
+)
+
+# Live models occasionally leak the room's addressing grammar into the scene:
+# a literal "@user", an "@director" aside, or a line about not being online.
+# None of that is in-character, so the line is dropped before it is recorded.
+# Keep these as literal substrings only when the phrase cannot occur in a real line.
+META_LINE_MARKERS = (
+    "@user",
+    "@director",
+    "the user",
+    "as an ai",
+    "i'm an ai",
+    "i am an ai",
+    "stage direction",
+    "system prompt",
+    "mention the policy",
+    "discuss the policy",
+    "talk about the policy",
+    "following instructions",
+    "following the instructions",
+    "just a character",
+    "only a character",
+)
+
+# Absence/availability phrases are anchored to first person and (for "here"/"in this
+# room") to the end of the line, so ordinary in-scene lines such as
+# "I'm not here to judge you." or "The card reader is offline again." survive.
+META_LINE_PATTERNS = (
+    re.compile(
+        r"\b(?:i'?m|i am|i'?ll|i will|we'?re|we are|we'?ll|we will)\s+"
+        r"(?:currently\s+)?(?:(?:be|going|to|staying|stay)\s+){0,3}off-?\s?line\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:i'?m|i am|we'?re|we are)\s+not\s+(?:currently\s+)?online\b",
+        re.IGNORECASE,
+    ),
+    re.compile(r"\b(?:i|we)\s+(?:need|have|got)\s+to\s+(?:leave|go)\b", re.IGNORECASE),
+    re.compile(r"\b(?:i|we)\s+(?:need|have)\s+to\s+get\s+going\b", re.IGNORECASE),
+    re.compile(
+        r"\b(?:i(?:'m| am)|we(?:'re| are))\s+not\s+(?:online\s+)?(?:in this room|here)"
+        r"(?:\s+right now)?\s*[.!?]*\s*$",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:i|we)(?:'m| am|'re| are)?\s+(?:cannot|can't|can not)\s+be here"
+        r"(?:\s+right now)?\s*[.!?]*\s*$",
+        re.IGNORECASE,
+    ),
+)
+
+
+def _is_meta_line(line: str) -> bool:
+    lowered = line.lower()
+    if any(marker in lowered for marker in META_LINE_MARKERS):
+        return True
+    return any(pattern.search(line) for pattern in META_LINE_PATTERNS)
+
+
+def _strip_meta(text: str) -> str:
+    """Drop whole lines that are stage machinery rather than a character's line."""
+    kept = [line for line in (text or "").splitlines() if not _is_meta_line(line)]
+    return "\n".join(kept).strip()
+
+
+def clean_scene_line(text: str | None) -> str:
+    """Drop Switch placeholders and stage machinery; "" means there is no real line."""
+    kept = [
+        line
+        for line in (text or "").splitlines()
+        if not any(marker in line.lower() for marker in PLACEHOLDERS)
+        and not _is_meta_line(line)
+    ]
+    return "\n".join(kept).strip()
+
 # Action mode separates what the player *does as themselves* from what they *attempt
 # on an NPC*. An attempt is never auto-success; it always earns a response from the
 # spectrum below. `continue` and `wait` are deliberate non-moves.

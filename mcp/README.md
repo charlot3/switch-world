@@ -28,7 +28,7 @@ confused. "Alice knows something Emily does not" is enforced at the API layer.
 | `world__remember` | character | `proposition: str`, `source: str`, `confidence: float = 0.8`, `visibility: str = "private"`, `proposition_key: str?` | the stored belief id |
 | `world__relationship` | character | `other: str` | trust / closeness / tension from the caller's view |
 | `world__update_relationship` | character | `other: str`, `trust_delta: float`, `closeness_delta: float`, `tension_delta: float`, `reason: str` | the updated edge and the event id |
-| `world__record_event` | character / director | `kind, summary, participants, visibility` | event id |
+| `world__record_event` | director | `kind, summary, participants, visibility` | event id (characters cannot write arbitrary public lines) |
 | `world__who_knows` | director | `proposition_key: str` | every holder, source, confidence, timestamp |
 | `world__advance_time` | director | `minutes: int` | the new world clock |
 

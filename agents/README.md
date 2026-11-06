@@ -65,9 +65,18 @@ Use `AGENTS.md` for the operating rules and `IDENTITY.md` for the persona.
 and `.mcp.json` (world MCP + literal token) for Claude Code. This is the path the live
 local integration currently uses.
 
-Pin the roleplay model you use in `opencode.json` (`"model": "<provider>/<model>"`) and keep
-it identical across the four characters. A mixed cast drifts: the same confidence language
-and the same willingness to disclose need the same model.
+Pin the roleplay model you use in `opencode.json` and keep it identical across the four
+characters. A mixed cast drifts: the same confidence language and the same willingness to
+disclose need the same model. The generated config uses an object so the reasoning profile
+is explicit:
+
+```json
+"model": {"providerID": "opencode-go", "model": "deepseek-v4.1-flash", "variant": "low"}
+```
+
+Routine in-character turns stay at `low`. The director's body/contact path is a separate
+high-reasoning call (DM/whisper generation, or the optional group arbiter); do not raise
+every session to `high` to compensate for a prompt problem.
 
 ## Claude Code fallback
 

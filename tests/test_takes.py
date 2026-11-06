@@ -46,7 +46,7 @@ def _belief(service: WorldService, holder: str, key: str) -> dict | None:
 def test_take_inventory_matches_the_authored_order():
     cards = list_takes()
     assert [card["id"] for card in cards] == TAKE_ORDER
-    assert len(cards) == 7
+    assert len(cards) == 8
     for card in cards:
         assert set(card) == {"id", "title", "scenario", "scene_count", "ending"}
         assert card["title"]
@@ -81,6 +81,16 @@ def test_load_take_resets_the_world_and_starts_scene_zero(service):
     current = current_take(service)
     assert current["index"] == 0
     assert current["scene"]["id"] == "quiet-close"
+
+
+def test_last_call_is_a_four_heart_route_for_the_warmest_character(service):
+    from director import social
+
+    load_take(service, "w7-last-call")
+    affinity = social.affinity(service, "mia")
+    assert affinity["stars"] == 4
+    assert service.state()["scenario"]["cast"] == ["mia"]
+    assert current_take(service)["scene"]["id"] == "truck-dusk"
 
 
 def test_next_scene_refuses_until_something_changes(service):

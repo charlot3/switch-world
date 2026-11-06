@@ -1,0 +1,27 @@
+# Keep the build context small. This file only applies when Docker builds with
+# deploy/demo/Dockerfile (BuildKit reads <Dockerfile>.dockerignore next to it).
+.git
+.gitignore
+.venv
+.pytest_cache
+__pycache__
+*.pyc
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+data
+deploy/bifrost
+recordings
+scratch
+node_modules
+.env
+.env.*
+docs
+tests
+# The character identities and rules are prompts, not secrets. The generated
+# connector configs beside them carry tokens, so they stay out of the image.
+agents/*/.mcp.json
+agents/*/opencode.json
+agents/*/.switch
+agents/*/opencode.json.example
+deploy/demo/data

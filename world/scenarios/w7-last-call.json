@@ -1,0 +1,44 @@
+{
+  "id": "w7-last-call",
+  "title": "Last Call",
+  "seed": 7007,
+  "clock": {
+    "now": "2026-11-03T15:40:00+09:00",
+    "mode": "mock",
+    "scale": 1.0
+  },
+  "cast": [
+    "mia"
+  ],
+  "friends": [
+    "mia"
+  ],
+  "absent": [],
+  "outfits": {},
+  "cast_art": {
+    "mia": "/static/assets/portraits/mia-cg.jpg"
+  },
+  "scene_art": "/static/assets/portraits/beat-truck-lunch.jpg",
+  "place": "Mia's food truck, after the lunch rush",
+  "item": null,
+  "relationships": [
+    {
+      "a": "mia",
+      "b": "user",
+      "trust": 0.8,
+      "closeness": 0.74,
+      "tension": 0.04
+    }
+  ],
+  "beliefs": [],
+  "opening": {
+    "title": "After the rush",
+    "line": "The lunch crowd is gone. Mia is scraping the flat-top and pretending she isn't waiting for you.",
+    "choices": [
+      "Save me the crispy bits. I'm not sharing either.",
+      "You're in a good mood. What's the occasion?",
+      "Close up early. Walk with me."
+    ]
+  },
+  "notes": "The four-heart showcase: Mia is the most openly enthusiastic of the four, so her Close route is warm and eager before it becomes shy."
+}

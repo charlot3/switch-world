@@ -1,0 +1,175 @@
+1
+00:00:00,000 --> 00:00:06,000
+Four characters: Alice, Emily, Sophia, Mia.
+
+2
+00:00:06,000 --> 00:00:12,000
+One room.
+
+3
+00:00:12,000 --> 00:00:19,000
+You are the showrunner, not a menu.
+
+4
+00:00:19,000 --> 00:00:30,000
+Underneath, a world records what each believes — who told them, when, how sure — and they can talk to you, to the room, in a whisper, one hop to each other.
+
+5
+00:00:30,000 --> 00:00:35,000
+One agent: Mia.
+
+6
+00:00:35,000 --> 00:00:41,000
+Her own session, her own voice, her own memory, her own portrait.
+
+7
+00:00:41,000 --> 00:00:46,000
+A private thread the room never sees.
+
+8
+00:00:46,000 --> 00:00:52,000
+Four of five hearts — and at that tier, contact is limited, not refused.
+
+9
+00:00:52,000 --> 00:00:56,000
+One room, not four chatbots.
+
+10
+00:00:56,000 --> 00:01:04,000
+Before any model call, the director plans: one lead, one reactor, the rest silent.
+
+11
+00:01:04,000 --> 00:01:12,000
+A mention relays exactly one hop — in public, never a chain.
+
+12
+00:01:15,000 --> 00:01:21,000
+The story is authored: two scenes, one gate.
+
+13
+00:01:21,000 --> 00:01:27,000
+It opens only when a line or a cue changes the state.
+
+14
+00:01:27,000 --> 00:01:32,000
+Prose cannot skip the canon.
+
+15
+00:01:37,000 --> 00:01:42,000
+And the world tree remembers.
+
+16
+00:01:42,000 --> 00:01:48,000
+Emily learned the secret from Alice: source alice, confidence 0.80.
+
+17
+00:01:48,000 --> 00:01:53,000
+Not from the narrator — from a character who chose to tell her.
+
+18
+00:01:53,000 --> 00:02:00,000
+Who is connected to whom, and who is holding the secret.
+
+19
+00:02:00,000 --> 00:02:06,000
+One world, six layers.
+
+20
+00:02:06,000 --> 00:02:12,000
+Switch is the transport: rooms, identities, delivery, sessions.
+
+21
+00:02:12,000 --> 00:02:18,000
+It is not the world state.
+
+22
+00:02:18,000 --> 00:02:26,000
+The MCP engine holds beliefs, provenance, relationships, the scene card.
+
+23
+00:02:26,000 --> 00:02:32,000
+Each token maps to one character; Alice cannot read Emily's private beliefs.
+
+24
+00:02:32,000 --> 00:02:38,000
+The director is deterministic Python: plan, gate, ending, one-hop relay.
+
+25
+00:02:38,000 --> 00:02:42,000
+It is not an LLM scheduler.
+
+26
+00:02:42,000 --> 00:02:46,000
+The model only writes the sentence.
+
+27
+00:02:46,000 --> 00:02:50,000
+Bifrost routes; OpenCode is preferred, Claude Code is the live fallback.
+
+28
+00:02:50,000 --> 00:02:54,000
+Remove Switch: rooms, sessions, delivery, live beats — gone.
+
+29
+00:02:54,000 --> 00:03:00,000
+Remain: the world database, the projection, the phone, the scene card.
+
+30
+00:03:00,000 --> 00:03:04,000
+Most AI NPC demos end the same way:
+
+31
+00:03:04,000 --> 00:03:08,000
+one character, one player, one conversation.
+
+32
+00:03:08,000 --> 00:03:13,000
+NVIDIA ACE, Convai and Inworld build characters answering a player.
+
+33
+00:03:13,000 --> 00:03:17,000
+AutoGen, CrewAI and LangGraph automate tasks, not lives.
+
+34
+00:03:17,000 --> 00:03:22,000
+The closest counterexamples are prototypes or story engines:
+
+35
+00:03:22,000 --> 00:03:26,000
+Stanford's twenty-five generative agents,
+
+36
+00:03:26,000 --> 00:03:31,000
+Altera's Minecraft society of up to a thousand agents,
+
+37
+00:03:31,000 --> 00:03:34,000
+Hidden Door's ensemble worlds.
+
+38
+00:03:34,000 --> 00:03:38,000
+We did not find one that documents the combination:
+
+39
+00:03:38,000 --> 00:03:42,000
+a small cast that can address each other,
+
+40
+00:03:42,000 --> 00:03:45,000
+hold private memories, respect boundaries — with provenance.
+
+41
+00:03:45,000 --> 00:03:47,000
+That is the gap.
+
+42
+00:03:47,000 --> 00:03:50,000
+We built it as a game: stakes, a room, a witness.
+
+43
+00:03:50,000 --> 00:03:55,000
+A business case becomes a workflow; a game keeps the story people can feel.
+
+44
+00:03:55,000 --> 00:04:00,000
+The scene card is the artifact — and the paper starts here.

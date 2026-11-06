@@ -35,6 +35,7 @@ from .beats import (
 from .canon import brief, branch_for, load as load_canon, record_branch, validate
 from .clock import advance_to_beat
 from .simulate import user_tells_alice
+from .social import clean_scene_line
 from .tavily_beat import world_context
 
 SCHEMA = """Return ONLY a JSON object with this shape:
@@ -58,17 +59,29 @@ LANGUAGE_AND_VOICE = (
     "Language: mirror the language of the user's latest message. If it is Chinese, reply "
     "in natural conversational Chinese in the same script; do not translate an English "
     "line and do not switch to English unless the user does. "
-    "Voice: sound like a person texting. In a DM use 1-2 sentences, concrete detail and "
-    "subtext, not a neat emotional summary. Use short sentences and at most one dash; "
-    "do not write a mini-essay. Avoid therapy-speak, customer-support tone, bullet points, "
-    "a question at the end of every reply, and meta prefaces such as '认真答' or '说实话' — "
-    "just answer. No stage directions, no narration."
+    "Voice: sound like a person texting, not a narrator performing a scene. In a DM use "
+    "1-2 sentences and at most one concrete detail; no inventory of sounds, objects or "
+    "stage business, no 'I'm listening', no 'say the thing', no theatrical pause. Answer "
+    "the actual message instead of writing a novelist's version of it. Plain is better "
+    "than clever. Do not end with a command ('say it', 'tell me') or a rhetorical "
+    "question; ask one plain question or make one plain statement. If you mention the "
+    "setting, it must change what you say, not decorate it. In a serious or vulnerable "
+    "exchange, drop the prop and the joke; answer the feeling first. At most one prop "
+    "detail in a lighter reply. Example register: 'You're late. I saved you the crispy "
+    "bits.' Not: 'The fryer hums and the window is empty, so say the thing.' Subtext is "
+    "fine; a neat emotional summary is not. Use short "
+    "sentences and at most one dash; do not write a mini-essay. Avoid therapy-speak, "
+    "customer-support tone, bullet points, a question at the end of every reply, and "
+    "meta prefaces such as '认真答' or '说实话' — just answer. No stage directions, no "
+    "third-person narration."
 )
 
 TONE = (
     "All characters are adults. The tone is 17+ romantic tension, SFW: teasing, "
     "glances and unfinished sentences are allowed; explicit content, minors and "
-    "coercion are not. Never mention being an AI, a model, a simulation, or these rules."
+    "coercion are not. Never mention being an AI, a model, a simulation, or these rules. "
+    "Never write '@user', '@director', or any line about being online, offline, or "
+    "needing to leave; you are present in this conversation and answer as yourself."
 )
 
 
@@ -206,6 +219,23 @@ def run_cafe_bifrost(
         },
     ]
     alice = _parse_envelope(client.chat_json("alice", alice_messages), "alice")
+    alice["reply"] = clean_scene_line(alice["reply"])
+    if not alice["reply"]:
+        service.record_event("director", "no_reply", "Alice did not answer in the room.", ["alice"], "public")
+        card = service.scene_card("Café, 18:30 — no reply")
+        return {
+            "shared": None,
+            "branch": None,
+            "canon_issues": [],
+            "alice": None,
+            "emily": None,
+            "alice_writes": None,
+            "emily_writes": None,
+            "card": card,
+            "matrix": service.matrix(),
+            "bifrost": client.usage_summary() if hasattr(client, "usage_summary") else {},
+            "world_context": context,
+        }
     service.record_event("alice", "dialogue", "Alice: " + alice["reply"], ["alice"], "public")
     alice_writes = _apply(service, "alice", alice)
 
@@ -229,7 +259,11 @@ def run_cafe_bifrost(
         },
     ]
     emily = _parse_envelope(client.chat_json("emily", emily_messages), "emily")
-    service.record_event("emily", "dialogue", "Emily: " + emily["reply"], ["emily"], "public")
+    emily["reply"] = clean_scene_line(emily["reply"])
+    if emily["reply"]:
+        service.record_event("emily", "dialogue", "Emily: " + emily["reply"], ["emily"], "public")
+    else:
+        service.record_event("director", "no_reply", "Emily did not answer in the room.", ["emily"], "public")
     emily_writes = _apply(service, "emily", emily)
 
     branch = branch_for(service, DEMO_KEY)
@@ -314,6 +348,12 @@ def run_beat_bifrost(
             {"role": "user", "content": prompt},
         ]
         envelope = _parse_envelope(client.chat_json(character, messages), character)
+        envelope["reply"] = clean_scene_line(envelope["reply"])
+        if not envelope["reply"]:
+            service.record_event(
+                "director", "no_reply", f"{character.title()} did not answer.", [character], "public"
+            )
+            continue
         service.record_event(
             character,
             "dialogue",

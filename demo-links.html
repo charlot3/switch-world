@@ -1,0 +1,937 @@
+<title>Switch World Recording Desk</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap">
+<style>
+  :root {
+    --bg: #120f10;
+    --surface: #1b1618;
+    --surface-2: #241c1f;
+    --line: #3a2c30;
+    --line-soft: #2b2225;
+    --fg: #f2e8da;
+    --muted: #b9a99a;
+    --dim: #8e7f76;
+    --accent: #c4566b;
+    --accent-soft: #e0a0ad;
+    --gold: #d9a36a;
+    --ok: #8fbf9f;
+    --danger: #e07070;
+    --radius: 3px;
+    --display: "Fraunces", "Iowan Old Style", Georgia, serif;
+    --body: "IBM Plex Sans", "Avenir Next", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background:
+      radial-gradient(1100px 540px at 72% -8%, rgba(196, 86, 107, 0.20), transparent 62%),
+      radial-gradient(800px 420px at 8% 8%, rgba(217, 163, 106, 0.07), transparent 60%),
+      var(--bg);
+    color: var(--fg);
+    font-family: var(--body);
+    font-size: 15px;
+    line-height: 1.55;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: inherit; }
+  img { max-width: 100%; }
+
+  .wrap {
+    width: min(1120px, 100%);
+    margin: 0 auto;
+    padding-block: 38px 56px;
+  }
+
+  /* ---- masthead ---- */
+  .masthead {
+    display: grid;
+    gap: 18px;
+    padding-bottom: 26px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .kicker {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--accent-soft);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .kicker::before {
+    content: "";
+    width: 28px;
+    height: 1px;
+    background: var(--accent);
+  }
+
+  .title-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 14px 18px;
+  }
+
+  h1 {
+    margin: 0;
+    font-family: var(--display);
+    font-size: clamp(40px, 6vw, 72px);
+    font-weight: 500;
+    line-height: 0.96;
+    letter-spacing: -0.035em;
+    text-wrap: balance;
+  }
+
+  .take-badge {
+    margin-bottom: 6px;
+    padding: 5px 9px 4px;
+    border: 1px solid var(--accent);
+    color: var(--accent-soft);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .dek {
+    max-width: 68ch;
+    margin: 0;
+    color: var(--muted);
+    font-size: 16px;
+  }
+
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 10px;
+    border: 1px solid var(--line);
+    background: rgba(27, 22, 24, 0.72);
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.03em;
+    text-decoration: none;
+  }
+
+  .chip:hover { border-color: var(--accent); color: var(--fg); }
+  .chip .dot { width: 6px; height: 6px; background: var(--ok); border-radius: 50%; }
+  .chip.final .dot { background: var(--accent); }
+  .chip.rehearsal .dot { background: var(--gold); }
+
+  /* ---- shell ---- */
+  .shell {
+    display: grid;
+    grid-template-columns: 292px minmax(0, 1fr);
+    gap: 34px;
+    align-items: start;
+    padding-top: 30px;
+  }
+
+  .rail {
+    display: grid;
+    gap: 18px;
+    position: sticky;
+    top: 18px;
+  }
+
+  main { display: grid; gap: 34px; min-width: 0; }
+
+  .panel {
+    border-top: 1px solid var(--line);
+    padding-top: 14px;
+  }
+
+  .panel-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  h2 {
+    margin: 0;
+    font-family: var(--display);
+    font-size: 24px;
+    font-weight: 500;
+    letter-spacing: -0.015em;
+  }
+
+  .count {
+    color: var(--dim);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+  }
+
+  .hint { margin: 0 0 12px; color: var(--dim); font-size: 13px; }
+
+  /* ---- timer ---- */
+  .timer-card {
+    padding: 18px;
+    border: 1px solid var(--line);
+    background: linear-gradient(180deg, rgba(36, 28, 31, 0.95), rgba(24, 19, 21, 0.95));
+  }
+
+  .timer-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+
+  .timer-label {
+    color: var(--dim);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .timer-display {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 52px;
+    line-height: 1;
+    letter-spacing: -0.05em;
+    color: var(--fg);
+  }
+
+  .timer-display.over { color: var(--danger); }
+
+  .timer-segment {
+    min-height: 32px;
+    margin: 10px 0 12px;
+    color: var(--accent-soft);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .progress {
+    position: relative;
+    height: 8px;
+    margin-bottom: 14px;
+    background: var(--surface-2);
+    border: 1px solid var(--line-soft);
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    width: 0%;
+    height: 100%;
+    background: linear-gradient(90deg, var(--gold), var(--accent));
+    transition: width 160ms linear;
+  }
+
+  .progress.over .progress-fill { background: var(--danger); }
+
+  .timer-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+  .btn {
+    appearance: none;
+    border: 1px solid var(--line);
+    background: var(--surface-2);
+    color: var(--fg);
+    padding: 8px 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #1a0d10; font-weight: 600; }
+  .btn.ghost { background: transparent; }
+  .btn:focus-visible, .copy:focus-visible, .link-anchor:focus-visible, .chip:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 3px;
+  }
+
+  .timer-note { margin: 12px 0 0; color: var(--dim); font-size: 11px; line-height: 1.45; }
+
+  /* ---- checklist ---- */
+  .check-card {
+    padding: 16px 18px;
+    border: 1px solid var(--line);
+    background: rgba(27, 22, 24, 0.72);
+  }
+
+  .check-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .check-head h3 {
+    margin: 0;
+    font-family: var(--display);
+    font-size: 18px;
+    font-weight: 500;
+  }
+
+  .check-list { display: grid; gap: 9px; margin: 0; padding: 0; list-style: none; }
+
+  .check-item {
+    display: grid;
+    grid-template-columns: 17px minmax(0, 1fr);
+    gap: 8px;
+    align-items: start;
+    color: var(--muted);
+    font-size: 12.5px;
+    line-height: 1.4;
+  }
+
+  .check-item input {
+    width: 15px;
+    height: 15px;
+    margin: 1px 0 0;
+    accent-color: var(--accent);
+  }
+
+  .check-item input:checked + label span { color: var(--dim); text-decoration: line-through; }
+
+  /* ---- link lists ---- */
+  .group-grid { display: grid; gap: 16px; }
+
+  .link-list { display: grid; border-top: 1px solid var(--line-soft); }
+
+  .link-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line-soft);
+  }
+
+  .link-anchor {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+    text-decoration: none;
+  }
+
+  .link-anchor:hover .label { color: var(--accent-soft); }
+
+  .label {
+    color: var(--fg);
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .url {
+    color: var(--dim);
+    font-family: var(--mono);
+    font-size: 11px;
+    overflow-wrap: anywhere;
+  }
+
+  .tag {
+    align-self: start;
+    color: var(--gold);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .copy {
+    appearance: none;
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--dim);
+    padding: 5px 8px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .copy:hover { color: var(--fg); border-color: var(--accent); }
+  .copy.copied { color: var(--ok); border-color: var(--ok); }
+
+  .static-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line-soft);
+  }
+
+  .static-row .url { color: var(--dim); }
+
+  /* ---- run of show ---- */
+  .table-wrap { overflow-x: auto; border-top: 1px solid var(--line-soft); }
+
+  .cue-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 640px;
+    font-size: 13px;
+  }
+
+  .cue-table th {
+    padding: 9px 10px 8px 0;
+    color: var(--dim);
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 400;
+    letter-spacing: 0.1em;
+    text-align: left;
+    text-transform: uppercase;
+  }
+
+  .cue-table td {
+    padding: 10px 10px 10px 0;
+    border-top: 1px solid var(--line-soft);
+    vertical-align: top;
+    color: var(--muted);
+  }
+
+  .cue-table td:first-child {
+    width: 88px;
+    color: var(--gold);
+    font-family: var(--mono);
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .cue-table td:nth-child(2) { width: 180px; color: var(--fg); }
+
+  /* ---- architecture ---- */
+  .arch {
+    margin: 0;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    padding: 10px;
+  }
+
+  .arch img { display: block; width: 100%; height: auto; background: #0b0909; }
+
+  .arch figcaption {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 10px 2px 2px;
+    color: var(--dim);
+    font-size: 12px;
+  }
+
+  .arch figcaption a { color: var(--accent-soft); }
+
+  .layer-list {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin: 14px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .layer {
+    padding: 10px 12px;
+    border-left: 1px solid var(--line);
+  }
+
+  .layer b {
+    display: block;
+    color: var(--fg);
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  .layer span { color: var(--dim); font-size: 11.5px; }
+
+  /* ---- warning ---- */
+  .warning {
+    padding: 14px 16px;
+    border: 1px solid rgba(224, 112, 112, 0.45);
+    background: rgba(224, 112, 112, 0.06);
+  }
+
+  .warning h3 {
+    margin: 0 0 6px;
+    color: var(--danger);
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .warning p { margin: 0; color: var(--muted); font-size: 12px; }
+
+  /* ---- footer ---- */
+  footer {
+    margin-top: 44px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 8px;
+    color: var(--dim);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  /* ---- responsive ---- */
+  @media (max-width: 860px) {
+    .shell { grid-template-columns: 1fr; gap: 26px; }
+    .rail { position: static; grid-template-columns: 1fr; }
+    .layer-list { grid-template-columns: 1fr; }
+    .wrap { padding-block: 24px 40px; }
+    .timer-display { font-size: 46px; }
+  }
+
+  @media (max-width: 520px) {
+    .link-row, .static-row { grid-template-columns: 1fr; }
+    .copy { justify-self: start; }
+    .cue-table { min-width: 580px; }
+    h1 { font-size: 40px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <div class="kicker">Flip the Switch · recording desk · 6 Nov 2026</div>
+    <div class="title-row">
+      <h1>Switch World</h1>
+      <span class="take-badge">4:00 take</span>
+    </div>
+    <p class="dek">
+      The tabs, the timer, and the evidence for today's take. Final recording runs on
+      <strong>:8890</strong>; <strong>:8892</strong> is the rehearsal room. Both share the
+      same live <strong>#world</strong>, so never send from both at once.
+    </p>
+    <div class="chips">
+      <a class="chip final" href="http://127.0.0.1:8890" target="_blank" rel="noopener"><span class="dot"></span>Final :8890</a>
+      <a class="chip rehearsal" href="http://127.0.0.1:8892" target="_blank" rel="noopener"><span class="dot"></span>Rehearsal :8892</a>
+      <a class="chip" href="http://127.0.0.1:8000" target="_blank" rel="noopener"><span class="dot"></span>Switch API :8000</a>
+      <a class="chip" href="http://127.0.0.1:8080" target="_blank" rel="noopener"><span class="dot"></span>Bifrost :8080</a>
+      <a class="chip" href="https://github.com/charlot3/switch-world" target="_blank" rel="noopener"><span class="dot"></span>Public repo</a>
+    </div>
+  </header>
+
+  <div class="shell">
+    <aside class="rail">
+      <section class="timer-card" aria-label="Four-minute recording timer">
+        <div class="timer-top">
+          <span class="timer-label">Take clock</span>
+          <span class="timer-label">hard stop 04:00</span>
+        </div>
+        <div class="timer-display" id="timer-display">04:00</div>
+        <div class="timer-segment" id="timer-segment">Ready · Switch Console</div>
+        <div class="progress" id="progress"><div class="progress-fill" id="progress-fill"></div></div>
+        <div class="timer-actions">
+          <button class="btn primary" type="button" id="timer-start">Start</button>
+          <button class="btn ghost" type="button" id="timer-reset">Reset</button>
+        </div>
+        <p class="timer-note">
+          The official page does not state a hard video maximum; 4:00 is our safety cut.
+          Stop talking at 3:50, let the close land.
+        </p>
+      </section>
+
+      <section class="check-card" aria-label="Pre-flight checklist">
+        <div class="check-head">
+          <h3>Pre-flight</h3>
+          <button class="btn ghost" type="button" id="check-reset" style="padding:4px 7px;font-size:9px;">Clear</button>
+        </div>
+        <ul class="check-list">
+          <li class="check-item"><input type="checkbox" id="c1" data-check="c1"><label for="c1"><span>:8890 answers <code>/api/state</code></span></label></li>
+          <li class="check-item"><input type="checkbox" id="c2" data-check="c2"><label for="c2"><span>Switch API, gateway, Mattermost healthy</span></label></li>
+          <li class="check-item"><input type="checkbox" id="c3" data-check="c3"><label for="c3"><span>Console shows five sessions + director</span></label></li>
+          <li class="check-item"><input type="checkbox" id="c4" data-check="c4"><label for="c4"><span>#world has a fresh live agent reply</span></label></li>
+          <li class="check-item"><input type="checkbox" id="c5" data-check="c5"><label for="c5"><span>w1-gift: gift, group staging, whisper</span></label></li>
+          <li class="check-item"><input type="checkbox" id="c6" data-check="c6"><label for="c6"><span>w7: 4/5 hearts, contact verdict limited</span></label></li>
+          <li class="check-item"><input type="checkbox" id="c7" data-check="c7"><label for="c7"><span>w5-good and w5-bad endings load</span></label></li>
+          <li class="check-item"><input type="checkbox" id="c8" data-check="c8"><label for="c8"><span>Scene card downloads as .md</span></label></li>
+          <li class="check-item"><input type="checkbox" id="c9" data-check="c9"><label for="c9"><span>8890 reset to w1-gift before recording</span></label></li>
+        </ul>
+      </section>
+
+      <section class="warning" aria-label="Do not show">
+        <h3>Do not show</h3>
+        <p>.env, API keys, .switch/, generated opencode.json, Console provider keys, the 8892 tab, or a model timeout. Cut to the authored fallback and keep going.</p>
+      </section>
+    </aside>
+
+    <main>
+      <section class="panel" id="urls">
+        <div class="panel-head">
+          <h2>Open these</h2>
+          <button class="btn ghost" type="button" id="copy-all" style="padding:5px 8px;font-size:9px;">Copy all URLs</button>
+        </div>
+        <p class="hint">Each row opens in a new Chrome tab. Copy puts the bare URL on the clipboard.</p>
+
+        <div class="group-grid">
+          <div>
+            <div class="panel-head" style="margin-bottom:4px;"><h2 style="font-size:18px;">Final take</h2><span class="count">01</span></div>
+            <div class="link-list">
+              <div class="link-row">
+                <a class="link-anchor" href="http://127.0.0.1:8890" target="_blank" rel="noopener"><span class="label">Final dashboard</span><span class="url">http://127.0.0.1:8890</span></a>
+                <button class="copy" type="button" data-copy="http://127.0.0.1:8890">Copy</button>
+              </div>
+              <div class="link-row">
+                <a class="link-anchor" href="http://127.0.0.1:8890/api/state" target="_blank" rel="noopener"><span class="label">Final state JSON</span><span class="url">http://127.0.0.1:8890/api/state</span></a>
+                <button class="copy" type="button" data-copy="http://127.0.0.1:8890/api/state">Copy</button>
+              </div>
+              <div class="link-row">
+                <a class="link-anchor" href="http://127.0.0.1:8890/api/scene-card" target="_blank" rel="noopener"><span class="label">Final scene card JSON</span><span class="url">http://127.0.0.1:8890/api/scene-card</span></a>
+                <button class="copy" type="button" data-copy="http://127.0.0.1:8890/api/scene-card">Copy</button>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="panel-head" style="margin-bottom:4px;"><h2 style="font-size:18px;">Switch</h2><span class="count">02</span></div>
+            <div class="link-list">
+              <div class="static-row">
+                <div><span class="label">Switch Console</span><span class="url">Desktop app · open from Applications</span></div>
+                <span class="tag">App</span>
+              </div>
+              <div class="link-row">
+                <a class="link-anchor" href="http://127.0.0.1:8065/switch/channels/world" target="_blank" rel="noopener"><span class="label">#world channel</span><span class="url">http://127.0.0.1:8065/switch/channels/world</span></a>
+                <button class="copy" type="button" data-copy="http://127.0.0.1:8065/switch/channels/world">Copy</button>
+              </div>
+              <div class="link-row">
+                <a class="link-anchor" href="http://127.0.0.1:8065" target="_blank" rel="noopener"><span class="label">Mattermost</span><span class="url">http://127.0.0.1:8065</span></a>
+                <button class="copy" type="button" data-copy="http://127.0.0.1:8065">Copy</button>
+              </div>
+              <div class="link-row">
+                <a class="link-anchor" href="http://127.0.0.1:3000" target="_blank" rel="noopener"><span class="label">Switch gateway</span><span class="url">http://127.0.0.1:3000</span></a>
+                <button class="copy" type="button" data-copy="http://127.0.0.1:3000">Copy</button>
+              </div>
+              <div class="link-row">
+                <a class="link-anchor" href="http://127.0.0.1:8000" target="_blank" rel="noopener"><span class="label">Switch API</span><span class="url">http://127.0.0.1:8000</span></a>
+                <button class="copy" type="button" data-copy="http://127.0.0.1:8000">Copy</button>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="panel-head" style="margin-bottom:4px;"><h2 style="font-size:18px;">Rehearsal &amp; models</h2><span class="count">03</span></div>
+            <div class="link-list">
+              <div class="link-row">
+                <a class="link-anchor" href="http://127.0.0.1:8892" target="_blank" rel="noopener"><span class="label">Rehearsal dashboard</span><span class="url">http://127.0.0.1:8892</span></a>
+                <button class="copy" type="button" data-copy="http://127.0.0.1:8892">Copy</button>
+              </div>
+              <div class="link-row">
+                <a class="link-anchor" href="http://127.0.0.1:8080" target="_blank" rel="noopener"><span class="label">Bifrost gateway</span><span class="url">http://127.0.0.1:8080</span></a>
+                <button class="copy" type="button" data-copy="http://127.0.0.1:8080">Copy</button>
+              </div>
+              <div class="link-row">
+                <a class="link-anchor" href="http://127.0.0.1:8090/health" target="_blank" rel="noopener"><span class="label">OpenCode shim health</span><span class="url">http://127.0.0.1:8090/health</span></a>
+                <button class="copy" type="button" data-copy="http://127.0.0.1:8090/health">Copy</button>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="panel-head" style="margin-bottom:4px;"><h2 style="font-size:18px;">Repo &amp; docs</h2><span class="count">04</span></div>
+            <div class="link-list">
+              <div class="link-row">
+                <a class="link-anchor" href="https://github.com/charlot3/switch-world" target="_blank" rel="noopener"><span class="label">Public repo</span><span class="url">github.com/charlot3/switch-world</span></a>
+                <button class="copy" type="button" data-copy="https://github.com/charlot3/switch-world">Copy</button>
+              </div>
+              <div class="link-row">
+                <a class="link-anchor" href="https://github.com/charlot3/switch-world/blob/geekroom/README.md" target="_blank" rel="noopener"><span class="label">README</span><span class="url">branch geekroom · MCP model, setup, demo</span></a>
+                <button class="copy" type="button" data-copy="https://github.com/charlot3/switch-world/blob/geekroom/README.md">Copy</button>
+              </div>
+              <div class="link-row">
+                <a class="link-anchor" href="https://github.com/charlot3/switch-world/blob/geekroom/docs/DEMO_TODAY.md" target="_blank" rel="noopener"><span class="label">Today's recording plan</span><span class="url">docs/DEMO_TODAY.md</span></a>
+                <button class="copy" type="button" data-copy="https://github.com/charlot3/switch-world/blob/geekroom/docs/DEMO_TODAY.md">Copy</button>
+              </div>
+              <div class="link-row">
+                <a class="link-anchor" href="https://github.com/charlot3/switch-world/blob/geekroom/docs/DEMO_STORY.md" target="_blank" rel="noopener"><span class="label">Four-act demo story</span><span class="url">docs/DEMO_STORY.md · narration, four-up, market thesis</span></a>
+                <button class="copy" type="button" data-copy="https://github.com/charlot3/switch-world/blob/geekroom/docs/DEMO_STORY.md">Copy</button>
+              </div>
+              <div class="link-row">
+                <a class="link-anchor" href="https://github.com/charlot3/switch-world/blob/geekroom/docs/DEMO_NARRATION.srt" target="_blank" rel="noopener"><span class="label">Narration SRT</span><span class="url">docs/DEMO_NARRATION.srt · 44 cues</span></a>
+                <button class="copy" type="button" data-copy="https://github.com/charlot3/switch-world/blob/geekroom/docs/DEMO_NARRATION.srt">Copy</button>
+              </div>
+              <div class="link-row">
+                <a class="link-anchor" href="https://github.com/charlot3/switch-world/blob/geekroom/docs/WORLDS.md" target="_blank" rel="noopener"><span class="label">Worlds &amp; takes</span><span class="url">docs/WORLDS.md</span></a>
+                <button class="copy" type="button" data-copy="https://github.com/charlot3/switch-world/blob/geekroom/docs/WORLDS.md">Copy</button>
+              </div>
+              <div class="link-row">
+                <a class="link-anchor" href="https://github.com/charlot3/switch-world/blob/geekroom/docs/ARCHITECTURE.md" target="_blank" rel="noopener"><span class="label">Architecture notes</span><span class="url">docs/ARCHITECTURE.md</span></a>
+                <button class="copy" type="button" data-copy="https://github.com/charlot3/switch-world/blob/geekroom/docs/ARCHITECTURE.md">Copy</button>
+              </div>
+              <div class="link-row">
+                <a class="link-anchor" href="https://www.wemakedevs.org/hackathons/switch" target="_blank" rel="noopener"><span class="label">Hackathon page</span><span class="url">wemakedevs.org/hackathons/switch</span></a>
+                <button class="copy" type="button" data-copy="https://www.wemakedevs.org/hackathons/switch">Copy</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="run">
+        <div class="panel-head"><h2>Run of show</h2><span class="count">4:00 · six beats</span></div>
+        <div class="table-wrap">
+          <table class="cue-table">
+            <thead><tr><th>Time</th><th>Segment</th><th>Action / evidence</th></tr></thead>
+            <tbody>
+              <tr><td>0:00–0:20</td><td>Switch Console</td><td>Five sessions in one room; cut to a live agent line. The dashboard is only a projection.</td></tr>
+              <tr><td>0:20–1:10</td><td>w1-gift</td><td>Gift → belief → café. Alice primary, Emily reactor, Mia a recorded silence; open provenance.</td></tr>
+              <tr><td>1:10–1:35</td><td>Whisper</td><td>Whisper to Alice. Only she hears it; Emily and Sophia react to the pause, not the words.</td></tr>
+              <tr><td>1:35–2:35</td><td>w7-last-call</td><td>Mia at 4/5. Crispy bits → hug request → quiet after-rush. Contact is <code>limited</code>, never refused.</td></tr>
+              <tr><td>2:35–3:15</td><td>w5-good → w5-bad</td><td>Same setup, opposite ending. The evidence panel explains the fork.</td></tr>
+              <tr><td>3:15–3:35</td><td>Scene card</td><td>Settings → Scene card → Load → Download. The human + agent artifact.</td></tr>
+              <tr><td>3:35–3:50</td><td>Architecture</td><td>Dashboard → Switch → agents → MCP → SQLite; Bifrost/Tavily on the side.</td></tr>
+              <tr><td>3:50–4:00</td><td>Close</td><td>Public repo, README, MCP model. Stop talking at 3:50.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel" id="architecture">
+        <div class="panel-head"><h2>Architecture</h2><span class="count">six layers</span></div>
+        <figure class="arch">
+          <img src="docs/architecture.png" alt="switch-world architecture: player and dashboard, Switch transport, four character agents and director, MCP world engine, SQLite, with Bifrost/OpenCode, Tavily and the art pipeline.">
+          <figcaption>
+            <span>Player → dashboard → Switch → agents → MCP → SQLite.</span>
+            <a href="https://github.com/charlot3/switch-world/blob/geekroom/docs/architecture.png" target="_blank" rel="noopener">Open full size ↗</a>
+          </figcaption>
+        </figure>
+        <ul class="layer-list">
+          <li class="layer"><b>Player surface</b><span>Story stage, phone, Worlds shelf, Scene HUD.</span></li>
+          <li class="layer"><b>Switch</b><span>Rooms, sessions, delivery, #world and private rooms.</span></li>
+          <li class="layer"><b>Cast</b><span>Alice, Emily, Sophia, Mia; one director.</span></li>
+          <li class="layer"><b>MCP world engine</b><span>Scoped tokens, events, beliefs, relationships, scene card.</span></li>
+          <li class="layer"><b>Model layer</b><span>Bifrost → OpenCode shim → DeepSeek Flash; low default, high on contact.</span></li>
+          <li class="layer"><b>World layer</b><span>Tavily events, authored takes, art pipeline, endings.</span></li>
+        </ul>
+      </section>
+
+      <section class="panel" id="repo">
+        <div class="panel-head"><h2>Repo preview</h2><span class="count">public · MIT</span></div>
+        <p class="hint">
+          Branch <code>geekroom</code>. The README is the reviewer's map: Switch usage, MCP
+          model, setup, the seven-day build and the demo. The architecture plate above is
+          the graph to show on camera.
+        </p>
+        <div class="link-list">
+          <div class="link-row">
+            <a class="link-anchor" href="https://github.com/charlot3/switch-world" target="_blank" rel="noopener"><span class="label">github.com/charlot3/switch-world</span><span class="url">Public repository · MIT</span></a>
+            <button class="copy" type="button" data-copy="https://github.com/charlot3/switch-world">Copy</button>
+          </div>
+          <div class="link-row">
+            <a class="link-anchor" href="https://github.com/charlot3/switch-world/blob/geekroom/docs/SUBMISSION.md" target="_blank" rel="noopener"><span class="label">Submission checklist</span><span class="url">docs/SUBMISSION.md</span></a>
+            <button class="copy" type="button" data-copy="https://github.com/charlot3/switch-world/blob/geekroom/docs/SUBMISSION.md">Copy</button>
+          </div>
+          <div class="link-row">
+            <a class="link-anchor" href="https://github.com/charlot3/switch-world/blob/geekroom/docs/REQUIREMENTS.md" target="_blank" rel="noopener"><span class="label">Hackathon requirements</span><span class="url">docs/REQUIREMENTS.md</span></a>
+            <button class="copy" type="button" data-copy="https://github.com/charlot3/switch-world/blob/geekroom/docs/REQUIREMENTS.md">Copy</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer>
+    <span>Switch World Recording Desk · 6 Nov 2026</span>
+    <span>Final :8890 · Rehearsal :8892 · never both in #world</span>
+  </footer>
+</div>
+
+<script>
+(() => {
+  const TOTAL = 240;
+  const segments = [
+    { at: 0, label: "Switch Console" },
+    { at: 20, label: "w1-gift · gift, group, belief" },
+    { at: 70, label: "Whisper · one target, public reaction" },
+    { at: 95, label: "w7-last-call · Mia 4/5" },
+    { at: 155, label: "w5-good → w5-bad · endings" },
+    { at: 195, label: "Scene card · artifact" },
+    { at: 215, label: "Architecture · six layers" },
+    { at: 230, label: "Close · repo + README" },
+  ];
+
+  const display = document.getElementById("timer-display");
+  const segment = document.getElementById("timer-segment");
+  const progress = document.getElementById("progress");
+  const fill = document.getElementById("progress-fill");
+  const startBtn = document.getElementById("timer-start");
+  const resetBtn = document.getElementById("timer-reset");
+
+  let elapsed = 0;
+  let running = false;
+  let last = 0;
+  let raf = 0;
+
+  function fmt(seconds) {
+    const s = Math.max(0, Math.floor(seconds));
+    return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+  }
+
+  function currentSegment(value) {
+    let found = segments[0];
+    for (const item of segments) {
+      if (value >= item.at) found = item;
+    }
+    return found;
+  }
+
+  function render() {
+    const remaining = Math.max(0, TOTAL - elapsed);
+    const over = elapsed > TOTAL;
+    display.textContent = over ? "OVER" : fmt(remaining);
+    display.classList.toggle("over", over);
+    progress.classList.toggle("over", over);
+    fill.style.width = Math.min(100, (elapsed / TOTAL) * 100) + "%";
+    const item = currentSegment(elapsed);
+    segment.textContent = over ? "Over 4:00 · stop" : item.label + " · " + fmt(elapsed);
+    startBtn.textContent = running ? "Pause" : (elapsed > 0 ? "Resume" : "Start");
+  }
+
+  function frame(now) {
+    if (!running) return;
+    elapsed += (now - last) / 1000;
+    last = now;
+    render();
+    raf = requestAnimationFrame(frame);
+  }
+
+  function start() {
+    if (running) {
+      running = false;
+      cancelAnimationFrame(raf);
+      render();
+      return;
+    }
+    running = true;
+    last = performance.now();
+    raf = requestAnimationFrame(frame);
+    render();
+  }
+
+  function reset() {
+    running = false;
+    cancelAnimationFrame(raf);
+    elapsed = 0;
+    render();
+  }
+
+  startBtn.addEventListener("click", start);
+  resetBtn.addEventListener("click", reset);
+  render();
+
+  // Per-viewer checklist. localStorage is a convenience only; the page works without it.
+  const checks = Array.from(document.querySelectorAll("[data-check]"));
+  const CHECK_KEY = "switch-world-demo-checks-v1";
+  let saved = {};
+  try {
+    saved = JSON.parse(localStorage.getItem(CHECK_KEY) || "{}") || {};
+  } catch (error) {
+    saved = {};
+  }
+  for (const box of checks) {
+    box.checked = Boolean(saved[box.dataset.check]);
+    box.addEventListener("change", () => {
+      saved[box.dataset.check] = box.checked;
+      try { localStorage.setItem(CHECK_KEY, JSON.stringify(saved)); } catch (error) {}
+    });
+  }
+  document.getElementById("check-reset").addEventListener("click", () => {
+    saved = {};
+    for (const box of checks) box.checked = false;
+    try { localStorage.removeItem(CHECK_KEY); } catch (error) {}
+  });
+
+  // Copy one URL or all of them. Clipboard can be refused; fall back to selection.
+  function fallbackCopy(text) {
+    const area = document.createElement("textarea");
+    area.value = text;
+    area.setAttribute("readonly", "");
+    area.style.position = "fixed";
+    area.style.opacity = "0";
+    document.body.appendChild(area);
+    area.select();
+    let ok = false;
+    try { ok = document.execCommand("copy"); } catch (error) { ok = false; }
+    area.remove();
+    return ok;
+  }
+
+  async function copyText(text, button) {
+    let ok = false;
+    try {
+      await navigator.clipboard.writeText(text);
+      ok = true;
+    } catch (error) {
+      ok = fallbackCopy(text);
+    }
+    if (button) {
+      const old = button.textContent;
+      button.textContent = ok ? "Copied" : "Select";
+      button.classList.toggle("copied", ok);
+      setTimeout(() => {
+        button.textContent = old;
+        button.classList.remove("copied");
+      }, 1200);
+      if (!ok) {
+        const row = button.closest(".link-row");
+        const url = row && row.querySelector(".url");
+        if (url) {
+          const range = document.createRange();
+          range.selectNodeContents(url);
+          const selection = window.getSelection();
+          selection.removeAllRanges();
+          selection.addRange(range);
+        }
+      }
+    }
+    return ok;
+  }
+
+  for (const button of document.querySelectorAll("[data-copy]")) {
+    button.addEventListener("click", () => copyText(button.dataset.copy, button));
+  }
+
+  document.getElementById("copy-all").addEventListener("click", (event) => {
+    const lines = Array.from(document.querySelectorAll("[data-copy]"))
+      .map((button) => button.dataset.copy);
+    copyText(Array.from(new Set(lines)).join("\n"), event.currentTarget);
+  });
+})();
+</script>

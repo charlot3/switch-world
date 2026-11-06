@@ -15,10 +15,12 @@ import re
 
 from world_engine.service import WorldService
 
+from . import context as context_budget
 from . import social
 from .bifrost_scene import _apply, _parse_envelope, _system
 from .canon import load as load_canon
 from .group import DEFAULT_CHARACTERS, _metadata, _turn_id
+from .social import clean_scene_line
 from .tavily_beat import world_context
 
 MAX_MESSAGE = 800
@@ -71,7 +73,7 @@ def _observer_reaction(character: str, reply: str, message: str) -> str:
     fallback = _without_tokens(_OBSERVER_REPLY_FALLBACK, forbidden)
     if fallback and not (_tokens(fallback) & forbidden):
         return fallback
-    return "…"
+    return ""
 
 
 def whisper_to_character(
@@ -136,21 +138,37 @@ def whisper_to_character(
         reply = _answer_through_switch(switch, room, to, message, timeout)
     else:
         if client is None:
-            from gateway.bifrost import BifrostClient
+            from world_engine import config
 
-            client = BifrostClient()
+            if config.AGENT_MODE == "cloud":
+                from .cloud_switch import CloudBifrost
+
+                client = CloudBifrost()
+            else:
+                from gateway.bifrost import BifrostClient
+
+                client = BifrostClient()
         envelope = _parse_envelope(
-            client.chat_json(to, _target_messages(service, to, message, verdict)),
+            client.chat_json(
+                to,
+                _target_messages(service, to, message, verdict),
+                reasoning=(
+                    "high" if verdict["topic"] in {"body", "contact"} else "low"
+                ),
+            ),
             to,
         )
-        reply = envelope["reply"]
-        writes = _apply(service, to, envelope)
+        reply = clean_scene_line(envelope["reply"])
+        if not reply:
+            reply = social.deflection(to, verdict, message)
         if (
             verdict["stance"] in {"refuse", "hard_refuse"}
             or (verdict["stance"] == "limited" and social.looks_like_refusal(reply))
             or social.contains_leak(reply, verdict)
         ):
             reply = social.deflection(to, verdict, message)
+        envelope["reply"] = reply
+        writes = _apply(service, to, envelope)
 
     private_reply = service.record_event(
         to,
@@ -217,11 +235,31 @@ def whisper_to_character(
     }
 
 
+def _recent_whisper_lines(
+    service: WorldService, to: str, limit: int = 8
+) -> list[str]:
+    """The private back-and-forth around this whisper, without the public room."""
+    lines: list[tuple[int, str]] = []
+    for kind, label in (("whisper", "You"), ("whisper_reply", to.title())):
+        for event in service.events(kind=kind)[-limit * 3:]:
+            participants = event.get("participants") or []
+            if to not in participants or "user" not in participants:
+                continue
+            summary = event.get("summary") or ""
+            if ":" not in summary:
+                continue
+            text = summary.split(":", 1)[1].strip()
+            if text:
+                lines.append((int(event.get("id") or 0), f"{label} (whisper): {text}"))
+    lines.sort(key=lambda item: item[0])
+    return [text for _, text in lines[-limit:]]
+
+
 def _target_messages(
     service: WorldService, to: str, message: str, verdict: dict
 ) -> list[dict]:
     canon = load_canon()
-    context = world_context(service)
+    world = world_context(service)
     clock = service.clock()["now"]
     social_block = "\n\n".join(
         [
@@ -236,19 +274,47 @@ def _target_messages(
             "\n\nThis is an attempt on you, not a fact. It is never automatic success: "
             "you decide what, if anything, you allow."
         )
-    user = (
-        "The user leans in and whispers privately to you. No one else can hear it.\n\n"
-        f'The user whispers: "{message}"\n\n'
-        "Answer in a whisper in your own voice: one or two short sentences. Be responsive "
-        "to the private words. This is not the group scene; do not address the room. All "
-        "characters are adults and the tone stays 17+ SFW. Return the JSON envelope."
+    phone = service.phone_history(to, limit=12, include_scene=True)["messages"]
+    history_lines = [
+        ("You: " if item["role"] == "user" else f"{to.title()}: ") + item["text"]
+        for item in phone
+        if item["kind"] == "dm"
+    ]
+    scene_lines = [
+        ("You: " if item["role"] == "user" else f"{to.title()}: ") + item["text"]
+        for item in phone
+        if item["kind"] == "scene"
+    ][-6:]
+    history_lines.extend(_recent_whisper_lines(service, to))
+    current = f"You (whisper): {message}"
+    if history_lines and history_lines[-1].strip() == current.strip():
+        # The current whisper is already the prompt's message; don't show it twice.
+        history_lines.pop()
+    system = _system(to, canon, world, clock=clock, social_block=social_block)
+    projected = context_budget.project_context(
+        extra=(
+            "The user leans in and whispers privately to you. No one else can hear it. "
+            "This is not the group scene; do not address the room."
+        ),
+        message=(
+            f'The user whispers: "{message}"\n\n'
+            "Answer in a whisper in your own voice: one or two short sentences, each "
+            "under about 18 words. React to the feeling and the private history, not "
+            "just the literal words. Do not ask the user to clarify what they meant and "
+            "do not explain their sentence back to them; make a guess, take a side, or "
+            "tease. If you ask a question, make it a playful or intimate guess, not a "
+            "request for information. All characters are adults and the tone stays "
+            "17+ SFW. Return the JSON envelope."
+        ),
+        history_lines=history_lines,
+        scene_lines=scene_lines,
+        history_label="Recent private exchange (DM and whisper)",
+        scene_label="Recent scene (public)",
+        reserved=len(system.encode("utf-8")),
     )
     return [
-        {
-            "role": "system",
-            "content": _system(to, canon, context, clock=clock, social_block=social_block),
-        },
-        {"role": "user", "content": user},
+        {"role": "system", "content": system},
+        {"role": "user", "content": projected["text"]},
     ]
 
 
@@ -293,6 +359,24 @@ def _observe(
         except Exception:
             reply = ""
     reaction = _observer_reaction(observer, reply, message)
+    if not reaction:
+        event = service.record_event(
+            observer,
+            "silence",
+            f"{observer.title()} stays silent.",
+            participants=[observer],
+            visibility="public",
+            metadata=_metadata(turn_id, "silence", "reactor", "neutral", target, False),
+        )
+        return {
+            "character": observer,
+            "mode": "silence",
+            "role": "reactor",
+            "text": None,
+            "expression": "neutral",
+            "event_id": event["id"],
+            "private": False,
+        }
     event = service.record_event(
         observer,
         "dialogue",

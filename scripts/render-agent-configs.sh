@@ -25,6 +25,16 @@ WORLD_URL="${WORLD_MCP_URL:-http://127.0.0.1:8890/mcp}"
 # The roleplay model. Keep it identical across the cast; a mixed cast drifts.
 MODEL="${WORLD_AGENT_MODEL:-opencode-go/deepseek-v4.1-flash}"
 SMALL_MODEL="${WORLD_AGENT_SMALL_MODEL:-$MODEL}"
+# Routine in-character turns use the fast reasoning profile. The director's
+# body/contact arbiter is a separate high-effort call, not this session.
+VARIANT="${WORLD_AGENT_VARIANT:-low}"
+MODEL_BASE="${MODEL%%#*}"
+if [ "$MODEL_BASE" != "$MODEL" ]; then
+  VARIANT="${MODEL##*#}"
+fi
+MODEL_PROVIDER="${MODEL_BASE%%/*}"
+MODEL_ID="${MODEL_BASE#*/}"
+SMALL_MODEL="${SMALL_MODEL%%#*}"
 
 for name in alice emily sophia mia; do
   var="WORLD_TOKEN_$(printf '%s' "$name" | tr '[:lower:]' '[:upper:]')"
@@ -40,7 +50,11 @@ for name in alice emily sophia mia; do
   cat > "$dir/opencode.json" <<JSON
 {
   "\$schema": "https://opencode.ai/config.json",
-  "model": "$MODEL",
+  "model": {
+    "providerID": "$MODEL_PROVIDER",
+    "model": "$MODEL_ID",
+    "variant": "$VARIANT"
+  },
   "small_model": "$SMALL_MODEL",
   "instructions": ["IDENTITY.md"],
   "mcp": {

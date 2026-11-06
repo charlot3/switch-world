@@ -46,6 +46,38 @@ class FakeSwitch:
         ]
 
 
+class RelaySwitch(FakeSwitch):
+    """A Switch room that only delivers the relay reply after the relay prompt.
+
+    The relay prompt is the only post containing "says to you", so the initial
+    planned posts (which also start with @name) never surface the relay early.
+    """
+
+    def __init__(self, replies=None, relay=None):
+        super().__init__(replies)
+        self.relay = relay  # (sender_name, body), delivered after the relay post
+        self.relay_timestamp = None
+
+    def post(self, room_id, content):
+        result = super().post(room_id, content)
+        if self.relay and "says to you" in content:
+            self.relay_timestamp = int(time.time() * 1000) + 5000
+        return result
+
+    def history(self, room_id):
+        events = super().history(room_id)
+        if self.relay and self.relay_timestamp is not None:
+            events.append(
+                {
+                    "event_id": f"evt-relay-{self.relay[0]}",
+                    "sender_name": self.relay[0],
+                    "timestamp": self.relay_timestamp,
+                    "body": self.relay[1],
+                }
+            )
+        return events
+
+
 def test_group_say_records_both_sides(service):
     switch = FakeSwitch({"alice": "I'm here.", "emily": "Who else?"})
     result = say_in_group(service, "Are we still on for tonight?", switch=switch)
@@ -289,6 +321,29 @@ def test_group_say_does_not_record_the_same_switch_event_twice(service):
     assert summaries.count("Alice: Still here.") == 1
 
 
+def test_refused_reply_cannot_be_relayed_to_another_agent(service):
+    class RefusalSwitch(FakeSwitch):
+        def history(self, room_id):
+            return [{
+                "event_id": "evt-alice-refusal",
+                "sender_name": "alice",
+                "timestamp": self.timestamp,
+                "body": "Black. @emily, you tell them.",
+            }]
+
+    switch = RefusalSwitch({})
+    result = say_in_group(
+        service,
+        "what color is your underwear?",
+        characters=["alice"],
+        switch=switch,
+        timeout=1,
+    )
+    assert "relay" not in result["turn"]["plan"]
+    assert len(switch.posts) == 1
+    assert "@emily" not in switch.posts[0]
+
+
 def test_group_defaults_to_the_take_cast(service):
     from world_engine.takes import load_take
 
@@ -299,3 +354,247 @@ def test_group_defaults_to_the_take_cast(service):
     assert result["turn"]["plan"]["primary"] == "alice"
     assert result["turn"]["plan"]["reactors"] == []
     assert all("@alice" in post and "@emily" not in post for post in switch.posts)
+
+
+def test_agent_mention_posts_one_relay_and_records_the_reply(service):
+    switch = RelaySwitch(
+        {"alice": "@emily, did you know?", "emily": "Know what?"},
+        relay=("emily", "I did not know."),
+    )
+    result = say_in_group(
+        service,
+        "Alice, anything to add?",
+        characters=["alice", "emily"],
+        switch=switch,
+        timeout=1,
+    )
+    turn = result["turn"]
+    assert turn["plan"]["relay"] == {
+        "from": "alice",
+        "to": "emily",
+        "delivered": True,
+    }
+    # Alice's planned post, Emily's planned reaction, and exactly one relay prompt.
+    assert len(switch.posts) == 3
+    relay_posts = [post for post in switch.posts if "says to you" in post]
+    assert len(relay_posts) == 1
+    assert relay_posts[0].startswith("@emily ")
+    assert 'Alice says to you: "@emily, did you know?"' in relay_posts[0]
+
+    replies = [
+        line for line in turn["lines"]
+        if line["character"] == "emily" and line["mode"] == "reply"
+    ]
+    assert len(replies) == 1
+    assert replies[0]["role"] == "reply"
+    assert replies[0]["target"] == "alice"
+    assert replies[0]["text"] == "I did not know."
+
+    beat = next(
+        event for event in service.state()["events"]
+        if event["metadata"].get("turn_id") == turn["id"]
+        and event["metadata"].get("relay") is True
+    )
+    assert beat["metadata"]["reply_to"] == "alice"
+    assert beat["metadata"]["target"] == "alice"
+    assert beat["metadata"]["role"] == "reply"
+    assert "Emily: I did not know." == beat["summary"]
+
+
+def test_leading_name_address_also_opens_one_relay(service):
+    switch = RelaySwitch(
+        {"alice": "Emily — I miss you.", "emily": "I miss you too."},
+        relay=("emily", "I miss you too."),
+    )
+    result = say_in_group(
+        service,
+        "Alice, say what you have been avoiding.",
+        characters=["alice", "emily"],
+        switch=switch,
+        timeout=1,
+    )
+    assert result["turn"]["plan"]["relay"]["from"] == "alice"
+    assert result["turn"]["plan"]["relay"]["to"] == "emily"
+    assert result["turn"]["plan"]["relay"]["delivered"] is True
+    relay_posts = [post for post in switch.posts if "says to you" in post]
+    assert len(relay_posts) == 1
+
+
+def test_duplicate_relay_reply_is_not_recorded_twice(service):
+    switch = RelaySwitch(
+        {"alice": "@emily, did you know?", "emily": "I did not know."},
+        relay=("emily", "I did not know."),
+    )
+    result = say_in_group(
+        service,
+        "Alice, anything to add?",
+        characters=["alice", "emily"],
+        switch=switch,
+        timeout=1,
+    )
+    turn = result["turn"]
+    assert turn["plan"]["relay"]["delivered"] is True
+    assert turn["relay_duplicate"] == "emily"
+    emily_lines = [line for line in turn["lines"] if line["character"] == "emily"]
+    assert len(emily_lines) == 1
+    assert emily_lines[0]["mode"] in {"speech", "reaction"}
+
+
+def test_relay_reply_is_not_scanned_for_another_mention(service):
+    switch = RelaySwitch(
+        {"alice": "@emily, did you know?", "emily": "Know what?"},
+        relay=("emily", "@alice, no, I did not."),
+    )
+    result = say_in_group(
+        service,
+        "Alice, anything to add?",
+        characters=["alice", "emily"],
+        switch=switch,
+        timeout=1,
+    )
+    assert result["turn"]["plan"]["relay"]["delivered"] is True
+    # No second hop: the reply names @alice but nothing else is posted.
+    assert len(switch.posts) == 3
+    assert sum("says to you" in post for post in switch.posts) == 1
+    assert not any(post.startswith("@alice ") for post in switch.posts[2:])
+
+
+def test_reply_without_a_mention_does_not_relay(service):
+    switch = RelaySwitch({"alice": "Nothing yet."}, relay=("emily", "Unused."))
+    result = say_in_group(
+        service, "Hello?", characters=["alice"], switch=switch, timeout=1
+    )
+    assert "relay" not in result["turn"]["plan"]
+    assert len(switch.posts) == 1
+    assert all("says to you" not in post for post in switch.posts)
+
+
+def test_strip_meta_drops_room_addressing_and_offline_lines():
+    from director.group import _strip_meta
+
+    text = (
+        "Real ones, chopped since three.\n"
+        "@user — I'm not online in this room, and @director needs me..\n"
+        "Dirt still on."
+    )
+    assert _strip_meta(text) == "Real ones, chopped since three.\nDirt still on."
+
+
+def test_group_say_drops_a_meta_only_reply(service):
+    switch = FakeSwitch(
+        {"mia": "@user — I'm not online in this room, and @director needs me.."}
+    )
+    result = say_in_group(
+        service,
+        "Mia, how are the onions?",
+        characters=["mia"],
+        switch=switch,
+        timeout=1.0,
+    )
+    assert result["replies"] == []
+    assert result["missing"] == ["mia"]
+
+
+def test_relay_reply_is_sanitised_like_a_planned_reply(service):
+    from director import social
+
+    message = "Alice, what color is your underwear?"
+    service.update_relationship("alice", "user", trust_delta=0.45, closeness_delta=0.45)
+    service.update_relationship("emily", "alice", tension_delta=0.5)
+    switch = RelaySwitch(
+        {
+            "alice": "@emily, what do you think I should say?",
+            "emily": "I would rather not say.",
+        },
+        relay=("emily", "Tell them red lace, obviously."),
+    )
+    result = say_in_group(
+        service,
+        message,
+        characters=["alice", "emily"],
+        switch=switch,
+        timeout=1.0,
+    )
+    turn = result["turn"]
+    assert turn["plan"]["primary"] == "alice"
+    assert turn["plan"]["reactors"] == ["emily"]
+    assert turn["plan"]["relay"]["delivered"] is True
+
+    reply_lines = [
+        line for line in turn["lines"]
+        if line["character"] == "emily" and line["role"] == "reply"
+    ]
+    assert len(reply_lines) == 1
+    expected = social.deflection("emily", result["verdicts"]["emily"], message)
+    assert reply_lines[0]["text"] == expected
+    assert "red lace" not in reply_lines[0]["text"].lower()
+
+    relay_beat = next(
+        event for event in service.state()["events"]
+        if event["metadata"].get("turn_id") == turn["id"]
+        and event["metadata"].get("relay") is True
+    )
+    assert relay_beat["summary"] == f"Emily: {expected}"
+    assert "red lace" not in relay_beat["summary"].lower()
+
+
+def test_strip_meta_drops_bare_offline_and_policy_lines():
+    from director.group import _strip_meta
+
+    text = (
+        "Real ones, chopped since three.\n"
+        "I'm not online right now.\n"
+        "The user isn't here; I'm just a character.\n"
+        "I can't mention the policy or the stage direction.\n"
+        "I'll be offline for a bit.\n"
+        "Dirt still on."
+    )
+    assert _strip_meta(text) == "Real ones, chopped since three.\nDirt still on."
+
+
+def test_strip_meta_keeps_in_scene_instruction_lines():
+    from director.group import _strip_meta
+
+    assert (
+        _strip_meta("I followed the instructions on the box.")
+        == "I followed the instructions on the box."
+    )
+
+
+def test_strip_meta_drops_generic_offline_and_leaving_lines():
+    from director.group import _strip_meta
+
+    assert _strip_meta("I'm offline for a bit.") == ""
+    assert _strip_meta("I'm off-line.") == ""
+    assert _strip_meta("I'm going to be offline.") == ""
+    assert _strip_meta("I need to leave soon.") == ""
+    assert _strip_meta("I have to go now.") == ""
+    assert _strip_meta("The card reader is offline again.") == "The card reader is offline again."
+
+
+def test_strip_meta_keeps_legitimate_first_person_lines():
+    from director.group import _strip_meta
+
+    for line in (
+        "I'm not here to judge you.",
+        "I am not here to argue.",
+        "Emily's not in this room.",
+        "I can't be here for you.",
+    ):
+        assert _strip_meta(line) == line
+    assert _strip_meta("I'm not here.") == ""
+    assert _strip_meta("I am not online in this room.") == ""
+    assert _strip_meta("I can't be here right now.") == ""
+
+
+def test_group_say_drops_bare_offline_reply(service):
+    switch = FakeSwitch({"mia": "I'm not online right now."})
+    result = say_in_group(
+        service,
+        "Mia, how are the onions?",
+        characters=["mia"],
+        switch=switch,
+        timeout=1.0,
+    )
+    assert result["replies"] == []
+    assert result["turn"]["lines"][0]["mode"] == "silence"

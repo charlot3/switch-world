@@ -1,0 +1,57 @@
+# switch-world guest demo. Run from the repository root:
+#   docker compose -f deploy/demo/docker-compose.yml up -d --build
+#
+# The service binds to loopback only; Caddy terminates TLS and enforces basic
+# auth, then reverse-proxies to 127.0.0.1:8893.
+name: switch-world-demo
+
+services:
+  world:
+    build:
+      context: ../..
+      dockerfile: deploy/demo/Dockerfile
+    image: switch-world-demo:latest
+    container_name: switch-world-demo
+    environment:
+      WORLD_DB: /data/world.sqlite
+      WORLD_DATA_DIR: /data
+      WORLD_ENGINE_HOST: 0.0.0.0
+      WORLD_ENGINE_PORT: "8893"
+      WORLD_DEV: "0"
+      # No Switch Console runs in the cloud, so the group room answers each
+      # planned speaker with one DeepSeek call. Set the key with
+      # `--env-file .env` (see README); it is never baked into the image.
+      WORLD_AGENT_MODE: "${WORLD_AGENT_MODE:-cloud}"
+      WORLD_CLOUD_MODEL: "${WORLD_CLOUD_MODEL:-deepseek-flash}"
+      WORLD_CLOUD_REASONING: "${WORLD_CLOUD_REASONING:-low}"
+      DEEPSEEK_API_KEY: "${DEEPSEEK_API_KEY:?set DEEPSEEK_API_KEY for cloud replies}"
+      PYTHONDONTWRITEBYTECODE: "1"
+    volumes:
+      # Relative to this compose file, i.e. deploy/demo/data on the host.
+      # Must be writable by uid 10001: sudo chown -R 10001:10001 deploy/demo/data
+      - ./data:/data
+    ports:
+      - "127.0.0.1:8893:8893"
+    user: "10001:10001"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - |
+          import sys, urllib.request
+          try:
+              with urllib.request.urlopen("http://127.0.0.1:8893/health", timeout=3) as r:
+                  sys.exit(0 if r.status == 200 else 1)
+          except Exception:
+              sys.exit(1)
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s

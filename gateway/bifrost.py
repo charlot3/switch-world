@@ -48,6 +48,27 @@ class CharacterModel:
     daily_tokens: int = 60_000
     virtual_key_env: str | None = None
     note: str = ""
+    reasoning: str | None = None
+
+
+REASONING_EFFORTS = {"low", "medium", "high", "max"}
+REASONING_ALIASES = {"mid": "high", "minimal": "low", "none": None}
+
+
+def normalize_reasoning(value: str | None) -> str | None:
+    """Return a supported effort name, or None for the provider default."""
+    if value in (None, ""):
+        return None
+    normalized = str(value).strip().lower()
+    normalized = REASONING_ALIASES.get(normalized, normalized)
+    if normalized is None:
+        return None
+    if normalized not in REASONING_EFFORTS:
+        raise BifrostError(
+            f"unknown reasoning effort {value!r}; use one of "
+            f"{', '.join(sorted(REASONING_EFFORTS))}"
+        )
+    return normalized
 
 
 def load_models(path: Path | str | None = None) -> dict[str, CharacterModel]:
@@ -58,6 +79,7 @@ def load_models(path: Path | str | None = None) -> dict[str, CharacterModel]:
         upper = character.upper()
         env_model = os.environ.get(f"BIFROST_MODEL_{upper}")
         env_fallbacks = os.environ.get(f"BIFROST_FALLBACKS_{upper}")
+        env_reasoning = os.environ.get(f"BIFROST_REASONING_{upper}")
         fallbacks = (
             tuple(part.strip() for part in env_fallbacks.split(",") if part.strip())
             if env_fallbacks
@@ -72,6 +94,7 @@ def load_models(path: Path | str | None = None) -> dict[str, CharacterModel]:
             daily_tokens=int(cfg.get("daily_tokens", 60_000)),
             virtual_key_env=cfg.get("virtual_key_env"),
             note=cfg.get("note", ""),
+            reasoning=normalize_reasoning(env_reasoning or cfg.get("reasoning")),
         )
     return models
 
@@ -171,6 +194,7 @@ class BifrostClient:
         max_tokens: int | None = None,
         fallbacks: list[str] | None = None,
         extra: dict | None = None,
+        reasoning: str | None = None,
     ) -> dict:
         if character not in self.models:
             raise BifrostError(f"no Bifrost model configured for {character}")
@@ -182,12 +206,19 @@ class BifrostClient:
                 "raise daily_tokens in world/models.json or reset the budget file"
             )
 
+        effort = normalize_reasoning(
+            reasoning if reasoning is not None else cfg.reasoning
+        )
         payload: dict[str, Any] = {
             "model": cfg.model,
             "messages": messages,
             "temperature": cfg.temperature if temperature is None else temperature,
             "max_tokens": cfg.max_tokens if max_tokens is None else max_tokens,
         }
+        if effort:
+            # OpenAI-compatible field; the OpenCode shim maps it to a model variant.
+            # Bifrost passes it through to the provider.
+            payload["reasoning_effort"] = effort
         chain = list(fallbacks or cfg.fallbacks)
         if chain:
             payload["fallbacks"] = chain
@@ -231,6 +262,7 @@ class BifrostClient:
                 "completion_tokens": int(usage.get("completion_tokens", 0)),
                 "total_tokens": tokens,
                 "latency_ms": round((time.monotonic() - started) * 1000),
+                "reasoning": effort,
                 "ok": True,
             }
             self._log(entry)
@@ -246,6 +278,7 @@ class BifrostClient:
                 "character": character,
                 "model": cfg.model,
                 "latency_ms": round((time.monotonic() - started) * 1000),
+                "reasoning": effort,
                 "ok": False,
                 "error": str(exc),
             })
@@ -266,6 +299,7 @@ class BifrostClient:
                     "daily_tokens": cfg.daily_tokens,
                     "model": cfg.model,
                     "fallbacks": list(cfg.fallbacks),
+                    "reasoning": cfg.reasoning,
                 }
                 for character, cfg in self.models.items()
             },

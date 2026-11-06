@@ -14,6 +14,7 @@ from world_engine.service import WorldService
 from . import context, social
 from .bifrost_scene import _apply, _parse_envelope, _system
 from .canon import load as load_canon, validate
+from .social import clean_scene_line
 from .tavily_beat import world_context
 
 MAX_MESSAGE = 800
@@ -34,9 +35,16 @@ def reply_to_dm(
     if character not in characters:
         raise ValueError(f"unknown character: {character}")
     if client is None:
-        from gateway.bifrost import BifrostClient
+        from world_engine import config
 
-        client = BifrostClient()
+        if config.AGENT_MODE == "cloud":
+            from .cloud_switch import CloudBifrost
+
+            client = CloudBifrost()
+        else:
+            from gateway.bifrost import BifrostClient
+
+            client = BifrostClient()
 
     canon = load_canon()
     world = world_context(service)
@@ -126,15 +134,26 @@ def reply_to_dm(
         participants=[character, "user"],
         visibility="private",
     )
-    envelope = _parse_envelope(client.chat_json(character, messages), character)
-    reply = envelope["reply"]
-    if (
-            verdict["stance"] in {"refuse", "hard_refuse"}
-            or (verdict["stance"] == "limited" and social.looks_like_refusal(reply))
-            or social.contains_leak(reply, verdict)
-        ):
+    envelope = _parse_envelope(
+        client.chat_json(
+            character,
+            messages,
+            reasoning=(
+                "high" if verdict["topic"] in {"body", "contact"} else "low"
+            ),
+        ),
+        character,
+    )
+    reply = clean_scene_line(envelope["reply"])
+    if not reply:
         reply = social.deflection(character, verdict, message)
-        envelope["reply"] = reply
+    if (
+        verdict["stance"] in {"refuse", "hard_refuse"}
+        or (verdict["stance"] == "limited" and social.looks_like_refusal(reply))
+        or social.contains_leak(reply, verdict)
+    ):
+        reply = social.deflection(character, verdict, message)
+    envelope["reply"] = reply
 
     service.record_event(
         character,
@@ -160,6 +179,7 @@ def reply_to_dm(
         "character": character,
         "reply": reply,
         "social": verdict,
+        "reasoning": "high" if verdict["topic"] in {"body", "contact"} else "low",
         "writes": writes,
         "canon_issues": issues,
         "bifrost": usage,

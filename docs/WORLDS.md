@@ -1,6 +1,6 @@
 # Worlds — the recordable demo scenarios
 
-One dashboard, seven loadable worlds. A world is a **scenario preset** (`world/scenarios/*.json`):
+One dashboard, eight loadable worlds. A world is a **scenario preset** (`world/scenarios/*.json`):
 a reset + seed of the same world engine, not a second engine on another port. Loading a
 world clears the world DB and reapplies its clock, cast, friends, edges, beliefs, outfits,
 items, scene art and ending card. Switch room history is not cleared, so use a distinct
@@ -15,6 +15,7 @@ room per take if the transport transcript matters.
 | `w5-good` | Three Ways — Good | all four | 21:30 | The same setup as the bad end, but the ledger supports **GOOD END — The Confession**. |
 | `w5-bad` | Three Ways — Bad | all four | 21:30 | The good setup with a colder ledger supports **BAD END — The Leak**. |
 | `w6-long-tuesday` | The Long Tuesday | all four | 08:00 | The original five-beat arc and the remove-Switch fallback. |
+| `w7-last-call` | Last Call | Mia | 15:40 | The **4-heart showcase** with the most openly enthusiastic character: eager teasing first, then the quiet, honest version after the truck closes. |
 
 ## Takes
 

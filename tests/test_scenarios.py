@@ -47,7 +47,7 @@ def _connection(state: dict, a: str, b: str) -> dict:
 def test_scenario_inventory_and_cards():
     cards = list_scenarios()
     assert [card["id"] for card in cards] == SCENARIO_ORDER
-    assert len(cards) == 7
+    assert len(cards) == 8
     for card in cards:
         assert set(card) == {"id", "title", "seed", "ending", "cast", "notes"}
         assert card["cast"]

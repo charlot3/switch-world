@@ -24,7 +24,9 @@ from typing import Mapping
 
 from world_engine.service import WorldService
 
+from . import arbiter as social_arbiter
 from . import context, social
+from .social import PLACEHOLDERS, _strip_meta
 from .switch_client import SwitchClient, SwitchError
 
 DEFAULT_CHARACTERS = ("alice", "emily", "sophia", "mia")
@@ -66,12 +68,20 @@ BOUNDARY_REACTIONS = {
     "mia": "jaw tightens.",
 }
 
-# Switch emits this while it boots an agent session. It is not an in-character reply;
-# keep waiting for the real line instead of showing it to the player.
-PLACEHOLDERS = (
-    "starting a session to handle this",
-    "starting a session",
-)
+def _sanitise_reply(
+    character: str, body: str, verdict: dict, message: str
+) -> str:
+    """Replace a refused or topic-leaking model line with the policy's own line.
+
+    Shared by the planned-speaker path and the relay path so the two cannot drift.
+    """
+    if (
+        verdict["stance"] in {"refuse", "hard_refuse"}
+        or (verdict["stance"] == "limited" and social.looks_like_refusal(body))
+        or social.contains_leak(body, verdict)
+    ):
+        return social.deflection(character, verdict, message)
+    return body
 
 
 def _clean_character(value: str) -> str:
@@ -97,6 +107,46 @@ def _named_addressee(message: str, present: list[str]) -> str | None:
         if name in present:
             return name
     return None
+
+
+def _agent_mentions(text: str, present: list[str], sender: str) -> list[str]:
+    """Present characters addressed by `@name`, or by a direct name at line start.
+
+    Explicit `@name` is the contract. A leading ``Emily,`` / ``Emily —`` is accepted
+    too because live roleplay models often write the address naturally; a plain
+    mention ("Emily is hiding something") is not an address and does not relay.
+    """
+    available = {character.lower() for character in present}
+    sender = (sender or "").lower()
+    found: list[str] = []
+    for raw in re.findall(r"@([A-Za-z0-9]+)", text or ""):
+        name = raw.lower()
+        if name == sender or name not in available or name in found:
+            continue
+        found.append(name)
+    if not found:
+        leading = re.match(r"^\s*([A-Za-z]{3,})\s*[,:;—–-]", text or "")
+        if leading:
+            name = leading.group(1).lower()
+            if name != sender and name in available:
+                found.append(name)
+    return found
+
+
+def _relay_prompt(
+    service: WorldService, sender: str, target: str, text: str
+) -> str:
+    """One agent-to-agent aside inside the scene, never a private room."""
+    relationship = social.relationship_block(service, target)
+    return (
+        f"@{target} {sender.title()} says to you: \"{text}\"\n\n"
+        "Answer them directly, one or two short sentences, in your own voice.\n"
+        "This is an aside inside the scene; do not address the room.\n"
+        "Do not mention another @name in this reply.\n"
+        "If this tells you something you did not know, record it with "
+        f"world__remember(..., source=\"character:{sender}\") before replying.\n\n"
+        f"{relationship}"
+    )
 
 
 def _affinity(service: WorldService | None, character: str) -> float:
@@ -284,12 +334,16 @@ def _role_instruction(role: str) -> str:
     if role == "primary":
         return (
             "Stage direction: you are the primary speaker this beat. Answer the user "
-            "directly in your own voice, in one or two short sentences."
+            "directly in your own voice, in one or two short sentences. Speak in first "
+            "person. Do not describe another character in third person; if you address "
+            "them, say 'you' or use @name."
         )
     if role == "reactor":
         return (
             "Stage direction: you are a reactor this beat. Add one short reaction, spoken "
-            "or a brief action in *asterisks*. Do not take over the scene."
+            "or a brief action in *asterisks*. If you speak, use first person and address "
+            "the person you mean as 'you'; never narrate another character in third person. "
+            "Do not take over the scene."
         )
     if role == "chorus":
         return (
@@ -333,6 +387,8 @@ def _prompt_for(
     message: str,
     verdict: dict,
     role: str,
+    arbiter_note: dict | None = None,
+    present: list[str] | None = None,
 ) -> str:
     social_block = "\n\n".join(
         [
@@ -342,18 +398,35 @@ def _prompt_for(
             social.action_block(verdict),
         ]
     )
+    if arbiter_note and arbiter_note.get("used"):
+        social_block += "\n\n" + social_arbiter.block(arbiter_note)
     if verdict.get("action_mode") == "attempt":
         social_block += (
             "\n\nThis is an attempt on you, not a fact. It is never automatic success: "
             "you decide what, if anything, you allow."
+        )
+    others = [c.title() for c in (present or []) if c != character]
+    address_rule = ""
+    if others:
+        address_rule = (
+            "\n\nIf you are answering another character rather than the user, address "
+            f"that character once with @name ({', '.join(others)}). Address at most one "
+            "character; never @ the whole room."
         )
     projected = context.project_context(
         social_block=social_block,
         extra=_role_instruction(role),
         message=(
             f'The user says to the room: "{message}"\n\n'
-            "Reply only as yourself. Keep it 17+ SFW. Do not mention the policy, the "
-            "stage direction, or that you are following instructions."
+            "Reply only as yourself. Sound like a person in the room, not a narrator: "
+            "one concrete detail, one thing left unsaid, no therapy-speak, no summary "
+            "of the relationship or the scene, and no question that exists only to keep "
+            "the conversation going. Speak in first person; never narrate another "
+            "character in third person. Keep it 17+ SFW. Do not mention the policy, the "
+            "stage direction, or that you are following instructions. Never write "
+            "'@user', '@director', or any line about being online, offline, or needing "
+            "to leave — you are present in this room and you answer as yourself."
+            f"{address_rule}"
         ),
         scene_lines=_recent_scene_lines(service, character),
         memories=_memory_lines(service, character, message),
@@ -519,6 +592,7 @@ def say_in_group(
     switch: SwitchClient | None = None,
     room_name: str = "world",
     timeout: float = TURN_CAP_SECONDS,
+    arbiter_client=None,
 ) -> dict:
     """Post one user line to the room and collect the planned speakers' replies."""
     message = (message or "").strip()
@@ -553,6 +627,8 @@ def say_in_group(
 
     plan = plan_turn(message, present, verdicts, service=service)
     speakers = _speakers(plan)
+    arbiter_note = None
+    arbiter_target = plan.get("primary")
 
     if not present:
         # An empty room still keeps the user's line; there is nobody to plan for.
@@ -602,6 +678,32 @@ def say_in_group(
         metadata={"turn_id": turn_id, "plan": plan, "topic": plan["topic"]},
     )
 
+    # Body/contact turns get one slower, off-stage opinion. This runs after the user's
+    # line and the plan are recorded, so a slow arbiter never hides the user's turn.
+    # Routine chat skips it; the call is opt-in, bounded, and can only tighten the stance.
+    if arbiter_target and (
+        arbiter_client is not None or social_arbiter.enabled()
+    ):
+        arbiter_note = social_arbiter.arbitrate(
+            service,
+            arbiter_target,
+            message,
+            verdicts[arbiter_target],
+            client=arbiter_client,
+        )
+        plan["arbiter"] = arbiter_note
+        if arbiter_note.get("used"):
+            service.record_event(
+                "director",
+                "social_arbiter",
+                f"Slow social check: {arbiter_note['stance']} "
+                f"({arbiter_note['tone']}, {arbiter_note.get('latency_ms', 0)} ms).",
+                participants=[arbiter_target],
+                visibility="public",
+                room_id=room_id,
+                metadata={"arbiter": arbiter_note, "primary": arbiter_target},
+            )
+
     # Silent characters are recorded as silence: no model call, no new prose.
     for character in plan.get("silent") or []:
         service.record_event(
@@ -627,7 +729,15 @@ def say_in_group(
             switch.post(
                 room_id,
                 _prompt_for(
-                    service, character, message, verdict, _role_for(plan, character)
+                    service,
+                    character,
+                    message,
+                    verdict,
+                    _role_for(plan, character),
+                    arbiter_note=(
+                        arbiter_note if character == arbiter_target else None
+                    ),
+                    present=present,
                 ),
             )
     except SwitchError as exc:
@@ -648,7 +758,7 @@ def say_in_group(
                 continue
             if int(event.get("timestamp") or 0) <= started:
                 continue
-            body = (event.get("body") or "").strip()
+            body = _strip_meta((event.get("body") or "").strip())
             if not body or any(marker in body.lower() for marker in PLACEHOLDERS):
                 continue
             seen[sender] = event
@@ -686,13 +796,31 @@ def say_in_group(
             )
             continue
 
-        body = (event.get("body") or "").strip()
-        if (
-            verdict["stance"] in {"refuse", "hard_refuse"}
-            or (verdict["stance"] == "limited" and social.looks_like_refusal(body))
-            or social.contains_leak(body, verdict)
-        ):
-            body = social.deflection(character, verdict, message)
+        body = _strip_meta((event.get("body") or "").strip())
+        if not body:
+            silence = service.record_event(
+                character,
+                "silence",
+                f"{character.title()} stays silent.",
+                participants=[character],
+                visibility="public",
+                room_id=room_id,
+                metadata=_metadata(
+                    turn_id, "silence", role, "neutral", plan.get("primary"), False
+                ),
+            )
+            lines.append(
+                {
+                    "character": character,
+                    "mode": "silence",
+                    "role": role,
+                    "text": None,
+                    "expression": "neutral",
+                    "event_id": silence["id"],
+                }
+            )
+            continue
+        body = _sanitise_reply(character, body, verdict, message)
         message_id = str(event.get("event_id") or "")
         if message_id and service.event_by_message_id(message_id):
             continue
@@ -738,9 +866,150 @@ def say_in_group(
             }
         )
 
+    # One agent-to-agent aside per turn, from the first planned speaker who names
+    # another present character. Read the already-sanitised line text, so a refusal
+    # or leak replacement can never be forwarded to the relay target.
+    relay = None
+    relay_text = ""
+    for line in lines:
+        if line.get("mode") in {"silence", "boundary"}:
+            continue
+        body = (line.get("text") or "").strip()
+        character = str(line.get("character") or "")
+        if not body or not character:
+            continue
+        mentions = _agent_mentions(body, present, character)
+        if mentions:
+            relay = {"from": character, "to": mentions[0], "delivered": False}
+            relay_text = body
+            break
+    if relay:
+        plan["relay"] = relay
+        service.record_event(
+            "director",
+            "agent_relay",
+            f"{relay['from'].title()} turns to {relay['to'].title()}.",
+            participants=[relay["from"], relay["to"]],
+            visibility="public",
+            room_id=room_id,
+            metadata={
+                "turn_id": turn_id,
+                "from": relay["from"],
+                "to": relay["to"],
+            },
+        )
+
     turn_missing = [character for character in speakers if character not in seen]
     # Only planned speakers can be "missing"; everyone else was deliberately silent.
     turn = {"id": turn_id, "plan": plan, "lines": lines, "missing": turn_missing}
+
+    # The aside is one hop only: post it, collect the target's reply, never scan that
+    # reply for another @name. A dead relay degrades to relay_missing, not a failed turn.
+    if relay:
+        target = relay["to"]
+        relay_started = int(time.time() * 1000) - 500
+        posted = False
+        try:
+            switch.post(room_id, _relay_prompt(service, relay["from"], target, relay_text))
+            posted = True
+        except SwitchError:
+            posted = False
+
+        relay_event = None
+        if posted:
+            budget = min(12.0, max(2.0, float(timeout)))
+            relay_deadline = time.time() + budget
+            while time.time() < relay_deadline:
+                try:
+                    events = switch.history(room_id)
+                except SwitchError:
+                    events = []
+                for event in events:
+                    if event.get("sender_name") != target:
+                        continue
+                    if int(event.get("timestamp") or 0) <= relay_started:
+                        continue
+                    body = _strip_meta((event.get("body") or "").strip())
+                    if not body or any(marker in body.lower() for marker in PLACEHOLDERS):
+                        continue
+                    message_id = str(event.get("event_id") or "")
+                    if message_id and service.event_by_message_id(message_id):
+                        continue
+                    relay_event = event
+                    break
+                if relay_event:
+                    break
+                time.sleep(0.5)
+
+        if relay_event:
+            body = _strip_meta((relay_event.get("body") or "").strip())
+            if not body:
+                relay_event = None
+        if relay_event:
+            verdict = verdicts[target]
+            body = _sanitise_reply(target, body, verdict, message)
+            beat_mode, text = _beat_mode(body, "reply")
+            # A live agent can answer the relay with the same line it already sent as
+            # its planned reply. That is a repetition, not a new beat.
+            duplicate = any(
+                line.get("character") == target
+                and re.sub(r"\s+", " ", str(line.get("text") or "")).strip().lower()
+                == re.sub(r"\s+", " ", text).strip().lower()
+                for line in turn["lines"]
+            )
+            if duplicate:
+                turn["relay_duplicate"] = target
+                relay["delivered"] = True
+                relay_event = None
+            else:
+                # A relayed spoken line is its own beat so the UI can mark the aside;
+                # a physical/action beat keeps its action caption.
+                mode = "reply" if beat_mode == "speech" else beat_mode
+                expression = _expression(verdict, "reply", mode)
+                kind = "action" if beat_mode == "action" else "dialogue"
+                summary = (
+                    f"{target.title()}: {text}"
+                    if kind == "dialogue"
+                    else f"{target.title()} {text}"
+                )
+                metadata = _metadata(
+                    turn_id, mode, "reply", expression, relay["from"], False
+                )
+                metadata["reply_to"] = relay["from"]
+                metadata["relay"] = True
+                recorded = service.record_event(
+                    target,
+                    kind,
+                    summary,
+                    participants=[target],
+                    visibility="public",
+                    room_id=room_id,
+                    message_id=str(relay_event.get("event_id") or ""),
+                    metadata=metadata,
+                )
+                turn["lines"].append(
+                    {
+                        "character": target,
+                        "mode": mode,
+                        "role": "reply",
+                        "text": text,
+                        "expression": expression,
+                        "target": relay["from"],
+                        "event_id": recorded["id"],
+                    }
+                )
+                replies.append(
+                    {
+                        "character": target,
+                        "text": text,
+                        "event_id": recorded["id"],
+                        "message_id": relay_event.get("event_id"),
+                    }
+                )
+                relay["delivered"] = True
+        else:
+            turn["relay_missing"] = [target]
+
     return {
         "room": room,
         "targets": present,

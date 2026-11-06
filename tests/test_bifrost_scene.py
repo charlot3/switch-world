@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from director.bifrost_scene import run_cafe_bifrost
+from director.bifrost_scene import _system, run_cafe_bifrost
+from director.canon import load as load_canon
 from world_engine import config
 from world_engine.service import WorldService
 
@@ -101,3 +102,29 @@ def test_bifrost_suspicion_is_non_disclosure(tmp_path):
     assert result["branch"]["id"] == "non-disclosure"
     assert [h["holder"] for h in service.who_knows("user-leaving-city")["holders"]] == ["alice"]
     assert service.who_knows("alice-holding-back")["holders"][0]["holder"] == "emily"
+
+
+def test_system_prompt_forbids_meta_room_lines():
+    system = _system("alice", load_canon(), "")
+    assert "@user" in system
+    assert "offline" in system
+
+
+def test_bifrost_meta_reply_is_not_recorded_as_dialogue(tmp_path):
+    service = make_service(tmp_path)
+    meta = "@user — I'm not online in this room, @director."
+    envelope = {"reply": meta, "memory": None, "relationships": []}
+    client = FakeBifrost({"alice": envelope, "emily": envelope})
+
+    result = run_cafe_bifrost(service, client=client)
+
+    assert result["alice"] is None
+    assert result["emily"] is None
+    dialogues = service.events(kind="dialogue")
+    assert all(
+        "@user" not in event["summary"] and "@director" not in event["summary"]
+        for event in dialogues
+    )
+    assert "@user" not in result["card"]["text"]
+    assert "@director" not in result["card"]["text"]
+    assert service.events(kind="no_reply")

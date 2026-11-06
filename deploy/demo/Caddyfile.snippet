@@ -1,0 +1,21 @@
+# switch-world guest demo site.
+#
+# This is a Caddyfile *snippet*, rendered by deploy.sh and written to
+# /etc/caddy/conf.d/switch-world.caddy. Caddy's env syntax is a dollar-brace NAME pair; the
+# placeholders below are substituted before the file is installed because the
+# systemd Caddy service does not inherit an interactive SSH environment.
+#
+# Import it from the main Caddyfile exactly once:
+#     import /etc/caddy/conf.d/*.caddy
+#
+# Requires Caddy >= 2.8 for `basic_auth` (older builds use `basicauth`).
+
+{$DEMO_DOMAIN} {
+	encode zstd gzip
+
+	basic_auth {
+		{$DEMO_GUEST_USER} {$DEMO_GUEST_HASH}
+	}
+
+	reverse_proxy 127.0.0.1:8893
+}

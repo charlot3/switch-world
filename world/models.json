@@ -6,7 +6,8 @@
     "max_tokens": 700,
     "daily_tokens": 60000,
     "virtual_key_env": "BIFROST_VK_ALICE",
-    "note": "warm and unhurried; a slower, softer sampling profile \u00b7 OpenCode Go DeepSeek 4.1 Flash via scripts/opencode-gateway.py"
+    "note": "warm and unhurried; a slower, softer sampling profile · OpenCode Go DeepSeek 4.1 Flash via scripts/opencode-gateway.py",
+    "reasoning": "low"
   },
   "emily": {
     "model": "openai/deepseek-v4.1-flash",
@@ -15,7 +16,8 @@
     "max_tokens": 700,
     "daily_tokens": 50000,
     "virtual_key_env": "BIFROST_VK_EMILY",
-    "note": "short, precise, low-temperature \u00b7 OpenCode Go DeepSeek 4.1 Flash via scripts/opencode-gateway.py"
+    "note": "short, precise, low-temperature · OpenCode Go DeepSeek 4.1 Flash via scripts/opencode-gateway.py",
+    "reasoning": "low"
   },
   "sophia": {
     "model": "openai/deepseek-v4.1-flash",
@@ -24,7 +26,8 @@
     "max_tokens": 700,
     "daily_tokens": 50000,
     "virtual_key_env": "BIFROST_VK_SOPHIA",
-    "note": "measured; long pauses are part of the voice \u00b7 OpenCode Go DeepSeek 4.1 Flash via scripts/opencode-gateway.py"
+    "note": "measured; long pauses are part of the voice · OpenCode Go DeepSeek 4.1 Flash via scripts/opencode-gateway.py",
+    "reasoning": "low"
   },
   "mia": {
     "model": "openai/deepseek-v4.1-flash",
@@ -33,6 +36,16 @@
     "max_tokens": 700,
     "daily_tokens": 60000,
     "virtual_key_env": "BIFROST_VK_MIA",
-    "note": "fast, funny, high-variance \u00b7 OpenCode Go DeepSeek 4.1 Flash via scripts/opencode-gateway.py"
+    "note": "fast, funny, high-variance · OpenCode Go DeepSeek 4.1 Flash via scripts/opencode-gateway.py",
+    "reasoning": "low"
+  },
+  "arbiter": {
+    "model": "openai/deepseek-v4.1-flash",
+    "fallbacks": [],
+    "temperature": 0.2,
+    "max_tokens": 260,
+    "daily_tokens": 20000,
+    "reasoning": "high",
+    "note": "high-effort social arbiter for body/contact turns; never writes the character's prose"
   }
 }

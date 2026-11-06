@@ -1,5 +1,9 @@
 # Demo — 5 minutes
 
+> **Recording today?** Use the tighter four-minute cut and the test pass in
+> [`DEMO_TODAY.md`](DEMO_TODAY.md). It adds the `w7-last-call` Mia four-heart showcase and
+> the whisper continuity check. This longer document remains the full shot list.
+
 > This is the **submission demo** and requires Switch. For the local prototype, run
 > `uv run world-engine` and use the dashboard's **Dev harness** (Tell Alice → Run café
 > beat); it exercises the same state writes but not Switch.

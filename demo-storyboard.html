@@ -1,0 +1,1990 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Switch World Demo Storyboard</title>
+<meta name="description" content="A four-minute recording board for switch-world: four acts, four features, six layers, one hard stop.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap">
+<style>
+  :root {
+    --bg: #100c0e;
+    --surface: #191316;
+    --surface-2: #21181c;
+    --line: #3a2a30;
+    --line-soft: #2a2024;
+    --fg: #f4ead9;
+    --muted: #b9a89a;
+    --dim: #8b7b72;
+    --rose: #c4566b;
+    --rose-soft: #e6a3b0;
+    --rose-wash: rgba(196, 86, 107, 0.11);
+    --display: "Fraunces", "Iowan Old Style", Georgia, serif;
+    --body: "IBM Plex Sans", "Avenir Next", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+    --wrap: 1180px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html {
+    overflow-x: hidden;
+    overflow-x: clip;
+  }
+
+  body {
+    margin: 0;
+    overflow-x: hidden;
+    overflow-x: clip;
+    background:
+      radial-gradient(1000px 520px at 78% -10%, rgba(196, 86, 107, 0.16), transparent 64%),
+      radial-gradient(820px 460px at 4% 16%, rgba(196, 86, 107, 0.055), transparent 62%),
+      var(--bg);
+    color: var(--fg);
+    font-family: var(--body);
+    font-size: 15px;
+    line-height: 1.55;
+    overflow-wrap: break-word;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection { background: var(--rose); color: #180d10; }
+
+  a { color: inherit; }
+  img { max-width: 100%; }
+
+  h1, h2, h3, h4, p { text-wrap: pretty; }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .skip {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    z-index: 100;
+    padding: 9px 13px;
+    border: 1px solid var(--rose);
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--mono);
+    font-size: 11px;
+    text-decoration: none;
+    transform: translateY(-160%);
+  }
+
+  .skip:focus { transform: none; }
+
+  .wrap {
+    width: min(var(--wrap), 100%);
+    margin: 0 auto;
+    padding: clamp(24px, 5vw, 52px) clamp(16px, 4vw, 40px) 64px;
+  }
+
+  a:focus-visible,
+  button:focus-visible {
+    outline: 2px solid var(--rose-soft);
+    outline-offset: 3px;
+  }
+
+  /* ---------- masthead ---------- */
+
+  .masthead {
+    display: grid;
+    gap: 18px;
+    padding-bottom: 28px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .masthead-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+    flex-wrap: wrap;
+  }
+
+  .kicker {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+    color: var(--rose-soft);
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .kicker::before {
+    content: "";
+    width: 30px;
+    height: 1px;
+    background: var(--rose);
+  }
+
+  .slug {
+    margin: 8px 0 0;
+    color: var(--dim);
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .stamp {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 9px 13px 8px;
+    border: 1px solid var(--rose);
+    background: rgba(196, 86, 107, 0.06);
+    white-space: nowrap;
+  }
+
+  .stamp-time {
+    font-family: var(--display);
+    font-size: 32px;
+    font-weight: 500;
+    line-height: 0.9;
+    letter-spacing: -0.04em;
+    color: var(--fg);
+  }
+
+  .stamp-meta {
+    color: var(--rose-soft);
+    font-family: var(--mono);
+    font-size: 9px;
+    line-height: 1.35;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  h1 {
+    margin: 0;
+    font-family: var(--display);
+    font-size: clamp(38px, 6.6vw, 78px);
+    font-weight: 500;
+    line-height: 0.97;
+    letter-spacing: -0.04em;
+    text-wrap: balance;
+  }
+
+  h1 .accent { color: var(--rose-soft); }
+
+  .thesis {
+    max-width: 74ch;
+    margin: 0;
+    color: var(--muted);
+    font-size: clamp(15px, 1.6vw, 18px);
+    line-height: 1.55;
+  }
+
+  .thesis strong {
+    color: var(--fg);
+    font-weight: 500;
+  }
+
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px 20px;
+    margin: 2px 0 0;
+    padding: 0;
+    list-style: none;
+    color: var(--dim);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .meta li { display: inline-flex; align-items: center; gap: 8px; }
+
+  .meta li::before {
+    content: "";
+    width: 5px;
+    height: 5px;
+    background: var(--rose);
+  }
+
+  /* ---------- timer ---------- */
+
+  .timer-panel {
+    margin-top: 26px;
+    padding: clamp(18px, 3vw, 28px);
+    border: 1px solid var(--line);
+    background:
+      linear-gradient(180deg, rgba(33, 24, 28, 0.92), rgba(20, 15, 17, 0.94));
+  }
+
+  .timer-topline {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+
+  .eyebrow {
+    margin: 0;
+    color: var(--dim);
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 400;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--dim);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .status::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--dim);
+  }
+
+  .status[data-state="running"] {
+    color: var(--rose-soft);
+  }
+
+  .status[data-state="running"]::before {
+    background: var(--rose);
+    box-shadow: 0 0 0 3px var(--rose-wash);
+  }
+
+  .status[data-state="paused"]::before { background: var(--rose-soft); }
+  .status[data-state="stopped"] { color: var(--rose-soft); }
+  .status[data-state="stopped"]::before { background: var(--rose); }
+
+  .timer-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 18px 26px;
+    align-items: end;
+  }
+
+  .time-label {
+    margin: 0 0 2px;
+    color: var(--dim);
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .timer-display {
+    font-family: var(--mono);
+    font-size: clamp(56px, 9vw, 94px);
+    font-variant-numeric: tabular-nums;
+    line-height: 0.9;
+    letter-spacing: -0.065em;
+    color: var(--fg);
+  }
+
+  .segment {
+    min-height: 18px;
+    margin-top: 8px;
+    color: var(--rose-soft);
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .btn {
+    appearance: none;
+    border: 1px solid var(--line);
+    background: var(--surface-2);
+    color: var(--fg);
+    padding: 9px 13px;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  .btn:hover:not(:disabled) { border-color: var(--rose); }
+
+  .btn.primary {
+    border-color: var(--rose);
+    background: var(--rose);
+    color: #180d10;
+    font-weight: 500;
+  }
+
+  .btn.primary:hover:not(:disabled) { background: var(--rose-soft); border-color: var(--rose-soft); }
+
+  .btn.ghost { background: transparent; }
+
+  .btn[aria-expanded="true"] {
+    border-color: var(--rose);
+    color: var(--rose-soft);
+    background: var(--rose-wash);
+  }
+
+  .btn:disabled {
+    opacity: 0.34;
+    cursor: default;
+  }
+
+  .track {
+    position: relative;
+    height: 10px;
+    margin-top: 20px;
+    border: 1px solid var(--line-soft);
+    background: var(--surface-2);
+  }
+
+  .progress-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 0%;
+    background: linear-gradient(90deg, #8e3c4c, var(--rose));
+    transition: width 110ms linear;
+  }
+
+  .tick {
+    position: absolute;
+    top: -4px;
+    bottom: -4px;
+    width: 1px;
+    background: var(--line);
+  }
+
+  .tick.close { background: var(--rose); }
+
+  .playhead {
+    position: absolute;
+    top: -6px;
+    bottom: -6px;
+    left: 0%;
+    width: 2px;
+    margin-left: -1px;
+    background: var(--rose-soft);
+    transition: left 110ms linear;
+  }
+
+  .marker-row {
+    display: flex;
+    gap: 4px;
+    margin-top: 10px;
+  }
+
+  .marker {
+    flex: 1 1 0;
+    min-width: 0;
+    appearance: none;
+    display: grid;
+    gap: 2px;
+    padding: 6px 2px 5px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--dim);
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    line-height: 1.2;
+    text-align: left;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  .marker .m-time {
+    color: var(--muted);
+    font-size: 11px;
+    letter-spacing: 0.02em;
+  }
+
+  .marker:hover { border-color: var(--line); color: var(--muted); }
+  .marker.is-past .m-time { color: var(--fg); }
+
+  .marker.is-current {
+    border-color: var(--rose);
+    background: var(--rose-wash);
+    color: var(--rose-soft);
+  }
+
+  .marker.is-current .m-time { color: var(--rose-soft); }
+
+  .timer-note {
+    margin: 12px 0 0;
+    color: var(--dim);
+    font-size: 11.5px;
+    line-height: 1.45;
+  }
+
+  .timer-note kbd {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  /* ---------- sections ---------- */
+
+  .section { margin-top: clamp(38px, 6vw, 64px); }
+
+  .section-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 430px);
+    gap: 6px 34px;
+    align-items: end;
+    margin-bottom: 18px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+  }
+
+  .section-no {
+    grid-column: 1 / -1;
+    margin: 0 0 2px;
+    color: var(--rose-soft);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .section-head h2 {
+    margin: 0;
+    font-family: var(--display);
+    font-size: clamp(27px, 3.4vw, 40px);
+    font-weight: 500;
+    line-height: 1.04;
+    letter-spacing: -0.028em;
+  }
+
+  .section-note {
+    margin: 0;
+    color: var(--dim);
+    font-size: 12.5px;
+    line-height: 1.5;
+    text-align: right;
+  }
+
+  .micro {
+    display: block;
+    margin: 0;
+    color: var(--dim);
+    font-family: var(--mono);
+    font-size: 9px;
+    font-weight: 400;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  /* ---------- act cards ---------- */
+
+  .acts-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .act-card {
+    display: flex;
+    flex-direction: column;
+    padding: 19px 20px 17px;
+    border: 1px solid var(--line);
+    background: rgba(25, 19, 22, 0.74);
+    transition: border-color 180ms ease, background 180ms ease;
+  }
+
+  .act-card.is-live {
+    border-color: rgba(196, 86, 107, 0.62);
+    box-shadow: inset 3px 0 0 var(--rose);
+    background:
+      linear-gradient(180deg, rgba(196, 86, 107, 0.075), rgba(25, 19, 22, 0.76) 46%);
+  }
+
+  .act-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+
+  .act-no {
+    color: var(--rose-soft);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .act-time {
+    color: var(--dim);
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+  }
+
+  .act-card h3 {
+    margin: 13px 0 7px;
+    font-family: var(--display);
+    font-size: clamp(23px, 2.4vw, 28px);
+    font-weight: 500;
+    line-height: 1.06;
+    letter-spacing: -0.02em;
+  }
+
+  .act-purpose {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+
+  .act-purpose .micro { margin-bottom: 4px; }
+
+  .act-narr {
+    margin-top: 14px;
+    padding-top: 11px;
+    border-top: 1px solid var(--line-soft);
+  }
+
+  .act-narr p {
+    margin: 5px 0 0;
+    color: var(--fg);
+    font-family: var(--display);
+    font-size: 14.5px;
+    line-height: 1.52;
+  }
+
+  .act-links {
+    margin-top: auto;
+    padding-top: 15px;
+  }
+
+  .act-links .micro { margin-bottom: 7px; }
+
+  .link-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .act-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.04em;
+    text-decoration: none;
+  }
+
+  .act-link:hover {
+    border-color: var(--rose);
+    color: var(--fg);
+  }
+
+  .act-link .dot {
+    width: 5px;
+    height: 5px;
+    background: var(--rose);
+  }
+
+  /* ---------- feature frame ---------- */
+
+  .feature-frame {
+    border: 1px solid var(--line);
+    background: var(--surface);
+  }
+
+  .frame-bar,
+  .frame-foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6px 18px;
+    padding: 10px 14px;
+    color: var(--dim);
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    line-height: 1.4;
+    text-transform: uppercase;
+  }
+
+  .frame-bar { border-bottom: 1px solid var(--line); }
+  .frame-foot { border-top: 1px solid var(--line); }
+
+  .frame-bar b {
+    color: var(--rose-soft);
+    font-weight: 400;
+  }
+
+  .frame-foot b {
+    color: var(--muted);
+    font-weight: 400;
+  }
+
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1px;
+    background: var(--line);
+  }
+
+  .pane {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding: 18px 18px 20px;
+    background: var(--surface);
+  }
+
+  .pane-top {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+
+  .pane-num {
+    font-family: var(--display);
+    font-size: 33px;
+    font-weight: 400;
+    line-height: 0.8;
+    color: var(--rose);
+  }
+
+  .pane-label {
+    color: var(--fg);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .pane-dur {
+    margin-left: auto;
+    padding: 2px 6px;
+    border: 1px solid var(--line);
+    color: var(--dim);
+    font-family: var(--mono);
+    font-size: 9.5px;
+    white-space: nowrap;
+  }
+
+  .pane-caption {
+    margin: 13px 0 14px;
+    color: var(--fg);
+    font-family: var(--display);
+    font-size: clamp(19px, 1.95vw, 24px);
+    font-weight: 400;
+    line-height: 1.15;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+  }
+
+  .pane-fields {
+    display: grid;
+    gap: 11px;
+    margin: 0;
+  }
+
+  .pane-fields > div { display: grid; gap: 3px; }
+
+  .pane-fields dt {
+    color: var(--dim);
+    font-family: var(--mono);
+    font-size: 8.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .pane-fields dd {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12.5px;
+    line-height: 1.45;
+  }
+
+  .pane-fields .fallback dd { color: var(--dim); }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.92em;
+    color: var(--fg);
+  }
+
+  /* ---------- architecture ---------- */
+
+  .arch-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+    gap: 22px;
+    align-items: start;
+  }
+
+  .arch-figure {
+    margin: 0;
+    padding: 10px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+  }
+
+  .arch-figure img {
+    display: block;
+    width: 100%;
+    height: auto;
+    background: #0b0909;
+  }
+
+  .arch-figure figcaption {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6px 12px;
+    padding: 10px 2px 2px;
+    color: var(--dim);
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .arch-figure figcaption a {
+    color: var(--rose-soft);
+    text-underline-offset: 3px;
+  }
+
+  .six-bands {
+    margin: 0 0 10px;
+    color: var(--dim);
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    line-height: 1.6;
+    text-transform: uppercase;
+  }
+
+  .legend {
+    margin: 0;
+    padding: 0;
+    border-top: 1px solid var(--line);
+    list-style: none;
+  }
+
+  .legend-row {
+    display: grid;
+    grid-template-columns: 148px minmax(0, 1fr);
+    gap: 14px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--line-soft);
+  }
+
+  .legend-key {
+    color: var(--rose-soft);
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.12em;
+    line-height: 1.5;
+    text-transform: uppercase;
+  }
+
+  .legend-row p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+
+  .legend-row strong {
+    color: var(--fg);
+    font-weight: 500;
+  }
+
+  .proof {
+    margin-top: 18px;
+    padding: 16px 18px;
+    border: 1px solid var(--line);
+    background: rgba(20, 15, 17, 0.62);
+  }
+
+  .proof-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+
+  .proof-head h3 {
+    margin: 0;
+    font-family: var(--display);
+    font-size: 21px;
+    font-weight: 500;
+    letter-spacing: -0.015em;
+  }
+
+  .proof-head code {
+    color: var(--dim);
+    font-size: 10px;
+  }
+
+  .proof-cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    padding-top: 12px;
+  }
+
+  .proof-col h4 {
+    margin: 0 0 7px;
+    color: var(--rose-soft);
+    font-family: var(--mono);
+    font-size: 9px;
+    font-weight: 400;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .proof-col ul {
+    display: grid;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .proof-col li {
+    position: relative;
+    padding-left: 12px;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .proof-col li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.7em;
+    width: 5px;
+    height: 1px;
+    background: var(--rose);
+  }
+
+  .caveat {
+    margin: 12px 0 0;
+    padding-top: 10px;
+    border-top: 1px solid var(--line-soft);
+    color: var(--dim);
+    font-size: 11.5px;
+    line-height: 1.5;
+  }
+
+  /* ---------- closing thesis ---------- */
+
+  .closing-lead {
+    margin: 0 0 12px;
+    font-family: var(--display);
+    font-size: clamp(27px, 4.2vw, 50px);
+    font-weight: 500;
+    line-height: 1.06;
+    letter-spacing: -0.032em;
+    text-wrap: balance;
+  }
+
+  .closing-lead span { color: var(--rose-soft); }
+
+  .closing-sub {
+    max-width: 74ch;
+    margin: 0;
+    color: var(--muted);
+    font-size: clamp(14px, 1.4vw, 16px);
+    line-height: 1.55;
+  }
+
+  .caveat-chip {
+    display: inline-block;
+    margin-top: 12px;
+    padding: 5px 8px;
+    border: 1px solid var(--line);
+    color: var(--dim);
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .lanes {
+    margin-top: 22px;
+    border-top: 1px solid var(--line);
+  }
+
+  .lane {
+    display: grid;
+    grid-template-columns: 46px minmax(0, 0.92fr) minmax(0, 1.08fr);
+    gap: 16px;
+    align-items: start;
+    padding: 15px 0;
+    border-bottom: 1px solid var(--line-soft);
+  }
+
+  .lane-no {
+    font-family: var(--display);
+    font-size: 25px;
+    font-weight: 400;
+    line-height: 0.95;
+    color: var(--rose);
+  }
+
+  .lane h3 {
+    margin: 0 0 3px;
+    font-family: var(--display);
+    font-size: 20px;
+    font-weight: 500;
+    letter-spacing: -0.015em;
+  }
+
+  .lane p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+
+  .lane-examples { color: var(--dim); }
+
+  .lane-examples a {
+    color: var(--fg);
+    text-decoration-color: var(--line);
+    text-underline-offset: 2px;
+  }
+
+  .lane-examples a:hover {
+    color: var(--rose-soft);
+    text-decoration-color: var(--rose);
+  }
+
+  .lane.open {
+    background: linear-gradient(90deg, rgba(196, 86, 107, 0.075), transparent 72%);
+  }
+
+  .lane.open h3 { color: var(--rose-soft); }
+
+  .counterexample {
+    margin: 16px 0 0;
+    padding: 13px 15px;
+    border-left: 2px solid var(--line);
+    color: var(--dim);
+    font-size: 12px;
+    line-height: 1.55;
+  }
+
+  .counterexample strong { color: var(--muted); font-weight: 500; }
+  .counterexample a { color: var(--fg); text-underline-offset: 2px; }
+
+  .why {
+    margin-top: 22px;
+    padding: 17px 19px;
+    border-left: 2px solid var(--rose);
+    background: rgba(196, 86, 107, 0.055);
+  }
+
+  .why p {
+    margin: 0;
+    color: var(--fg);
+    font-family: var(--display);
+    font-size: clamp(17px, 2.1vw, 22px);
+    line-height: 1.42;
+    letter-spacing: -0.012em;
+  }
+
+  .discipline {
+    display: grid;
+    gap: 5px;
+    margin-top: 14px;
+    padding: 13px 15px;
+    border: 1px solid var(--line-soft);
+    color: var(--dim);
+    font-size: 11.5px;
+    line-height: 1.5;
+  }
+
+  .discipline b {
+    color: var(--rose-soft);
+    font-family: var(--mono);
+    font-size: 9px;
+    font-weight: 400;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .source-note {
+    margin: 14px 0 0;
+    color: var(--dim);
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.04em;
+    line-height: 1.6;
+    text-transform: uppercase;
+  }
+
+  .source-note a { color: var(--muted); text-underline-offset: 2px; }
+
+  /* ---------- teleprompter ---------- */
+
+  .prompter {
+    position: fixed;
+    z-index: 50;
+    left: 50%;
+    bottom: 12px;
+    width: min(1120px, calc(100% - 24px));
+    transform: translateX(-50%);
+    border: 1px solid var(--rose);
+    background: rgba(17, 12, 14, 0.985);
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.66);
+  }
+
+  .prompter-inner { padding: clamp(13px, 2.2vw, 21px); }
+
+  .prompter-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+
+  .prompter-act {
+    color: var(--rose-soft);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .prompter-cue {
+    color: var(--dim);
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .prompter-close {
+    margin-left: auto;
+    appearance: none;
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--muted);
+    padding: 4px 8px;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  .prompter-close:hover { border-color: var(--rose); color: var(--fg); }
+
+  .prompter-text {
+    max-height: 42vh;
+    margin: 10px 0 0;
+    overflow-y: auto;
+    color: var(--fg);
+    font-family: var(--display);
+    font-size: clamp(20px, 3.15vw, 35px);
+    font-weight: 400;
+    line-height: 1.24;
+    letter-spacing: -0.014em;
+    text-wrap: balance;
+  }
+
+  .prompter-next {
+    margin: 9px 0 0;
+    overflow: hidden;
+    color: var(--dim);
+    font-size: 11.5px;
+    line-height: 1.4;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  body.prompter-on { padding-bottom: clamp(250px, 36vh, 380px); }
+
+  /* ---------- footer ---------- */
+
+  footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px 18px;
+    margin-top: clamp(38px, 6vw, 64px);
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+    color: var(--dim);
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.06em;
+    line-height: 1.6;
+    text-transform: uppercase;
+  }
+
+  footer a { color: var(--muted); text-underline-offset: 2px; }
+  footer a:hover { color: var(--rose-soft); }
+
+  /* ---------- responsive ---------- */
+
+  @media (max-width: 900px) {
+    .arch-grid { grid-template-columns: 1fr; }
+    .arch-figure { max-width: 560px; }
+  }
+
+  @media (max-width: 820px) {
+    .feature-grid { grid-template-columns: 1fr; }
+    .pane-caption { max-width: 34ch; }
+  }
+
+  @media (max-width: 760px) {
+    .section-head {
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+    .section-note { text-align: left; }
+    .acts-grid { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 660px) {
+    .timer-grid {
+      grid-template-columns: 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+    .controls { justify-content: flex-start; }
+    .timer-display { font-size: clamp(52px, 16vw, 72px); }
+    .legend-row { grid-template-columns: 1fr; gap: 5px; }
+    .lane {
+      grid-template-columns: 34px minmax(0, 1fr);
+      gap: 6px 14px;
+    }
+    .lane-examples { grid-column: 2; }
+    .proof-cols { grid-template-columns: 1fr; gap: 14px; }
+    .prompter { bottom: 8px; width: calc(100% - 16px); }
+    .prompter-text { font-size: clamp(19px, 5.4vw, 26px); }
+    body.prompter-on { padding-bottom: 300px; }
+  }
+
+  @media (max-width: 430px) {
+    .stamp-time { font-size: 28px; }
+    .meta { gap: 6px 14px; }
+    .marker { font-size: 8px; letter-spacing: 0.06em; }
+    .marker .m-time { font-size: 10px; }
+    .act-card { padding: 17px 16px 15px; }
+    .pane { padding: 16px 15px 18px; }
+    .frame-bar, .frame-foot { font-size: 8px; }
+    .prompter-text { max-height: 38vh; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to the board</a>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="masthead-top">
+      <div>
+        <p class="kicker">Recording board · Switch World</p>
+        <p class="slug">Take 01 · four-act demo · one human showrunner</p>
+      </div>
+      <div class="stamp" aria-label="Target runtime 4 minutes, hard stop">
+        <span class="stamp-time">4:00</span>
+        <span class="stamp-meta">Target runtime<br>Hard stop</span>
+      </div>
+    </div>
+
+    <h1>Switch World <span class="accent">Demo</span> Storyboard</h1>
+
+    <p class="thesis"><strong>Not another voice</strong> — a small persistent cast that can address each other inside authored canon.</p>
+
+    <ul class="meta" aria-label="Board facts">
+      <li>Four acts</li>
+      <li>Four features</li>
+      <li>Six layers</li>
+      <li>One hard stop</li>
+    </ul>
+  </header>
+
+  <main id="main">
+
+  <section class="timer-panel" aria-labelledby="timer-heading">
+    <div class="timer-topline">
+      <h2 class="eyebrow" id="timer-heading">Rehearsal clock</h2>
+      <span class="status" id="timer-status" data-state="ready">Ready</span>
+    </div>
+
+    <div class="timer-grid">
+      <div>
+        <p class="time-label">Time remaining</p>
+        <div class="timer-display" id="timer-display" role="timer" aria-live="off" aria-label="Time remaining">04:00</div>
+        <p class="segment" id="timer-segment">Act I · What we built</p>
+      </div>
+
+      <div class="controls" role="group" aria-label="Timer controls">
+        <button type="button" class="btn primary" id="timer-start">Start</button>
+        <button type="button" class="btn ghost" id="timer-pause" disabled>Pause</button>
+        <button type="button" class="btn ghost" id="timer-reset">Reset</button>
+        <button type="button" class="btn ghost" id="prompter-toggle" aria-expanded="false" aria-controls="prompter">Teleprompter</button>
+      </div>
+    </div>
+
+    <div class="track" aria-hidden="true">
+      <div class="progress-fill" id="progress-fill"></div>
+      <span class="tick" style="left: 0%"></span>
+      <span class="tick" style="left: 12.5%"></span>
+      <span class="tick" style="left: 50%"></span>
+      <span class="tick" style="left: 75%"></span>
+      <span class="tick close" style="left: 95.8333%"></span>
+      <span class="playhead" id="progress-playhead"></span>
+    </div>
+
+    <div class="marker-row" role="group" aria-label="Act markers">
+      <button type="button" class="marker is-current" data-seek="0" aria-label="Jump to Act I at 0:00" aria-current="step">
+        <span class="m-time">0:00</span>
+        <span class="m-act">Act I</span>
+      </button>
+      <button type="button" class="marker" data-seek="30" aria-label="Jump to Act II at 0:30">
+        <span class="m-time">0:30</span>
+        <span class="m-act">Act II</span>
+      </button>
+      <button type="button" class="marker" data-seek="120" aria-label="Jump to Act III at 2:00">
+        <span class="m-time">2:00</span>
+        <span class="m-act">Act III</span>
+      </button>
+      <button type="button" class="marker" data-seek="180" aria-label="Jump to Act IV at 3:00">
+        <span class="m-time">3:00</span>
+        <span class="m-act">Act IV</span>
+      </button>
+      <button type="button" class="marker" data-seek="230" aria-label="Jump to the close at 3:50">
+        <span class="m-time">3:50</span>
+        <span class="m-act">Close</span>
+      </button>
+    </div>
+
+    <p class="timer-note">Act markers jump the clock. The teleprompter follows the active cue and never auto-scrolls. <kbd>Esc</kbd> closes it.</p>
+  </section>
+
+  <section class="section" aria-labelledby="acts-heading">
+    <header class="section-head">
+      <p class="section-no">01 / Run of show</p>
+      <h2 id="acts-heading">Four acts, one hard stop</h2>
+      <p class="section-note">Four cards, one per act. Links open the live dashboard at <code>:8890</code> and the rehearsal tab at <code>:8892</code>; keep the rehearsal tab off camera.</p>
+    </header>
+
+    <div class="acts-grid">
+
+      <article class="act-card is-live" data-act-card aria-current="true">
+        <div class="act-top">
+          <span class="act-no">Act I</span>
+          <span class="act-time">0:00–0:30</span>
+        </div>
+        <h3>What we built</h3>
+        <p class="act-purpose"><span class="micro">Purpose</span>Show the product in one breath: four characters, one room, a human showrunner, a world that records beliefs.</p>
+        <div class="act-narr">
+          <span class="micro">Narration</span>
+          <p>Four characters — Alice, Emily, Sophia, Mia. One room. You are the showrunner, not a menu. And underneath the scene, a world that records what each of them believes: who told them, when, and how sure they are. They can talk to you, to the room, in a whisper only one of them hears, and — one hop — to each other.</p>
+        </div>
+        <div class="act-links">
+          <span class="micro">Open live</span>
+          <div class="link-row">
+            <a class="act-link" href="http://127.0.0.1:8890" target="_blank" rel="noopener" title="Story · w1-gift"><span class="dot" aria-hidden="true"></span>Dashboard · :8890</a>
+            <a class="act-link" href="http://127.0.0.1:8892" target="_blank" rel="noopener" title="Rehearsal tab — keep off camera"><span class="dot" aria-hidden="true"></span>Rehearsal · :8892</a>
+          </div>
+        </div>
+      </article>
+
+      <article class="act-card" data-act-card>
+        <div class="act-top">
+          <span class="act-no">Act II</span>
+          <span class="act-time">0:30–2:00</span>
+        </div>
+        <h3>Four features, one frame</h3>
+        <p class="act-purpose"><span class="micro">Purpose</span>A 2 × 2 composite: Agent / Multi-agent / Scene next / Memory system. Each pane proves one mechanism in about 22 seconds.</p>
+        <div class="act-narr">
+          <span class="micro">Narration</span>
+          <p>One agent: Mia. Her own session, her own voice, her own memory, her own portrait — a private thread the room never sees. Four of five hearts, and at that tier contact is limited, not refused. One room, not four chatbots: before any model call the director plans one lead, one reactor, the rest silent. A mention relays exactly one hop, in public, never a chain. The story is authored: two scenes, one gate; prose cannot skip the canon. And memory has a paper trail — a preference becomes a belief, the belief changes the outfit, and the ledger points at the exact link.</p>
+        </div>
+        <div class="act-links">
+          <span class="micro">Open live</span>
+          <div class="link-row">
+            <a class="act-link" href="http://127.0.0.1:8890" target="_blank" rel="noopener" title="Story · w1-gift / w7-last-call"><span class="dot" aria-hidden="true"></span>Dashboard · :8890</a>
+            <a class="act-link" href="http://127.0.0.1:8892" target="_blank" rel="noopener" title="Rehearsal tab — keep off camera"><span class="dot" aria-hidden="true"></span>Rehearsal · :8892</a>
+          </div>
+        </div>
+      </article>
+
+      <article class="act-card" data-act-card>
+        <div class="act-top">
+          <span class="act-no">Act III</span>
+          <span class="act-time">2:00–3:00</span>
+        </div>
+        <h3>Architecture and Switch</h3>
+        <p class="act-purpose"><span class="micro">Purpose</span>Switch vs MCP vs director vs model; the graph; the remove-Switch proof.</p>
+        <div class="act-narr">
+          <span class="micro">Narration</span>
+          <p>Six layers, one world. Switch is the transport: rooms, one identity per character, delivery, and a Console session you can inspect. It does not hold the world state. The MCP world engine holds the facts: beliefs, provenance, relationships, the scene card. Each character carries a scoped token, so Alice cannot read Emily’s private beliefs — that is enforced at the API, not in the prompt. The director is deterministic Python: it plans the turn, gates the ending, relays one hop. It is not an LLM scheduler. The model only writes the sentence. Bifrost routes; OpenCode is the preferred connector, with Claude Code as the live fallback here. Now remove Switch. Rooms, sessions, delivery, live beats — gone. What remains: the world database, the dashboard projection, the phone DM, the local beat runner, and the scene card.</p>
+        </div>
+        <div class="act-links">
+          <span class="micro">Open live</span>
+          <div class="link-row">
+            <a class="act-link" href="http://127.0.0.1:8890" target="_blank" rel="noopener" title="Dashboard and Switch Console"><span class="dot" aria-hidden="true"></span>Dashboard · :8890</a>
+            <a class="act-link" href="http://127.0.0.1:8892" target="_blank" rel="noopener" title="Rehearsal tab — keep off camera"><span class="dot" aria-hidden="true"></span>Rehearsal · :8892</a>
+          </div>
+        </div>
+      </article>
+
+      <article class="act-card" data-act-card>
+        <div class="act-top">
+          <span class="act-no">Act IV</span>
+          <span class="act-time">3:00–3:50</span>
+        </div>
+        <h3>Why a game, not a business case</h3>
+        <p class="act-purpose"><span class="micro">Purpose</span>The market gap, stated carefully: multi-agent as caller in a playable world.</p>
+        <div class="act-narr">
+          <span class="micro">Narration</span>
+          <p>Most AI NPC demos end the same way: one character, one player, one conversation. NVIDIA ACE, Convai and Inworld build characters answering a player. AutoGen, CrewAI and LangGraph automate tasks, not lives. The closest counterexamples are prototypes or story engines: Stanford’s twenty-five generative agents, Altera’s Minecraft society of up to a thousand agents, Hidden Door’s ensemble worlds. We did not find one that documents the combination: a small cast that can address each other, hold private memories, and respect boundaries with provenance. That is the gap. We built it as a game because a game is the cheapest testbed — stakes, a room, a witness. A business case would turn the cast into a workflow; a game keeps the stakes and gives the research a story people can feel.</p>
+        </div>
+        <div class="act-links">
+          <span class="micro">Open live</span>
+          <div class="link-row">
+            <a class="act-link" href="http://127.0.0.1:8890" target="_blank" rel="noopener" title="Dashboard — closing shots"><span class="dot" aria-hidden="true"></span>Dashboard · :8890</a>
+            <a class="act-link" href="http://127.0.0.1:8892" target="_blank" rel="noopener" title="Rehearsal tab — keep off camera"><span class="dot" aria-hidden="true"></span>Rehearsal · :8892</a>
+          </div>
+        </div>
+      </article>
+
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="features-heading">
+    <header class="section-head">
+      <p class="section-no">02 / Four features, one frame</p>
+      <h2 id="features-heading">The 2 × 2 composite</h2>
+      <p class="section-note">Pre-record four 22-second clips and composite them. One engine holds one active scenario and take per database — do not attempt four live panes on one <code>:8890</code>.</p>
+    </header>
+
+    <div class="feature-frame">
+      <div class="frame-bar">
+        <span><b>Composite frame</b> · A / B / C / D</span>
+        <span>3840 × 2160 master · 48px margin · 24px gutter</span>
+      </div>
+
+      <div class="feature-grid">
+
+        <article class="pane">
+          <div class="pane-top">
+            <span class="pane-num" aria-hidden="true">01</span>
+            <span class="pane-label">A · Agent</span>
+            <span class="pane-dur">0:30–0:52 · 22s</span>
+          </div>
+          <p class="pane-caption">One agent, one voice, one private thread.</p>
+          <dl class="pane-fields">
+            <div>
+              <dt>Exact action</dt>
+              <dd>Story → load <code>w7-last-call</code>, scene 1 <code>truck-dusk</code> (Mia only). Hold her CG and nameplate. Open the phone (Mia is already a friend in <code>w7</code>), type “You’re the only person I can say this to.”, let the reply land. Close; Mia’s cast card → Profile; hold the full-body art, quote, relationship bars, 4/5 hearts.</dd>
+            </div>
+            <div>
+              <dt>What it proves</dt>
+              <dd>Each character is a separately modeled agent with a persistent private voice and a portrait identity, not a mask on one shared prompt. At four hearts the contact contract is limited, not refused.</dd>
+            </div>
+            <div class="fallback">
+              <dt>Fallback</dt>
+              <dd>Pre-warm the DM. If the model misses, hold the profile sheet and a still of the reply. Never wait more than 5 seconds.</dd>
+            </div>
+          </dl>
+        </article>
+
+        <article class="pane">
+          <div class="pane-top">
+            <span class="pane-num" aria-hidden="true">02</span>
+            <span class="pane-label">B · Multi-agent</span>
+            <span class="pane-dur">0:52–1:15 · 23s</span>
+          </div>
+          <p class="pane-caption">One room, not four chatbots: lead, reactor, silence.</p>
+          <dl class="pane-fields">
+            <div>
+              <dt>Exact action</dt>
+              <dd>Story → load <code>w1-gift</code> so all four are present. Type “Mia, what do you think of it?” Hold the turn log: “Mia takes the lead · Alice reacts · Emily, Sophia stay quiet.” Hold the dimmed silence rows. If a reply contains <code>@name</code>, hold the “reply to &lt;name&gt;” note and the relayed reply.</dd>
+            </div>
+            <div>
+              <dt>What it proves</dt>
+              <dd>The director plans the room before any model call — one primary, one reactor, recorded silence — so it is a room, not four parallel chatbot replies. A mention, when it occurs, relays exactly one hop in public.</dd>
+            </div>
+            <div class="fallback">
+              <dt>Fallback</dt>
+              <dd>The plan and silence rows are deterministic; hold there. For the relay use a 6-second pre-recorded clip. If it is absent, drop the relay and say “one hop” over the plan. Do not retry live.</dd>
+            </div>
+          </dl>
+        </article>
+
+        <article class="pane">
+          <div class="pane-top">
+            <span class="pane-num" aria-hidden="true">03</span>
+            <span class="pane-label">C · Scene next</span>
+            <span class="pane-dur">1:15–1:37 · 22s</span>
+          </div>
+          <p class="pane-caption">Authored take, scene gate: only change moves the story.</p>
+          <dl class="pane-fields">
+            <div>
+              <dt>Exact action</dt>
+              <dd>Worlds → <code>w3-quiet-route</code>, take “The Quiet Route”, scene 1 of 2. Show the gate note “Say a line or let a cue change the scene before advancing.” → Story → click “That skirt in the window — the short one. It’s you.” (cue matches <code>skirt|friday|wear|dress</code>). → Worlds → Next scene → “Scene 2 of 2 loaded.”</dd>
+            </div>
+            <div>
+              <dt>What it proves</dt>
+              <dd>The story advances through an authored, linear take and a state-change gate, so canon cannot be skipped by prose.</dd>
+            </div>
+            <div class="fallback">
+              <dt>Fallback</dt>
+              <dd>No model dependency. If locked, click a cue-matching choice (<code>skirt</code> / <code>friday</code> / <code>wear</code>) then Next scene; on a 409 <code>NOTHING_CHANGED</code>, Refresh in Worlds.</dd>
+            </div>
+          </dl>
+        </article>
+
+        <article class="pane">
+          <div class="pane-top">
+            <span class="pane-num" aria-hidden="true">04</span>
+            <span class="pane-label">D · Memory system</span>
+            <span class="pane-dur">1:37–2:00 · 23s</span>
+          </div>
+          <p class="pane-caption">Belief, provenance, hearts: a memory you can point at.</p>
+          <dl class="pane-fields">
+            <div>
+              <dt>Exact action</dt>
+              <dd>Story → scene 2 “The quiet route home” (Alice in the burgundy skirt). Click the outfit badge “the burgundy skirt” → belief “The user prefers short skirts.” (key <code>user-prefers-short-skirt</code>, confidence <code>0.90</code>, private, source <code>user</code>) → “the burgundy skirt · date-skirt” → reason “because you said Friday.” Then Secret Ledger → belief row, event feed, relationship bars.</dd>
+            </div>
+            <div>
+              <dt>What it proves</dt>
+              <dd>A belief carries its source and confidence into a visible state change — the outfit, then the next scene — and the ledger points at the exact link.</dd>
+            </div>
+            <div class="fallback">
+              <dt>Fallback</dt>
+              <dd>No model dependency. If the badge is missing, show the ledger belief row and the scenario outfit JSON; if the cue did not fire, click the skirt choice and Next scene again.</dd>
+            </div>
+          </dl>
+        </article>
+
+      </div>
+
+      <div class="frame-foot">
+        <span>Label top-left · caption bottom-left of the active pane only · 2px rose border on the active pane</span>
+        <span><b>Reads bottom-up:</b> one voice → the room → the authored gate → the memory that survives the scene</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="arch-heading">
+    <header class="section-head">
+      <p class="section-no">03 / The spine</p>
+      <h2 id="arch-heading">One world, six layers</h2>
+      <p class="section-note">Keep the graph on screen as the spine and cut away only to the evidence. Switch owns delivery; the engine owns facts.</p>
+    </header>
+
+    <div class="arch-grid">
+      <figure class="arch-figure">
+        <img src="docs/architecture.png" width="1660" height="1834" alt="Six-band architecture diagram: play surfaces, conductor, Switch transport, world engine, models, and offline art." decoding="async">
+        <figcaption>
+          <span>docs/architecture.png · six bands</span>
+          <span><a href="docs/architecture.png" target="_blank" rel="noopener">Open full size</a> · <a href="docs/architecture.mmd">Source · architecture.mmd</a></span>
+        </figcaption>
+      </figure>
+
+      <div>
+        <p class="six-bands">Six bands: play surfaces · conductor · Switch transport · world engine · models · offline art</p>
+
+        <ul class="legend">
+          <li class="legend-row">
+            <span class="legend-key">Switch</span>
+            <p><strong>Transport, not world state.</strong> Rooms, one identity per character, delivery, sessions, and a Console session you can inspect.</p>
+          </li>
+          <li class="legend-row">
+            <span class="legend-key">MCP world engine</span>
+            <p><strong>Source of truth.</strong> Scoped tokens, beliefs, provenance, relationships, the scene card. One token maps to one character: Alice cannot read Emily’s private beliefs at the API, not in the prompt.</p>
+          </li>
+          <li class="legend-row">
+            <span class="legend-key">Director</span>
+            <p><strong>Deterministic Python.</strong> Plans the turn, gates the ending, relays one hop. Not an LLM scheduler; the model only writes the sentence.</p>
+          </li>
+          <li class="legend-row">
+            <span class="legend-key">Models</span>
+            <p><strong>Bifrost routes.</strong> OpenCode is preferred; Claude Code is the live fallback. DeepSeek v4.1 Flash. Low reasoning by default; high only for body and contact.</p>
+          </li>
+        </ul>
+
+        <div class="proof">
+          <div class="proof-head">
+            <h3>Remove-Switch proof</h3>
+            <code>docker compose down</code>
+          </div>
+          <div class="proof-cols">
+            <div class="proof-col">
+              <h4>Gone</h4>
+              <ul>
+                <li>Rooms</li>
+                <li>Sessions</li>
+                <li>Delivery</li>
+                <li>Live beats</li>
+              </ul>
+            </div>
+            <div class="proof-col">
+              <h4>Remains</h4>
+              <ul>
+                <li>The world database</li>
+                <li>The dashboard projection</li>
+                <li>The phone DM</li>
+                <li>The local beat runner</li>
+                <li>The scene card</li>
+              </ul>
+            </div>
+          </div>
+          <p class="caveat">The dashboard still renders the last recorded state because it is a projection. It does not keep acting.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="closing-heading">
+    <header class="section-head">
+      <p class="section-no">04 / Closing thesis</p>
+      <h2 id="closing-heading">Why a game, not a business case</h2>
+      <p class="section-note">The category is thin. The gap is a product-surface inference, not a forecast. No market-size statistic is used.</p>
+    </header>
+
+    <p class="closing-lead">Most AI NPC demos end the same way: <span>one character, one player, one conversation.</span></p>
+    <p class="closing-sub">The gap is not another voice. It is a small persistent cast that can address each other inside a playable world — with scoped identity, private memory, and auditable provenance. No public product surface we checked documents the full combination.</p>
+    <span class="caveat-chip">Product-surface inference · not a measured market study</span>
+
+    <div class="lanes">
+      <div class="lane">
+        <span class="lane-no" aria-hidden="true">01</span>
+        <div>
+          <h3>Character intelligence</h3>
+          <p>They answer you.</p>
+        </div>
+        <p class="lane-examples"><a href="https://developer.nvidia.com/ace" target="_blank" rel="noopener">NVIDIA ACE</a>, <a href="https://convai.com/" target="_blank" rel="noopener">Convai</a>, Inworld. Player-facing conversation and voice; multi-character behavior is ambient, not an auditable social contract.</p>
+      </div>
+
+      <div class="lane">
+        <span class="lane-no" aria-hidden="true">02</span>
+        <div>
+          <h3>Task automation</h3>
+          <p>They finish tasks.</p>
+        </div>
+        <p class="lane-examples"><a href="https://arxiv.org/abs/2308.08155" target="_blank" rel="noopener">AutoGen</a>, CrewAI, LangGraph. The unit is a task; there is no world, persistent identity, or social memory.</p>
+      </div>
+
+      <div class="lane">
+        <span class="lane-no" aria-hidden="true">03</span>
+        <div>
+          <h3>Research simulation</h3>
+          <p>Societies in a sandbox, not a shipped room.</p>
+        </div>
+        <p class="lane-examples"><a href="https://arxiv.org/abs/2304.03442" target="_blank" rel="noopener">Generative Agents</a>, Project Sid. Proof of the pieces; not one playable loop with scoped identity, private memory and provenance.</p>
+      </div>
+
+      <div class="lane open">
+        <span class="lane-no" aria-hidden="true">+</span>
+        <div>
+          <h3>The open lane</h3>
+          <p>A small persistent cast that can address each other inside a playable world.</p>
+        </div>
+        <p class="lane-examples">Scoped identity, private memory, auditable provenance. No public product surface we checked documents the full combination.</p>
+      </div>
+    </div>
+
+    <p class="counterexample"><strong>Closest commercial counterexample:</strong> <a href="https://hiddendoor.co/" target="_blank" rel="noopener">Hidden Door</a> documents persistent worlds, ensemble casts, relationships and canon. Its public page does not document agent-to-agent address or per-character private-state provenance.</p>
+
+    <div class="why">
+      <p>We built it as a game because a game is the cheapest testbed — stakes, a room, a witness. A business case would turn the cast into a workflow; a game keeps the stakes and gives the research a story people can feel.</p>
+    </div>
+
+    <div class="discipline">
+      <b>Claim discipline</b>
+      <span>Say: “We did not find this combination in the public product surfaces we checked.” Do not say: first, only, nobody, or a market size.</span>
+    </div>
+
+    <p class="source-note">Sources accessed 2026-11-06 · full list in <a href="docs/DEMO_STORY.md">docs/DEMO_STORY.md · Sources</a> · narration cues in <a href="docs/DEMO_NARRATION.srt">docs/DEMO_NARRATION.srt</a> · scene card artifact in <a href="docs/scene-card-example.md">docs/scene-card-example.md</a></p>
+  </section>
+
+  </main>
+
+  <footer>
+    <span>Switch World · Demo Storyboard</span>
+    <span>Script: docs/DEMO_STORY.md · Graph: docs/architecture.png</span>
+    <a href="https://github.com/charlot3/switch-world" target="_blank" rel="noopener">github.com/charlot3/switch-world</a>
+  </footer>
+
+</div>
+
+<div class="prompter" id="prompter" role="region" aria-label="Teleprompter" hidden>
+  <div class="prompter-inner">
+    <div class="prompter-head">
+      <span class="prompter-act" id="prompter-act">Act I · 0:00–0:30</span>
+      <span class="prompter-cue" id="prompter-cue">Cue 01 / 44</span>
+      <button type="button" class="prompter-close" id="prompter-close">Hide</button>
+    </div>
+    <p class="prompter-text" id="prompter-text" aria-live="polite" aria-atomic="true">Four characters: Alice, Emily, Sophia, Mia.</p>
+    <p class="prompter-next" id="prompter-next">Next · One room.</p>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var TOTAL = 240;
+
+  /* SRT cues from docs/DEMO_STORY.md, in seconds: [start, end, text]. */
+  var cues = [
+    [0, 6, 'Four characters: Alice, Emily, Sophia, Mia.'],
+    [6, 12, 'One room.'],
+    [12, 19, 'You are the showrunner, not a menu.'],
+    [19, 30, 'Underneath, a world records what each believes — who told them, when, how sure — and they can talk to you, to the room, in a whisper, one hop to each other.'],
+    [30, 35, 'One agent: Mia.'],
+    [35, 41, 'Her own session, her own voice, her own memory, her own portrait.'],
+    [41, 46, 'A private thread the room never sees.'],
+    [46, 52, 'Four of five hearts — and at that tier, contact is limited, not refused.'],
+    [52, 56, 'One room, not four chatbots.'],
+    [56, 64, 'Before any model call, the director plans: one lead, one reactor, the rest silent.'],
+    [64, 72, 'A mention relays exactly one hop — in public, never a chain.'],
+    [75, 81, 'The story is authored: two scenes, one gate.'],
+    [81, 87, 'It opens only when a line or a cue changes the state.'],
+    [87, 92, 'Prose cannot skip the canon.'],
+    [97, 102, 'And memory has a paper trail.'],
+    [102, 108, 'A preference becomes a belief: source user, confidence 0.90, private.'],
+    [108, 113, 'That belief changes the outfit.'],
+    [113, 120, 'The ledger points at the exact link — who knew what, from whom, how sure.'],
+    [120, 126, 'One world, six layers.'],
+    [126, 132, 'Switch is the transport: rooms, identities, delivery, sessions.'],
+    [132, 138, 'It is not the world state.'],
+    [138, 146, 'The MCP engine holds beliefs, provenance, relationships, the scene card.'],
+    [146, 152, 'Each token maps to one character; Alice cannot read Emily’s private beliefs.'],
+    [152, 158, 'The director is deterministic Python: plan, gate, ending, one-hop relay.'],
+    [158, 162, 'It is not an LLM scheduler.'],
+    [162, 166, 'The model only writes the sentence.'],
+    [166, 170, 'Bifrost routes; OpenCode is preferred, Claude Code is the live fallback.'],
+    [170, 174, 'Remove Switch: rooms, sessions, delivery, live beats — gone.'],
+    [174, 180, 'Remain: the world database, the projection, the phone, the scene card.'],
+    [180, 184, 'Most AI NPC demos end the same way:'],
+    [184, 188, 'one character, one player, one conversation.'],
+    [188, 193, 'NVIDIA ACE, Convai and Inworld build characters answering a player.'],
+    [193, 197, 'AutoGen, CrewAI and LangGraph automate tasks, not lives.'],
+    [197, 202, 'The closest counterexamples are prototypes or story engines:'],
+    [202, 206, 'Stanford’s twenty-five generative agents,'],
+    [206, 211, 'Altera’s Minecraft society of up to a thousand agents,'],
+    [211, 214, 'Hidden Door’s ensemble worlds.'],
+    [214, 218, 'We did not find one that documents the combination:'],
+    [218, 222, 'a small cast that can address each other,'],
+    [222, 225, 'hold private memories, respect boundaries — with provenance.'],
+    [225, 227, 'That is the gap.'],
+    [227, 230, 'We built it as a game: stakes, a room, a witness.'],
+    [230, 235, 'A business case becomes a workflow; a game keeps the story people can feel.'],
+    [235, 240, 'The scene card is the artifact — and the paper starts here.']
+  ];
+
+  var acts = [
+    { start: 0, end: 30, label: 'Act I', title: 'What we built' },
+    { start: 30, end: 120, label: 'Act II', title: 'Four features, one frame' },
+    { start: 120, end: 180, label: 'Act III', title: 'Architecture and Switch' },
+    { start: 180, end: 230, label: 'Act IV', title: 'Why a game, not a business case' },
+    { start: 230, end: 240, label: 'Close', title: 'The artifact' }
+  ];
+
+  function byId(id) { return document.getElementById(id); }
+
+  var displayEl = byId('timer-display');
+  var segmentEl = byId('timer-segment');
+  var statusEl = byId('timer-status');
+  var fillEl = byId('progress-fill');
+  var playheadEl = byId('progress-playhead');
+  var startBtn = byId('timer-start');
+  var pauseBtn = byId('timer-pause');
+  var resetBtn = byId('timer-reset');
+  var prompterToggle = byId('prompter-toggle');
+  var prompterPanel = byId('prompter');
+  var prompterClose = byId('prompter-close');
+  var prompterAct = byId('prompter-act');
+  var prompterCue = byId('prompter-cue');
+  var prompterText = byId('prompter-text');
+  var prompterNext = byId('prompter-next');
+
+  var cards = Array.prototype.slice.call(document.querySelectorAll('[data-act-card]'));
+  var markers = Array.prototype.slice.call(document.querySelectorAll('[data-seek]'));
+
+  var remaining = TOTAL;
+  var running = false;
+  var endAt = 0;
+  var tickId = null;
+  var prompterOn = false;
+  var lastAct = -1;
+  var lastCue = -1;
+  var lastStatus = '';
+
+  function pad(n) { return n < 10 ? '0' + n : String(n); }
+
+  function fmt(seconds) {
+    var s = Math.max(0, Math.ceil(seconds - 0.0001));
+    return pad(Math.floor(s / 60)) + ':' + pad(s % 60);
+  }
+
+  function stamp(seconds) {
+    var s = Math.max(0, Math.round(seconds));
+    return Math.floor(s / 60) + ':' + pad(s % 60);
+  }
+
+  function actIndexAt(t) {
+    var index = 0;
+    for (var i = 0; i < acts.length; i++) {
+      if (t >= acts[i].start) { index = i; }
+    }
+    return index;
+  }
+
+  function cueIndexAt(t) {
+    var index = 0;
+    for (var i = 0; i < cues.length; i++) {
+      if (t >= cues[i][0]) { index = i; }
+      if (t >= cues[i][0] && t < cues[i][1]) { return i; }
+    }
+    return index;
+  }
+
+  function renderPrompter(elapsed) {
+    var ai = actIndexAt(elapsed);
+    var ci = cueIndexAt(elapsed);
+
+    if (ai !== lastAct) {
+      prompterAct.textContent = acts[ai].label + ' · ' + stamp(acts[ai].start) + '–' + stamp(acts[ai].end);
+      lastAct = ai;
+    }
+
+    if (ci !== lastCue) {
+      prompterCue.textContent = 'Cue ' + pad(ci + 1) + ' / ' + pad(cues.length);
+      prompterText.textContent = cues[ci][2];
+      var next = cues[ci + 1];
+      prompterNext.textContent = next ? 'Next · ' + next[2] : 'End of take.';
+      lastCue = ci;
+    }
+  }
+
+  function render() {
+    var elapsed = Math.max(0, Math.min(TOTAL, TOTAL - remaining));
+
+    displayEl.textContent = fmt(remaining);
+
+    var pct = (elapsed / TOTAL) * 100;
+    fillEl.style.width = pct + '%';
+    playheadEl.style.left = pct + '%';
+
+    var ai = actIndexAt(elapsed);
+    segmentEl.textContent = acts[ai].label + ' · ' + acts[ai].title;
+
+    cards.forEach(function (card, i) {
+      var live = i === ai;
+      card.classList.toggle('is-live', live);
+      if (live) {
+        card.setAttribute('aria-current', 'true');
+      } else {
+        card.removeAttribute('aria-current');
+      }
+    });
+
+    var currentMarker = 0;
+    for (var m = 0; m < markers.length; m++) {
+      if (elapsed >= Number(markers[m].getAttribute('data-seek'))) {
+        currentMarker = m;
+      }
+    }
+
+    markers.forEach(function (marker, i) {
+      marker.classList.toggle('is-past', i < currentMarker);
+      marker.classList.toggle('is-current', i === currentMarker);
+      if (i === currentMarker) {
+        marker.setAttribute('aria-current', 'step');
+      } else {
+        marker.removeAttribute('aria-current');
+      }
+    });
+
+    var state = running ? 'running' : (remaining <= 0.01 ? 'stopped' : (remaining < TOTAL - 0.01 ? 'paused' : 'ready'));
+    var label = state === 'running' ? 'Running' : state === 'stopped' ? 'Stopped' : state === 'paused' ? 'Paused' : 'Ready';
+
+    if (label !== lastStatus) {
+      statusEl.textContent = label;
+      statusEl.setAttribute('data-state', state);
+      lastStatus = label;
+    }
+
+    startBtn.disabled = running || remaining <= 0.01;
+    pauseBtn.disabled = !running;
+
+    if (prompterOn) {
+      renderPrompter(elapsed);
+    }
+  }
+
+  function stopClock() {
+    if (tickId !== null) {
+      clearInterval(tickId);
+      tickId = null;
+    }
+  }
+
+  function tick() {
+    if (!running) { return; }
+
+    remaining = Math.max(0, (endAt - performance.now()) / 1000);
+
+    if (remaining <= 0) {
+      remaining = 0;
+      running = false;
+      stopClock();
+    }
+
+    render();
+  }
+
+  function start() {
+    if (running || remaining <= 0.01) { return; }
+    running = true;
+    endAt = performance.now() + remaining * 1000;
+    stopClock();
+    tickId = setInterval(tick, 100);
+    render();
+  }
+
+  function pause() {
+    if (!running) { return; }
+    remaining = Math.max(0, (endAt - performance.now()) / 1000);
+    running = false;
+    stopClock();
+    render();
+  }
+
+  function reset() {
+    running = false;
+    stopClock();
+    remaining = TOTAL;
+    endAt = 0;
+    render();
+  }
+
+  function seek(seconds) {
+    remaining = Math.max(0, TOTAL - seconds);
+
+    if (running) {
+      if (remaining <= 0.01) {
+        running = false;
+        stopClock();
+      } else {
+        endAt = performance.now() + remaining * 1000;
+      }
+    }
+
+    render();
+  }
+
+  function setPrompter(on) {
+    prompterOn = on;
+    prompterPanel.hidden = !on;
+    document.body.classList.toggle('prompter-on', on);
+    prompterToggle.setAttribute('aria-expanded', String(on));
+    prompterToggle.textContent = on ? 'Hide teleprompter' : 'Teleprompter';
+    lastAct = -1;
+    lastCue = -1;
+
+    if (on) {
+      renderPrompter(Math.max(0, Math.min(TOTAL, TOTAL - remaining)));
+    }
+  }
+
+  startBtn.addEventListener('click', start);
+  pauseBtn.addEventListener('click', pause);
+  resetBtn.addEventListener('click', reset);
+
+  markers.forEach(function (marker) {
+    marker.addEventListener('click', function () {
+      seek(Number(marker.getAttribute('data-seek')));
+    });
+  });
+
+  prompterToggle.addEventListener('click', function () {
+    setPrompter(!prompterOn);
+  });
+
+  prompterClose.addEventListener('click', function () {
+    setPrompter(false);
+    prompterToggle.focus();
+  });
+
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape' && prompterOn) {
+      setPrompter(false);
+      prompterToggle.focus();
+    }
+  });
+
+  render();
+})();
+</script>
+
+
+
+</body>
+</html>

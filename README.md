@@ -11,33 +11,96 @@ time or run it against the wall clock, and every belief still carries provenance
 token; the server maps it to that character and refuses another character's private
 beliefs at the API layer. Switch is the transport; the scene card is the artifact.
 
+**Recording today:** the four-minute cut, the tab board and the pre-flight checklist are
+in [`docs/DEMO_TODAY.md`](docs/DEMO_TODAY.md) and [`demo-links.html`](demo-links.html).
+
+**Play the guest demo:** <https://switch-demo-rin.duckdns.org> (basic auth `guest`, then
+the guest password). The VM runs the same FastAPI/MCP world engine and dashboard. No
+Switch Console runs in the cloud, so the site sets `WORLD_AGENT_MODE=cloud`: the group
+room, whisper and DM keep the same planning, addressing and recording path, and each
+planned speaker answers through one DeepSeek call with the operator's key. Locally the
+same code path is served by the four live Switch agent sessions. `#world` stays bridged
+at `/mattermost`. Deployment and test steps are in
+[`deploy/demo/README.md`](deploy/demo/README.md).
+
+## Why Switch
+
+Switch is the part that makes this a social world instead of four browser tabs talking to
+one person.
+
+| What Switch gives us | What it changes in the product |
+| --- | --- |
+| **One shared room with addressed delivery** | Every character hears the same line. The director can stage a primary, a reactor and a recorded silence instead of collecting four parallel chatbot replies. |
+| **A separate agent identity per character** | Alice, Emily, Sophia and Mia each run in their own working directory with their own session, model and scoped MCP token. One character cannot read another's private beliefs. |
+| **A human seat in the same room** | The player posts in `#world` like a teammate; the director posts the next beat; the agents answer in character. The human is the showrunner, not an API caller. |
+| **Real transport semantics** | Messages have senders, rooms, timestamps and history. Removing the Switch stack stops the live scene; the dashboard can only show the last recorded state. |
+| **A familiar human surface** | The player and reviewers use Mattermost and `#world`; Switch bridges that room to the agents without a custom chat server. |
+| **Per-agent observability** | Console shows each session's activity, the director reads room history, and the world engine keeps the state log separate. Debugging is per-agent, not one log soup. |
+| **Provider-agnostic sessions** | Switch does not care whether a character runs on Claude Code or OpenCode. The world engine is MCP, so the same cast and state survive a provider change. |
+| **A place for private rooms** | Public `#world` and one-to-one rooms map onto the same social model: public scene, private whisper, friend-gated phone. |
+
+The division of responsibility is deliberate:
+
+> **Switch owns delivery and sessions. The MCP world engine owns facts and provenance.
+> The director owns the gates and the ending. The model owns the sentence.**
+
+This is why the project is not "a chatbot with a pretty UI": the interesting state is
+written by the cast through scoped MCP tools, and the group scene is produced by Switch
+delivery, not by one prompt pretending to be four people.
+
+## What the demo proves
+
+1. **Switch is core.** The five sessions and `#world` are visible; `docker compose down`
+   stops the live scene and the director's next post fails. The dashboard still renders the
+   last recorded state, because it is a projection, not the world.
+2. **The room is a room.** A shared line is planned before any model call: one primary, one
+   reactor, the rest silent. A named addressee wins; an intimate probe does not become a
+   four-person chorus.
+3. **A secret moves.** The user tells Alice something; the belief is written through Alice's
+   scoped MCP token, and Emily can only learn it if Alice chooses to tell her.
+4. **The artifact persists.** The scene card records the scene summary, who knew what, from
+   whom, with what confidence, the relationship deltas and the transcript links.
+
+## Start here
+
+| If you want to… | Go to |
+| --- | --- |
+| Watch the 92-second 1080p four-segment review cut | [`docs/demo-review.mp4`](docs/demo-review.mp4) · notes in [`docs/DEMO_REVIEW.md`](docs/DEMO_REVIEW.md) |
+| Read the four-act story and narration | [`docs/DEMO_STORY.md`](docs/DEMO_STORY.md) · [`docs/DEMO_NARRATION.srt`](docs/DEMO_NARRATION.srt) |
+| See the four-minute shot list and test pass | [`docs/DEMO_TODAY.md`](docs/DEMO_TODAY.md) |
+| Open the recording tab board and timer | [`demo-links.html`](demo-links.html) |
+| Understand the six layers | [`docs/architecture.png`](docs/architecture.png) and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
+| See the MCP contract | [MCP model](#mcp-model) |
+| Reproduce the local stack | [Quickstart](#quickstart) |
+
 ## Two editions
 
 This repo carries the same social world to two hackathons:
 
 | Edition | Branch | Additions |
 | --- | --- | --- |
-| **Flip the Switch** | `main` / tag `flip-2026-11-05` | Switch rooms and agents; the secret ledger; canon; scene card |
-| **Geek Room** | `geekroom` | **Bifrost** model gateway + **Tavily** real-world layer, on the same world engine and canon |
+| **Flip the Switch** | `main` / tag `flip-2026-11-06-warmth` | Switch rooms and agents; the secret ledger; canon; whisper; scene card |
+| **Geek Room** | `geekroom` (this branch) | **Bifrost** model gateway + **Tavily** real-world layer, on the same world engine and canon |
 
-The tag is the Flip submission snapshot; `main` keeps evolving (the current build adds the
-in-person scene, friend-gated phone and time machine to both editions). The Geek Room
-edition is additive: Switch remains
-supported, but the Geek Room demo can run without it. Setup, demo and submission notes are
-in [`docs/GEEKROOM.md`](docs/GEEKROOM.md); the deck outline is
+The Flip tag is the submission snapshot; `main` keeps evolving. The Geek Room edition is
+additive: Switch remains supported, but its Bifrost/Tavily demo can run without it. Setup,
+demo and submission notes are in [`docs/GEEKROOM.md`](docs/GEEKROOM.md); the deck outline is
 [`docs/PITCH.md`](docs/PITCH.md).
 
 ![The Geek Room edition: a Bifrost-generated café scene with a Tavily world event in the ledger.](docs/geekroom-dashboard.png)
 
-> **Demo video:** _to be recorded during the window_ · **Repo:** <https://github.com/charlot3/switch-world>
+> **Demo video:** four-minute cut planned · **Repo:** <https://github.com/charlot3/switch-world> · **Plan:** [`docs/DEMO_TODAY.md`](docs/DEMO_TODAY.md)
 
 > **Hackathon entry:** [Flip the Switch](https://www.wemakedevs.org/hackathons/switch)
 > (WeMakeDevs × DevTools Academy × Switch), **Track 2 — Best Personal or Creative Workflow**.
 > **Build window:** 2026-11-04 03:31 JST → 2026-11-08 03:29 JST.
 > **Status:** live local integration. Docker Desktop runs Switch 0.31.0; Switch Console
-> 0.40.1 is signed in; four agents are in the bridged `#world` Mattermost channel and answer
-> through the world MCP server. OpenCode configs are ready; the live cast uses the Claude
-> Code fallback while Console's OpenCode check is broken (see `docs/DECISIONS.md`).
+> 0.40.1 is signed in; four character agents plus a director are in the bridged `#world`
+> Mattermost channel and answer through the world MCP server. The recordable shelf has eight
+> worlds/takes, including the four-heart `w7-last-call` Mia route. OpenCode configs are ready
+> (low reasoning by default, high only for body/contact); the live cast uses the Claude Code
+> fallback while Console's OpenCode check is broken (see `docs/DECISIONS.md`). The Flip cut
+> targets four minutes; see [`docs/DEMO_TODAY.md`](docs/DEMO_TODAY.md).
 
 ![The galgame dashboard: the live café scene, the authored arc, and the cast cards.](docs/dashboard.png)
 
@@ -66,10 +129,11 @@ uv run --env-file .env world-engine
 
 The live agents use `agents/<name>/CLAUDE.md` and `.mcp.json` (the Claude Code fallback).
 The OpenCode configs remain at `agents/<name>/opencode.json` for the preferred path. They
-set both `model` and `small_model` to `opencode-go/deepseek-v4.1-flash`: OpenCode uses the
-small model for title/summary tasks, and leaving it unset can fall back to a provider
-default (the `gpt-6-luna` entry visible in some OpenCode catalogs). Regenerate with
-`scripts/render-agent-configs.sh`.
+set `model` to `opencode-go/deepseek-v4.1-flash` with `"variant": "low"` and pin
+`small_model` to the same base model: OpenCode uses the small model for title/summary
+tasks, and leaving it unset can fall back to a provider default (the `gpt-6-luna` entry
+visible in some OpenCode catalogs). Regenerate with `scripts/render-agent-configs.sh`;
+`WORLD_AGENT_VARIANT` changes the session profile.
 
 The **director** is a Console-managed Switch agent (`director`) in `#world`; it owns no
 model session. The live café beat is:
@@ -181,10 +245,12 @@ Settings → **Time machine** card is the UI, and the rail clock shows `· MOCK`
 
 `POST /api/group/whisper {to, message}` delivers the words only to the target. The target
 answers through its private Bifrost/phone model, so the response is honestly marked
-`transport: "staged"` unless a real private Switch room is available. One or two observers
-receive a token-scrubbed prompt: they saw the whisper happen, did not hear the words, and
-react publicly. The whispered text is never written to a public event, another character's
-phone, or an observer prompt.
+`transport: "staged"` unless a real private Switch room is available. The target prompt
+carries recent private continuity (DMs and earlier whispers involving that character,
+plus the recent public scene) and tells the character to react or tease rather than ask
+the user to clarify what they meant. One or two observers receive a token-scrubbed prompt:
+they saw the whisper happen, did not hear the words, and react publicly. The whispered
+text is never written to a public event, another character's phone, or an observer prompt.
 
 Uninvited physical contact is cut before the act is recorded: one detail-free public
 `boundary_violation`, a hard refusal from the target, the target leaves (`mark_absent`), and
@@ -196,7 +262,8 @@ distinct confidence. The social deltas (trust/closeness/tension) come from the a
 
 The **Worlds** rail view loads the recordable demo presets: the gift, two clocks, the
 quiet solo route (remembered preference → outfit → date), the three-person night market,
-the good/bad ending forks and the original long Tuesday. A world is a reset + seed of the
+the good/bad ending forks, the original long Tuesday, and `w7-last-call` (the 4-heart Mia
+showcase). A world is a reset + seed of the
 same engine, not a second server. `GET /api/scenarios` lists them; `POST
 /api/scenarios/{id}/load` loads one; `/api/state` exposes `scenario`, `outfits`,
 `cast_art`, `scene_art`, `item` and `connections`. See [`docs/WORLDS.md`](docs/WORLDS.md).
@@ -210,8 +277,11 @@ scenario. `GET /api/takes` lists them; `POST /api/takes/{id}/load` resets and lo
 `advance_time`, `mark_absent`, `ending`) change recorded state, never prose. The w3 take is
 the flagship: Alice starts in her default cardigan; the user's choice records
 `user-prefers-short-skirt`; the next scene applies the date outfit; the outfit badge opens
-the belief. The fallback lines are the polished authored safety net, marked `authored`
-when a live speaker misses its deadline. Protocol: [`docs/TAKE_PROTOCOL.md`](docs/TAKE_PROTOCOL.md).
+the belief. `w7-last-call` is the **4-heart showcase** with Mia, the most openly
+enthusiastic character: the first scene is fast, flirty truck-counter teasing, the second
+is the quieter, honest version after the truck closes. The fallback lines are the polished
+authored safety net, marked `authored` when a live speaker misses its deadline. Protocol:
+[`docs/TAKE_PROTOCOL.md`](docs/TAKE_PROTOCOL.md).
 
 ### Reliable turns
 
@@ -229,6 +299,26 @@ when a live speaker misses its deadline. Protocol: [`docs/TAKE_PROTOCOL.md`](doc
 - `POST /api/safety/pause` / `/api/safety/resume` is an engine flag; paused group/DM writes
   return 423 with a neutral message.
 - `scripts/validate-takes.py` gates every take/scenario before a recording.
+
+### Voice: first person, no scene performance
+
+Every group prompt now requires first-person speech and forbids narrating another character
+in third person: if a character mentions what someone did, they say “you”, not “she”. The
+DM/whisper voice is tighter too: one concrete detail, no inventory of sounds or objects, no
+“I'm listening” / “say the thing” opener, and no closing command or rhetorical question.
+The cast documents carry the same rule, so a restarted session does not drift back into
+novelistic narration.
+
+### Agent-to-agent mentions (one hop)
+
+A character in the scene can address another **present** character by `@name` in its reply (or by a direct leading name such as “Emily —”)
+(for example, Emily answers the user and adds “@alice, did you know about this?”). When the
+director sees that mention, it relays **one** follow-up prompt to the addressed character;
+that relay reply is recorded as the next beat and appears in the same turn log. The relay
+is capped at **one hop**: an `@` inside the relayed reply is not relayed again, so a mention
+never turns into a chain. This is ordinary **public scene delivery** — the whole room and
+every present agent see it — not a private room or a whisper. In the scene log a relayed
+line carries a subtle `↳ reply to <name>` note, so the hand-off is readable at a glance.
 
 ### Studio
 
@@ -252,7 +342,7 @@ Friend state is a small `friends` table in the world DB. It gates the phone endp
 ### Affinity and topic boundaries
 
 Affinity is not a cosmetic meter. Every DM and group prompt receives the live
-trust/closeness/tension edge, a tier name (`Wary`, `Cordial`, `Friendly`, `Close`,
+trust/closeness/tension edge, a tier name (`Just met`, `Acquaintance`, `Warming`, `Close`,
 `Intimate`) and a concrete open/closed contract. `world/social.json` maps topics to tiers
 (small talk, daily life, private feelings, body/appearance, physical contact), sets each
 character's ceiling and authored deflection/refusal lines, and records the relationship
@@ -264,17 +354,20 @@ deltas. `director/social.py` classifies the incoming line before the model call:
   boundary cut with a large trust/tension consequence and a public `social_verdict`;
 - **3 hearts**: body and contact are negotiated with visible shyness, not flat-refused;
 - **4 hearts**: body/appearance is open (a limited, tasteful tease) and contact is
-  negotiated; public body/appearance is exempt from the public penalty;
+  **not refused**—it becomes a warm, shy limited version with a named limit; public
+  body/appearance is exempt from the public penalty;
 - **5 hearts**: consensual contact is allowed, but the public build **fades before the
   explicit scene and describes the aftermath** in the model's line; the private mature
   branch can opt into more, but the public submission never renders it;
 - group turns post a separate contract to each character, so the same question can get
-  four different answers instead of four copies.
+  four different answers instead of four copies. Body/contact turns can add the
+  high-reasoning arbiter described above; it can tighten the stance but never overrule
+  the deterministic refusal.
 
 The verdict and its reason are in the world feed (and the god view), so a refusal is a
-recorded social event, not a silent failure. This is deterministic and network-free; a
-smaller LLM classifier for ambiguous lines is deliberately deferred until after the Flip
-submission.
+recorded social event, not a silent failure. The ladder itself is deterministic and
+network-free; the optional high-reasoning arbiter adds a second opinion only on
+body/contact turns and cannot soften the ladder.
 
 The header's **Open #world** link points at the verified public Mattermost channel
 (`switch/world`). It opens in the same tab because embedded previews and some popup
@@ -319,10 +412,10 @@ provenance, the conductor owns the gates and the ending, and the model owns the 
 The full graph and component notes are in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md);
 the editable Mermaid source is [`docs/architecture.mmd`](docs/architecture.mmd).
 
-## Why Switch is core
+## Switch is core — the proof
 
-Switch is not a chat client bolted on. It is the only transport, and the only place the
-world runs:
+The short version is above; this is the operational proof. Switch is not a chat client
+bolted on. It is the only transport, and the only place the live world runs:
 
 - each character is a separate **Switch agent** with its own name, working directory,
   model session and permissions;
@@ -477,6 +570,18 @@ The world engine is an MCP server because the characters are agents. Each charac
 scoped token, and the server decides what it may see — a character cannot read another
 character's private beliefs through the API, even if it asks.
 
+That boundary is the point. A shared SQLite file would let every session read every secret;
+a single "four personalities" prompt would collapse the room into one voice. MCP gives each
+character a **capability boundary** (typed tools, scoped reads, attributed writes), while
+Switch gives each character an **identity and a delivery channel**. The two layers are
+independent: swap Claude Code for OpenCode and the MCP contract does not change; stop
+Switch and the live room stops while the recorded world remains.
+
+The private/secret model is enforced twice: the token mapping decides which character is
+calling, and the tool implementation filters beliefs/relationships before they leave the
+server. The director has a broader view because it owns the ending check and the scene card,
+not because it shares a database handle with the cast.
+
 | MCP primitive | In this project |
 | --- | --- |
 | **Server** | `switch-world` — the local world engine |
@@ -492,7 +597,7 @@ Tool surface (implemented in [`world_engine/mcp_server.py`](world_engine/mcp_ser
 | `world__remember(proposition, source, confidence, visibility, proposition_key?)` | character | write a belief owned by the calling character; source is `user`, `event:<id>`, `character:<id>` or `observation` |
 | `world__relationship(other)` | character | the calling character's view of another character |
 | `world__update_relationship(other, trust_delta, closeness_delta, tension_delta, reason)` | character | adjust the calling character's outgoing edge, clamped to 0..1; appends an event |
-| `world__record_event(kind, summary, participants, visibility)` | character / director | append-only event; returns the event id |
+| `world__record_event(kind, summary, participants, visibility)` | director | append-only event; director-only so a character cannot write an arbitrary public line; returns the event id |
 | `world__search_web(query, max_results=5, topic=news)` | character | Tavily search for the present; use it before answering a current-events/fact question rather than guessing |
 | `world__who_knows(proposition_key)` | director | the full matrix with provenance; the dashboard reads `GET /api/who-knows/<key>` instead |
 | `world__advance_time(minutes)` | director | moves the world clock and enqueues the next beat |
@@ -543,6 +648,33 @@ The default is **OpenCode Go `opencode-go/deepseek-v4.1-flash`** through
 demo has no paid provider bill. Bifrost's `openai` provider points at the adapter; the
 model id in `world/models.json` is `openai/deepseek-v4.1-flash`, while the adapter calls
 the OpenCode model above. Set `OPENCODE_MODEL` to change it.
+
+#### Two-tier reasoning
+
+Routine character prose runs at **low** reasoning. A body/appearance or physical-contact
+turn is the one place where a fast, cheap call can misread warmth or a limit, so that
+path gets a second, **high**-reasoning opinion:
+
+- `world/models.json` sets `"reasoning": "low"` on the four characters and
+  `"reasoning": "high"` on the `arbiter` profile;
+- `director/dm.py` and `director/whisper.py` send `reasoning="high"` only when the
+  classified topic is `body` or `contact`; everything else stays low;
+- `director/group.py` keeps the deterministic social ladder for the live Switch cast and
+  (when `WORLD_ARBITER=1`, off by default) adds one bounded `director/arbiter.py` call for
+  a non-coercive body/contact turn. The arbiter never writes prose and can only keep or
+  tighten the stance, never soften it; a timeout or malformed reply silently falls back to
+  the deterministic verdict. It is opt-in because the extra call can add several seconds
+  to a group turn; the DM/whisper high path has no extra call.
+- `scripts/render-agent-configs.sh` writes the character sessions with
+  `"variant": "low"`, so the live cast does not spend a reasoning budget on small talk.
+
+`OPENCODE_DEFAULT_VARIANT` (default `low`) sets the adapter default, and
+`OPENCODE_AGENT` (default `roleplay`) selects a single-turn, no-tools OpenCode agent.
+The adapter closes stdin and pins `PWD` to its own work directory: without those two
+details, OpenCode can read a parent heredoc or load the repository's config and behave
+like a coding agent instead of a character. `BIFROST_REASONING_<NAME>` overrides a
+character's profile. Flash exposes `low`, `high` and `max`; `mid`/`medium` maps to `high`
+because there is no middle variant.
 
 Add other providers in `deploy/bifrost/data/config.json` and point a character at
 `openai/...` or `anthropic/...`; the Python client does not change. Per-character token
@@ -816,21 +948,22 @@ private DM.
 
 ## Demo
 
-[`docs/DEMO.md`](docs/DEMO.md) has the shot list. The five-minute version:
+[`docs/DEMO_STORY.md`](docs/DEMO_STORY.md) is the four-act narrative and voice-over script; [`docs/DEMO_TODAY.md`](docs/DEMO_TODAY.md) is the four-minute cut and test pass;
+[`docs/DEMO.md`](docs/DEMO.md) is the longer shot list; [`demo-links.html`](demo-links.html)
+is the recording tab board with the timer, checklist and architecture plate. The four-minute
+version:
 
-1. Open **Switch Console**: server status, the four character agent cards, `#world` and the
-   four DMs (the director appears among `#world` participants).
-2. Switch to Mattermost. The director's `--loop` has already fired a beat with no user
-   input; a character is replying.
-3. The user DM's Alice: "I've decided to leave the city at the end of the month. I haven't
-   told the others yet." Alice records it.
-4. The director runs the café scene: Alice and Emily talk; Alice decides whether to share;
-   Emily records what she heard with source and confidence.
-5. The dashboard shows the belief matrix, the provenance chain `user → Alice → Emily`, and
-   the relationship delta.
-6. The director exports the **scene card**; the demo closes on the artifact.
-7. `docker compose down`: the dashboard still renders, but no agent answers and the world
-   cannot advance. `up -d` restores it; refresh the dashboard to show the belief persists.
+1. Open **Switch Console**: server status, the four character agent cards plus the director,
+   `#world` and the four DMs.
+2. Story: `w1-gift` → the gift becomes a belief → café group staging (primary, reactor,
+   silence).
+3. Whisper to Alice; the room sees the pause, not the words.
+4. `w7-last-call`: Mia at four hearts, openly enthusiastic, then quiet and honest; contact
+   is `limited`, not refused.
+5. `w5-good` and `w5-bad`: the same setup, opposite ending, with the evidence panel.
+6. Settings → **Scene card** → Load → Download; show the provenance chain.
+7. Show the architecture graph and close on the repo. If time allows, `docker compose down`:
+   the dashboard still renders, but no agent answers and the world cannot advance.
 
 ## Hackathon
 
@@ -841,7 +974,7 @@ private DM.
 | Deadline | **2026-11-08 03:29 JST** (2026-11-07 23:59 IST) |
 | Internal target | submit the evening of Nov 7 |
 | Deliverables | GitHub repo, demo video, README explaining Switch usage |
-| Demo video | _to be recorded_ |
+| Demo video | _to be recorded_ · four-minute cut per [`docs/DEMO_TODAY.md`](docs/DEMO_TODAY.md) |
 | Judging | use of Switch · technical execution · creativity/impact · presentation |
 
 The official brief also requires **one human + at least one AI agent + a real task**. That is
@@ -873,7 +1006,9 @@ the scene card above: the user and the cast co-produce a scene and its provenanc
 | `tests/` | pytest for the service, API, canon and café beat |
 | `agents/<name>/` | per-character working directories: `AGENTS.md`, `IDENTITY.md`, `CLAUDE.md`, generated `opencode.json` / `.mcp.json` |
 | `mcp/` | the world engine's MCP tool surface (design notes) |
-| `director/` | authored beat runners (local/Bifrost/Switch), the phone DM, group turns (`group.py`), whisper (`whisper.py`), the time machine (`clock.py`), the social gate (`social.py`), and `canon.py` |
+| `director/` | authored beat runners (local/Bifrost/Switch), the phone DM, group turns (`group.py`), whisper (`whisper.py`), the time machine (`clock.py`), the social gate (`social.py`), the optional high-reasoning arbiter (`arbiter.py`), and `canon.py` |
+| `demo-links.html` | the recording tab board: every URL, the 4:00 timer, pre-flight checklist and architecture plate |
+| `docs/DEMO_TODAY.md` | the four-minute cut and the test pass to run before recording |
 | `scripts/fetch-switch.sh` | pull the pinned Switch compose artifact |
 | `scripts/generate-cast-art.py` | one flow for the bust/full-body/avatar/café-CG set |
 | `scripts/generate-beat-cg.py` | bookshop and food-truck location CGs |

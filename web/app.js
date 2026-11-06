@@ -7,6 +7,11 @@ const CAST = window.SWITCH_CAST;
 const ORDER = window.SWITCH_ORDER;
 const SECRET_KEY = "user-leaving-city";
 const SVG_NS = "http://www.w3.org/2000/svg";
+/* The guest deployment serves Mattermost under /mattermost on the same origin;
+   local runs still point at the local port. */
+const MATTERMOST_BASE = ["localhost", "127.0.0.1", ""].includes(location.hostname)
+  ? "http://127.0.0.1:8065"
+  : `${location.origin}/mattermost`;
 /* Only these vocabulary values may surface in the UI. Anything else is treated
    as internal policy text and is not rendered. */
 const ACTION_MODES = new Set(["attempt", "result", "continue", "wait"]);
@@ -36,6 +41,7 @@ const state = {
     hasMore: false,
     oldestId: null,
     loading: false,
+    loadingFor: null,
     sending: false,
     loadedFor: null,
     error: "",
@@ -1515,8 +1521,12 @@ function renderStory(data) {
   // and the consequence stays visible; otherwise follow the first present member.
   if (present.length && !present.includes(state.selected) && !absent.has(state.selected)) {
     state.selected = present[0];
+    resetPhoneFor(state.selected);
   }
-  if (!CAST[state.selected]) state.selected = present[0] || ORDER[0];
+  if (!CAST[state.selected]) {
+    state.selected = present[0] || ORDER[0];
+    resetPhoneFor(state.selected);
+  }
   const cast = CAST[state.selected] || CAST[ORDER[0]];
   const selectedAbsent = absent.has(cast.id);
 
@@ -1946,6 +1956,15 @@ function entryRow(entry, absent, activeKey) {
     text.classList.add("is-done");
   }
   row.appendChild(text);
+  if (entry.mode === "reply") {
+    const replyTarget = asCastId(entry.target);
+    if (replyTarget && CAST[replyTarget]) {
+      const note = document.createElement("span");
+      note.className = "turn-note";
+      note.textContent = `↳ reply to ${firstNameOf(replyTarget)}`;
+      row.appendChild(note);
+    }
+  }
   if (entry.private) {
     const note = document.createElement("span");
     note.className = "turn-note";
@@ -2124,7 +2143,10 @@ function renderBacklog(data) {
     button.textContent = `${entry.isUser ? "You" : firstName(entry.speaker)}: ${entry.text}`;
     button.title = entry.text;
     button.addEventListener("click", () => {
-      if (entry.castId) state.selected = entry.castId;
+      if (entry.castId) {
+        state.selected = entry.castId;
+        resetPhoneFor(entry.castId);
+      }
       if (state.data) renderStory(state.data);
       const target = document.querySelector(`.turn-entry[data-key="${entry.key}"]`);
       if (target) {
@@ -2403,6 +2425,7 @@ async function sendScene(text, options = {}) {
       state.turn.userHidden = true;
       if (state.turn.boundaryTarget && CAST[state.turn.boundaryTarget]) {
         state.selected = state.turn.boundaryTarget;
+        resetPhoneFor(state.selected);
       }
     }
     if (state.turn.boundary && state.turn.boundaryTarget) {
@@ -2488,10 +2511,29 @@ function affinityFor(data, id) {
   return Math.max(0, Math.min(1, (edge.trust + edge.closeness) / 2 - edge.tension / 2));
 }
 
+function resetPhoneFor(id) {
+  /* The phone follows the selected cast member. Without this it keeps the
+     character it was last opened for, so picking Mia still shows Alice's
+     lock card and the Add friend button acts on the wrong person. */
+  if (state.phone.character && state.phone.character !== id) {
+    state.phone.character = id;
+    state.phone.loadedFor = null;
+    state.phone.loadingFor = null;
+    state.phone.messages = [];
+    state.phone.hasMore = false;
+    state.phone.oldestId = null;
+    state.phone.error = "";
+  }
+}
+
 function selectCast(id) {
   if (!CAST[id]) return;
   state.selected = id;
-  if (state.data) renderStory(state.data);
+  resetPhoneFor(id);
+  if (state.data) {
+    renderStory(state.data);
+    renderPhone(state.data);
+  }
 }
 
 function makeCastAction(label, onClick) {
@@ -2603,6 +2645,7 @@ function renderCast(data) {
 /* ---- phone DM --------------------------------------------------------- */
 
 function renderPhone(data) {
+  if (state.phone.sending) return;
   const targetId = phoneTarget();
   const cast = CAST[targetId] || CAST[ORDER[0]];
   if (!cast) return;
@@ -2628,7 +2671,7 @@ function renderPhone(data) {
   avatar.alt = `${cast.name} avatar`;
   $("#phone-name").textContent = cast.name;
   $("#phone-mood").textContent = cast.mood;
-  $("#phone-open").href = "http://127.0.0.1:8065/switch/channels/world";
+  $("#phone-open").href = `${MATTERMOST_BASE}/switch/channels/world`;
   const clock = data.clock && data.clock.now
     ? new Date(data.clock.now).toLocaleTimeString("en-GB", {
         timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit",
@@ -2645,8 +2688,6 @@ function renderPhone(data) {
     return;
   }
   $("#phone-mood").textContent = cast.mood;
-
-  if (state.phone.sending) return;
 
   if (state.phone.character !== cast.id || state.phone.loadedFor !== cast.id) {
     state.phone.messages = [];
@@ -2811,10 +2852,16 @@ function closePhone() {
   if (phone) phone.classList.remove("is-open");
 }
 
+let phoneHistorySeq = 0;
+
 async function loadPhoneHistory(character, beforeId = null, prepend = false) {
-  if (!character || state.phone.loading || state.phone.sending) return;
+  if (!character || state.phone.sending) return;
+  if (state.phone.loading && state.phone.loadingFor === character) return;
+  if (state.phone.character && state.phone.character !== character) return;
   if (!isFriend(state.data, character)) return;
+  const seq = ++phoneHistorySeq;
   state.phone.loading = true;
+  state.phone.loadingFor = character;
   const thread = $("#phone-thread");
   const previousHeight = thread ? thread.scrollHeight : 0;
   const cast = CAST[character];
@@ -2822,6 +2869,7 @@ async function loadPhoneHistory(character, beforeId = null, prepend = false) {
   try {
     const query = `/api/dm/${encodeURIComponent(character)}?limit=100${beforeId ? `&before_id=${beforeId}` : ""}`;
     const result = await api(query);
+    if (seq !== phoneHistorySeq || state.phone.character !== character) return;
     const messages = result.messages || [];
     if (prepend) {
       state.phone.messages = [...messages, ...state.phone.messages];
@@ -2838,13 +2886,17 @@ async function loadPhoneHistory(character, beforeId = null, prepend = false) {
       thread.scrollTop = thread.scrollHeight - previousHeight;
     }
   } catch (error) {
+    if (seq !== phoneHistorySeq || state.phone.character !== character) return;
     state.phone.error = `History unavailable: ${error.message}`;
     state.phone.loadedFor = character;
   } finally {
-    state.phone.loading = false;
-    if (cast) paintPhone(cast);
-    if (prepend && thread) {
-      thread.scrollTop = thread.scrollHeight - previousHeight;
+    if (seq === phoneHistorySeq) {
+      state.phone.loading = false;
+      state.phone.loadingFor = null;
+      if (state.phone.character === character && cast) paintPhone(cast);
+      if (state.phone.character === character && prepend && thread) {
+        thread.scrollTop = thread.scrollHeight - previousHeight;
+      }
     }
   }
 }
@@ -2885,7 +2937,7 @@ async function sendPhone(event) {
       body: JSON.stringify({ character, message }),
     });
     state.phone.sending = false;
-    await loadPhoneHistory(character);
+    if (phoneTarget() === character) await loadPhoneHistory(character);
     await refresh();
   } catch (error) {
     state.phone.sending = false;
@@ -2896,25 +2948,37 @@ async function sendPhone(event) {
       state.safety.status = "Paused. New scene and DM lines are on hold until you resume.";
       renderSafety();
     }
-    const failed = document.createElement("div");
-    failed.className = "phone-bubble character";
-    const label = document.createElement("span");
-    label.className = "phone-who";
-    label.textContent = "System";
-    failed.appendChild(label);
-    failed.appendChild(document.createTextNode(paused
-      ? "The scene is paused. This message is on hold — resume in Studio when you choose."
-      : `The line went quiet: ${error.message}`));
-    thread.appendChild(failed);
-    thread.scrollTop = thread.scrollHeight;
+    /* The optimistic bubble never entered state.phone.messages, so remove it
+       instead of leaving it in a thread the next repaint will clear. */
+    bubble.remove();
+    if (phoneTarget() === character) {
+      if (!paused) input.value = message;
+      const failed = document.createElement("div");
+      failed.className = "phone-bubble character";
+      const label = document.createElement("span");
+      label.className = "phone-who";
+      label.textContent = "System";
+      failed.appendChild(label);
+      failed.appendChild(document.createTextNode(paused
+        ? "The scene is paused. This message is on hold — resume in Studio when you choose."
+        : `The line went quiet: ${error.message}`));
+      thread.appendChild(failed);
+      thread.scrollTop = thread.scrollHeight;
+    } else {
+      const status = $("#scene-status");
+      if (status) status.textContent = paused
+        ? "A DM is on hold because the scene is paused."
+        : `The line to ${cast ? firstName(cast.name) : "her"} went quiet: ${error.message}`;
+    }
   } finally {
     state.phone.sending = false;
     typing.hidden = true;
-    const friend = isFriend(state.data, character);
+    const current = phoneTarget();
+    const friend = isFriend(state.data, current);
     input.disabled = !friend || state.safety.paused;
     send.disabled = !friend || state.safety.paused;
     if (friend && !state.safety.paused) input.focus();
-    if (!cast) input.placeholder = "Message…";
+    if (!CAST[current]) input.placeholder = "Message…";
   }
 }
 
@@ -3206,10 +3270,12 @@ function clearScenarioRuntime(scenario) {
   state.phone.hasMore = false;
   state.phone.oldestId = null;
   state.phone.loading = false;
+  state.phone.loadingFor = null;
   state.phone.sending = false;
   state.phone.loadedFor = null;
   state.phone.error = "";
   state.phone.paintSig = null;
+  phoneHistorySeq += 1;
   cancelTyping();
   closePhone();
   closeProfile();
@@ -3883,12 +3949,14 @@ function renderTree(data) {
     addText(group, pos.x, pos.y + 91, cast.role, "tree-sub");
     group.addEventListener("click", () => {
       state.selected = id;
+      resetPhoneFor(id);
       renderTree(state.data);
     });
     group.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
         state.selected = id;
+        resetPhoneFor(id);
         renderTree(state.data);
       }
     });
@@ -4934,35 +5002,47 @@ function render(data) {
 
 let initialProfileOpened = false;
 
-let refreshInFlight = false;
+let refreshInFlight = null;
+let refreshQueued = null;
 
-async function refresh() {
-  if (refreshInFlight) return;
-  refreshInFlight = true;
-  const main = $("#main");
-  main.classList.add("refreshing");
-  try {
-    const data = await api("/api/state");
-    state.data = data;
-    if (data && Object.prototype.hasOwnProperty.call(data, "scenario")) {
-      state.worlds.current = data.scenario || null;
+function refresh() {
+  if (refreshInFlight) {
+    /* Don't drop the request: callers that await refresh() after a write
+       (addFriend) need a fetch that starts after the current one finishes. */
+    if (!refreshQueued) {
+      refreshQueued = refreshInFlight
+        .catch(() => {})
+        .then(() => { refreshQueued = null; return refresh(); });
     }
-    syncSafety(data);
-    syncTakeState(data);
-    render(data);
-    if (!state.takes.probed) loadTakeCurrent();
-    if (!initialProfileOpened) {
-      initialProfileOpened = true;
-      const profile = new URLSearchParams(location.search).get("profile");
-      if (profile && CAST[profile]) openProfile(profile);
-    }
-    showError(null);
-  } catch (error) {
-    showError(`Cannot reach the world engine: ${error.message}`);
-  } finally {
-    main.classList.remove("refreshing");
-    refreshInFlight = false;
+    return refreshQueued;
   }
+  refreshInFlight = (async () => {
+    const main = $("#main");
+    main.classList.add("refreshing");
+    try {
+      const data = await api("/api/state");
+      state.data = data;
+      if (data && Object.prototype.hasOwnProperty.call(data, "scenario")) {
+        state.worlds.current = data.scenario || null;
+      }
+      syncSafety(data);
+      syncTakeState(data);
+      render(data);
+      if (!state.takes.probed) loadTakeCurrent();
+      if (!initialProfileOpened) {
+        initialProfileOpened = true;
+        const profile = new URLSearchParams(location.search).get("profile");
+        if (profile && CAST[profile]) openProfile(profile);
+      }
+      showError(null);
+    } catch (error) {
+      showError(`Cannot reach the world engine: ${error.message}`);
+    } finally {
+      main.classList.remove("refreshing");
+      refreshInFlight = null;
+    }
+  })();
+  return refreshInFlight;
 }
 
 function showError(message) {
@@ -5211,7 +5291,10 @@ function nextBeat() {
     const revealed = lines[Math.min(next, lines.length) - 1];
     if (revealed) {
       const castId = revealed.castId || asCastId(revealed.character);
-      if (castId && CAST[castId] && !absentSet(state.data).has(castId)) state.selected = castId;
+      if (castId && CAST[castId] && !absentSet(state.data).has(castId)) {
+        state.selected = castId;
+        resetPhoneFor(castId);
+      }
     }
     if (next >= lines.length) turn.done = true;
     renderStory(state.data);
@@ -5275,6 +5358,7 @@ $("#rel-view").addEventListener("change", () => {
 /* Some embedded/browser previews block target=_blank popups; navigate the top page
    directly so Open #world always responds to the click. */
 $$('a[href*="127.0.0.1:8065/switch/channels/world"]').forEach((link) => {
+  link.href = `${MATTERMOST_BASE}/switch/channels/world`;
   link.addEventListener("click", (event) => {
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
     event.preventDefault();
@@ -5381,12 +5465,13 @@ $("#takes-refresh").addEventListener("click", () => loadTakes(true));
 $("#takes-next").addEventListener("click", advanceTake);
 $("#scene-ending").addEventListener("click", evaluateEnding);
 $("#scene-dm").addEventListener("click", () => {
-  const cast = CAST[state.selected];
+  const target = phoneTarget();
+  const cast = CAST[target];
   if (cast && !isFriend(state.data, cast.id)) {
     addFriend(cast.id);
     return;
   }
-  openPhone(state.selected);
+  openPhone(target);
 });
 $("#clock-mock").addEventListener("click", () => setClockMode("mock"));
 $("#clock-real").addEventListener("click", () => setClockMode("realtime"));

@@ -527,7 +527,17 @@ def say_in_group(
     if len(message) > MAX_MESSAGE:
         raise ValueError(f"message is too long (max {MAX_MESSAGE} characters)")
 
-    requested = [_clean_character(c) for c in (characters or DEFAULT_CHARACTERS)]
+    if characters is None:
+        state = service.state()
+        scene = state.get("scene") or {}
+        cast = (
+            scene.get("cast")
+            or (state.get("scenario") or {}).get("cast")
+            or list(DEFAULT_CHARACTERS)
+        )
+        requested = [_clean_character(c) for c in cast]
+    else:
+        requested = [_clean_character(c) for c in characters]
     requested = list(dict.fromkeys(requested))
     # Presence is part of the scene: a character who left is not addressed or posted to.
     present = [c for c in requested if not service.is_absent(c)]
@@ -677,7 +687,11 @@ def say_in_group(
             continue
 
         body = (event.get("body") or "").strip()
-        if verdict["stance"] in {"refuse", "hard_refuse"} or social.contains_leak(body, verdict):
+        if (
+            verdict["stance"] in {"refuse", "hard_refuse"}
+            or (verdict["stance"] == "limited" and social.looks_like_refusal(body))
+            or social.contains_leak(body, verdict)
+        ):
             body = social.deflection(character, verdict, message)
         message_id = str(event.get("event_id") or "")
         if message_id and service.event_by_message_id(message_id):

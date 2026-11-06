@@ -193,7 +193,9 @@
       "hard_refuse": "Stop. Don't do that.",
       "deflect_zh": "打住。这个问题我不接。",
       "refuse_zh": "不行。换一个话题。",
-      "hard_refuse_zh": "停下。别这样。"
+      "hard_refuse_zh": "停下。别这样。",
+      "limited": "A hug I can do. The rest, ask me when we're not in front of everyone.",
+      "limited_zh": "抱一下可以。剩下的，等没人的时候再问。"
     },
     "emily": {
       "deflect": "That's not a question I'm answering.",
@@ -201,7 +203,9 @@
       "hard_refuse": "Don't touch me.",
       "deflect_zh": "不答。换一个。",
       "refuse_zh": "不行。问点别的。",
-      "hard_refuse_zh": "别碰我。"
+      "hard_refuse_zh": "别碰我。",
+      "limited": "One hug. You're pushing it, but one.",
+      "limited_zh": "抱一下。你有点越界了，但就一下。"
     },
     "sophia": {
       "deflect": "Why do you think that's yours to ask?",
@@ -209,7 +213,9 @@
       "hard_refuse": "Step back.",
       "deflect_zh": "你为什么会觉得这个问题可以问？",
       "refuse_zh": "这个我不回答。",
-      "hard_refuse_zh": "退后。"
+      "hard_refuse_zh": "退后。",
+      "limited": "You can have a hug. You don't get to decide where it goes.",
+      "limited_zh": "抱一下可以。手放哪儿，不是你说了算。"
     },
     "mia": {
       "deflect": "Wow. Buy me dinner first — actually, no. Don't.",
@@ -217,7 +223,9 @@
       "hard_refuse": "Hey. Hands off.",
       "deflect_zh": "哈，想得美。换话题。",
       "refuse_zh": "不行。想都别想。",
-      "hard_refuse_zh": "喂。手拿开。"
+      "hard_refuse_zh": "喂。手拿开。",
+      "limited": "A hug, fine. Hands where I can see them.",
+      "limited_zh": "抱一下行。手放我看得见的地方。"
     }
   },
   "deltas": {
@@ -238,6 +246,10 @@
       "trust": -0.25,
       "closeness": -0.2,
       "tension": 0.5
+    },
+    "limited": {
+      "closeness": 0.005,
+      "tension": 0.01
     }
   }
 }

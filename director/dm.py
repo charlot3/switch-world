@@ -128,7 +128,11 @@ def reply_to_dm(
     )
     envelope = _parse_envelope(client.chat_json(character, messages), character)
     reply = envelope["reply"]
-    if verdict["stance"] in {"refuse", "hard_refuse"} or social.contains_leak(reply, verdict):
+    if (
+            verdict["stance"] in {"refuse", "hard_refuse"}
+            or (verdict["stance"] == "limited" and social.looks_like_refusal(reply))
+            or social.contains_leak(reply, verdict)
+        ):
         reply = social.deflection(character, verdict, message)
         envelope["reply"] = reply
 

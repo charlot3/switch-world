@@ -145,7 +145,11 @@ def whisper_to_character(
         )
         reply = envelope["reply"]
         writes = _apply(service, to, envelope)
-        if verdict["stance"] in {"refuse", "hard_refuse"} or social.contains_leak(reply, verdict):
+        if (
+            verdict["stance"] in {"refuse", "hard_refuse"}
+            or (verdict["stance"] == "limited" and social.looks_like_refusal(reply))
+            or social.contains_leak(reply, verdict)
+        ):
             reply = social.deflection(to, verdict, message)
 
     private_reply = service.record_event(

@@ -287,3 +287,15 @@ def test_group_say_does_not_record_the_same_switch_event_twice(service):
     assert second["replies"] == []
     summaries = [event["summary"] for event in service.state()["events"] if event["kind"] == "dialogue"]
     assert summaries.count("Alice: Still here.") == 1
+
+
+def test_group_defaults_to_the_take_cast(service):
+    from world_engine.takes import load_take
+
+    load_take(service, "w3-quiet-route")
+    switch = FakeSwitch({"alice": "I'm here."})
+    result = say_in_group(service, "Hello?", switch=switch, timeout=2)
+    assert result["targets"] == ["alice"]
+    assert result["turn"]["plan"]["primary"] == "alice"
+    assert result["turn"]["plan"]["reactors"] == []
+    assert all("@alice" in post and "@emily" not in post for post in switch.posts)

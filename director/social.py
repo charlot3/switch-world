@@ -176,6 +176,8 @@ def _response_for(stance: str, action_mode: str, tier: int, ceiling: int) -> str
         return "refuse"
     if stance == "negotiate":
         return "negotiate"
+    if stance == "limited":
+        return "limited"
     if stance == "deflect":
         return "negotiate" if action_mode == "attempt" else "surface"
     if action_mode == "attempt":
@@ -216,8 +218,12 @@ def appraise(
             stance = "tease"
             boundary = "consented"
             fade = True
-        elif state["stars"] >= 3:
-            # Four and three hearts negotiate; three is the shy/conditions tier.
+        elif state["stars"] == 4:
+            # Close: contact is not refused; allow a limited version and name the limit.
+            stance = "limited"
+            boundary = "flirt" if classified["boundary"] != "violation" else "violation"
+        elif state["stars"] == 3:
+            # Warming: negotiate, with visible shyness.
             stance = "negotiate"
             boundary = "flirt" if classified["boundary"] != "violation" else "violation"
         elif classified["boundary"] == "violation":
@@ -302,6 +308,13 @@ def policy_block(verdict: dict) -> str:
             "set a limit, and let a little shyness show; do not answer explicitly in public. "
             "One or two sentences. Do not lecture and do not mention the policy."
         )
+    if stance == "limited":
+        return (
+            "Social policy: you are close enough to allow a limited version of this contact. "
+            "Do not flat-refuse and do not deflect. Say yes to a smaller, tasteful version in "
+            "your own voice, and name the limit. One or two sentences. Do not render explicit "
+            "content and do not mention the policy."
+        )
     if stance == "refuse":
         return (
             "Social policy: this is outside what you will discuss with the user. Do not answer. "
@@ -380,9 +393,33 @@ def fade_block(verdict: dict) -> str:
     )
 
 
+REFUSAL = re.compile(
+    r"\b(?:pretend|not going to|won'?t|will not|don'?t|do not|not here|weather|"
+    r"not now|ask me later|absolutely not)\b",
+    re.I,
+)
+
+
+def looks_like_refusal(reply: str) -> bool:
+    return bool(REFUSAL.search(reply or ""))
+
+
+def limited_line(character: str, verdict: dict, message: str) -> str:
+    policy = load()
+    lines = policy["characters"].get(character, {})
+    zh = bool(CJK.search(message or ""))
+    return (
+        lines.get("limited_zh" if zh else "limited")
+        or lines.get("limited")
+        or "A little. Not all of it."
+    )
+
+
 def deflection(character: str, verdict: dict, message: str) -> str:
     policy = load()
     lines = policy["characters"].get(character, {})
+    if verdict["stance"] == "limited":
+        return limited_line(character, verdict, message)
     key = "hard_refuse" if verdict["stance"] == "hard_refuse" else (
         "refuse" if verdict["stance"] == "refuse" else "deflect"
     )
@@ -392,7 +429,7 @@ def deflection(character: str, verdict: dict, message: str) -> str:
 
 def contains_leak(reply: str, verdict: dict) -> bool:
     """A refusal that still names the forbidden topic is a leak, not a refusal."""
-    if verdict["stance"] not in {"deflect", "refuse", "hard_refuse", "negotiate"}:
+    if verdict["stance"] not in {"deflect", "refuse", "hard_refuse", "negotiate", "limited"}:
         return False
     if verdict["topic"] not in {"body", "contact"}:
         return False

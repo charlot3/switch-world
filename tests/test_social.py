@@ -131,15 +131,16 @@ def test_three_star_body_is_a_shy_negotiation(tmp_path):
     assert verdict["response"] == "negotiate"
 
 
-def test_four_star_body_is_open_and_contact_is_negotiable(tmp_path):
+def test_four_star_body_is_open_and_contact_is_limited(tmp_path):
     service = make_service(tmp_path)
     _set_score(service, 0.35, 0.35, 0.04)
     body = social.appraise(service, "alice", "what are you wearing?", public=True)
-    kiss = social.appraise(service, "alice", "kiss me", public=True)
+    kiss = social.appraise(service, "alice", "I will hug you there", public=True)
     assert body["stars"] == 4
     assert body["stance"] == "tease"
-    assert kiss["stance"] == "negotiate"
-    assert kiss["response"] == "negotiate"
+    assert kiss["stance"] == "limited"
+    assert kiss["response"] == "limited"
+    assert "hug" in social.limited_line("alice", kiss, "I will hug you there").lower()
 
 
 def test_five_star_contact_is_allowed_and_fades(tmp_path):
@@ -150,3 +151,24 @@ def test_five_star_contact_is_allowed_and_fades(tmp_path):
     assert verdict["stance"] == "tease"
     assert verdict["fade"] is True
     assert "intimate" in social.fade_block(verdict).lower()
+
+
+def test_four_star_limited_contact_does_not_flat_refuse(tmp_path):
+    from world_engine.scenarios import load_scenario
+
+    service = make_service(tmp_path)
+    load_scenario(service, "w3-quiet-route")
+    from director.dm import reply_to_dm
+
+    class RefusingBifrost:
+        def chat_json(self, character, messages, **kwargs):
+            return {"reply": "I'm going to pretend you asked me about the weather.", "memory": None, "relationships": []}
+
+        def usage_summary(self):
+            return {}
+
+    result = reply_to_dm(service, "alice", "I will hug you there", client=RefusingBifrost())
+    assert result["social"]["stance"] == "limited"
+    assert "pretend" not in result["reply"].lower()
+    assert "weather" not in result["reply"].lower()
+    assert "hug" in result["reply"].lower()

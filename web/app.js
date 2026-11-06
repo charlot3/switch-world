@@ -2008,6 +2008,12 @@ function renderTranscript(data, absent) {
   if (turn && turn.source === "optimistic") {
     entries = entries.filter((entry) => !sameOptimisticBeat(entry, turn));
   }
+  if (turn && turn.userText) {
+    const userKey = normalizeText(turn.userText);
+    entries = entries.filter(
+      (entry) => !(entry.isUser && normalizeText(entry.text) === userKey)
+    );
+  }
   const rows = entries.filter((entry) => !hiddenByPlayback(entry, turn));
 
   if (turn && turn.source === "optimistic") {
@@ -2375,13 +2381,10 @@ async function sendScene(text, options = {}) {
     );
     state.turn.lines = extractTurnLines(result, whisper, state.turn.plan);
     state.turn.lines.forEach((line) => { line.turnId = state.turn.id; });
-    state.turn.done = !state.turn.lines.length;
-    if (whisper && state.turn.lines.length) {
-      // The private answer is the point of a whisper; show it immediately instead of
-      // hiding it behind the Next control. Observer reactions still use Next.
-      state.turn.index = 1;
-      state.turn.done = state.turn.lines.length <= 1;
-    }
+    // Show the returned beats immediately. The transcript is the performance; hiding
+    // the first answer behind Next made a finished model call look like a stall.
+    state.turn.index = state.turn.lines.length;
+    state.turn.done = true;
     state.turn.transport = (result && result.transport) || null;
     if (state.takes.current) state.takes.changed = true;
 

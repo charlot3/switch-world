@@ -123,6 +123,39 @@ def test_dev_bifrost_endpoint(client, monkeypatch):
     assert response.json()["branch"]["id"] == "disclosure"
 
 
+def test_run_beat_under_cloud_mode_needs_no_switch_room(client, monkeypatch):
+    from director import beats
+    from switch_world.adapters.models.scripted import ScriptedModelClient
+
+    # The endpoint is dev-gated; the env suite also runs with WORLD_DEV=0.
+    monkeypatch.setattr(config, "DEV_MODE", True)
+    monkeypatch.setattr(config, "AGENT_MODE", "cloud")
+    model = ScriptedModelClient(
+        {
+            "alice": {
+                "reply": "You're early. The kettle is still deciding.",
+                "memory": None,
+                "relationships": [],
+            }
+        }
+    )
+    monkeypatch.setattr(
+        beats, "_cloud_model", lambda client=None, timeout=90.0: model
+    )
+
+    response = client.post(
+        "/api/dev/run-beat",
+        json={"beat": "morning-shop", "transport": "switch"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["transport"] == "cloud"
+    assert body["transcript"] == [
+        "Alice: You're early. The kettle is still deciding."
+    ]
+
+
 def test_run_beat_and_arc_endpoints(client):
     beat = client.post(
         "/api/dev/run-beat",

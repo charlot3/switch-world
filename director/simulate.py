@@ -1,15 +1,25 @@
 """Local prototype of the café beat.
 
-This is a deterministic harness, not the production director. It exercises the same
-world-state writes the Switch-driven director will make: Alice records what the user
-told her, Emily learns it second-hand, Emily's view of Alice and the user moves, and
-the scene card is exported. The dialogue is authored; the real beat uses OpenCode
-sessions in Switch rooms.
+This is a deterministic harness, not the production director. It exercises the
+same world-state writes as the Switch-driven director: Alice records what the
+user told her, Emily learns it second-hand, Emily's view of Alice and the user
+moves, and the scene card is exported. The dialogue is authored.
+
+``run_cafe`` is now a thin wrapper over
+:mod:`switch_world.application.beats` with the local strategy.  It keeps the
+historical signature, return shape and the requirement that the caller seed the
+secret first; it deliberately does not move the clock (callers that need the
+18:30 jump use ``director.clock.advance_to_beat`` or ``director.beats``).
 """
 from __future__ import annotations
 
 from . import DEMO_KEY, DEMO_SECRET
-from .canon import branch_for, load as load_canon, record_branch, validate
+from .canon import (  # noqa: F401  (historical re-exports)
+    branch_for,
+    load as load_canon,
+    record_branch,
+    validate,
+)
 from world_engine.service import WorldService
 
 
@@ -47,7 +57,7 @@ def _alice_shares(service: WorldService) -> bool:
 
 
 def run_cafe(service: WorldService, force_share: bool | None = None) -> dict:
-    """Run the café scene. Requires Alice to know DEMO_KEY."""
+    """Run the café scene. Requires Alice to know ``DEMO_KEY``."""
     known = service.who_knows(DEMO_KEY)["holders"]
     alice_knows = any(h["holder"] == "alice" and h["source"] == "user" for h in known)
     if not alice_knows:
@@ -56,113 +66,42 @@ def run_cafe(service: WorldService, force_share: bool | None = None) -> dict:
             "user_tells_alice) first."
         )
 
-    share = _alice_shares(service) if force_share is None else bool(force_share)
-    canon = load_canon()
-    transcript: list[str] = []
+    # Imported lazily: application.beats imports user_tells_alice from this
+    # module, so a module-level import here would be circular.
+    from switch_world.adapters.clock import SystemClock
+    from switch_world.application.beat_strategies import LocalBeatStrategy
+    from switch_world.application.beats import load_spec, run_beat
 
-    service.record_event(
-        "director",
-        "scene_start",
-        "Café, 18:30. Alice and Emily are at a table.",
-        participants=["alice", "emily"],
-        visibility="public",
+    result = run_beat(
+        load_spec(
+            "cafe",
+            transport="local",
+            force_share=force_share,
+            seed=False,
+            advance=False,
+            record_beat=False,
+            canon_warning=False,
+        ),
+        LocalBeatStrategy(),
+        service,
+        SystemClock(),
     )
-
-    if not share:
-        line = "I've had a long week. Tell me something good."
-        transcript.append("Alice: " + line)
-        service.record_event("alice", "dialogue", "Alice: " + line, ["alice"], "public")
-        line = "You're deflecting. What aren't you telling me?"
-        transcript.append("Emily: " + line)
-        service.record_event("emily", "dialogue", "Emily: " + line, ["emily"], "public")
-        service.record_event(
-            "director",
-            "non_disclosure",
-            "Alice chose not to tell Emily. Emily noticed the deflection.",
-            participants=["alice", "emily"],
-            visibility="public",
-        )
-        branch = branch_for(service, DEMO_KEY)
-        issues = validate(service, canon)
-        record_branch(service, branch, issues)
-        service.advance_time("director", 30)
-        service.record_event(
-            "director", "scene_end", "The café scene ends.", ["alice", "emily"], "public"
-        )
-        card = service.scene_card(f"Café, 18:30 — {branch['id']}")
-        return {
-            "shared": False,
-            "branch": branch,
-            "canon_issues": issues,
-            "transcript": transcript,
-            "card": card,
-            "matrix": service.matrix(),
-            "clock": service.clock(),
-        }
-
-    line = (
-        "I shouldn't be telling you this, but our friend — the one who's been coming "
-        "around — is leaving the city at the end of the month. They haven't told the "
-        "others yet."
-    )
-    transcript.append("Alice: " + line)
-    service.record_event("alice", "dialogue", "Alice: " + line, ["alice"], "public")
-
-    line = (
-        "They told you before they told me? I don't know whether to be flattered or "
-        "worried."
-    )
-    transcript.append("Emily: " + line)
-    service.record_event("emily", "dialogue", "Emily: " + line, ["emily"], "public")
-
-    already = any(h["holder"] == "emily" for h in service.who_knows(DEMO_KEY)["holders"])
-    if not already:
-        service.remember(
-            "emily",
-            proposition="The user is leaving the city at the end of the month.",
-            source="character:alice",
-            confidence=0.8,
-            visibility="shared",
-            proposition_key=DEMO_KEY,
-        )
-        service.update_relationship(
-            "emily",
-            "alice",
-            trust_delta=-0.10,
-            closeness_delta=0.02,
-            tension_delta=0.05,
-            reason="heard the news second-hand",
-        )
-        service.update_relationship(
-            "emily",
-            "user",
-            trust_delta=-0.05,
-            closeness_delta=-0.02,
-            tension_delta=0.02,
-            reason="told Alice before me",
-        )
-        service.record_event(
-            "director",
-            "disclosure",
-            "Alice told Emily: the user is leaving the city.",
-            participants=["alice", "emily"],
-            visibility="public",
-        )
-
-    branch = branch_for(service, DEMO_KEY)
-    issues = validate(service, canon)
-    record_branch(service, branch, issues)
-    service.advance_time("director", 30)
-    service.record_event(
-        "director", "scene_end", "The café scene ends.", ["alice", "emily"], "public"
-    )
-    card = service.scene_card(f"Café, 18:30 — {branch['id']}")
     return {
-        "shared": True,
-        "branch": branch,
-        "canon_issues": issues,
-        "transcript": transcript,
-        "card": card,
-        "matrix": service.matrix(),
-        "clock": service.clock(),
+        "shared": (result["branch"] or {}).get("id") == "disclosure",
+        "branch": result["branch"],
+        "canon_issues": result["canon_issues"],
+        "transcript": result["transcript"],
+        "card": result["card"],
+        "matrix": result["matrix"],
+        "clock": result["clock"],
     }
+
+
+__all__ = [
+    "branch_for",
+    "load_canon",
+    "record_branch",
+    "run_cafe",
+    "user_tells_alice",
+    "validate",
+]

@@ -12,8 +12,9 @@ The model returns a small JSON envelope:
                        "visibility": "private", "proposition_key": "..."},
      "relationships": [{"other": "alice", "trust_delta": -0.1, ..., "reason": "..."}]}
 
-The runner writes those through WorldService, then classifies the branch from the ledger
-with the same `director.canon` guard as the Switch path.
+The lifecycle now lives in :mod:`switch_world.application.beats`; this module
+keeps the historical public names and return shapes and supplies the prompt
+and model half through :class:`BifrostBeatStrategy`.
 """
 from __future__ import annotations
 
@@ -22,19 +23,28 @@ from pathlib import Path
 from world_engine import config
 from world_engine.service import WorldService
 
-from . import DEMO_KEY, DEMO_SECRET
-from .beats import (
-    _apply_effects,
-    _canon_warning,
-    _ensure_secret,
-    _record_beat,
+from switch_world.adapters.clock import SystemClock
+from switch_world.adapters.models.legacy import LegacyModelClient
+from switch_world.application.beat_strategies import BifrostBeatStrategy
+from switch_world.application.beats import (
+    _ensure_secret as _pipeline_ensure_secret,
     get_beat,
+    load_spec,
     prompts_for,
+    run_beat as _pipeline_run_beat,
 )
-from .canon import brief, branch_for, load as load_canon, record_branch, validate
+
+from . import DEMO_KEY, DEMO_SECRET
+from .canon import (  # noqa: F401  (branch_for/record_branch/validate re-exports)
+    brief,
+    branch_for,
+    load as load_canon,
+    record_branch,
+    validate,
+)
 from .clock import advance_to_beat
-from .simulate import user_tells_alice
-from .social import appraise, clean_scene_line
+from .social import appraise, clean_scene_line  # noqa: F401  (re-exports)
+from .simulate import user_tells_alice  # noqa: F401  (re-export)
 from .tavily_beat import world_context
 
 SCHEMA = """Return ONLY a JSON object with this shape:
@@ -167,61 +177,57 @@ def _apply(service: WorldService, character: str, envelope: dict) -> dict:
     return {"memory": belief, "relationships": moved}
 
 
-def run_cafe_bifrost(
-    service: WorldService | None = None,
-    client=None,
-    seed: bool = True,
+def _group_writes(items) -> dict:
+    """The historical ``_apply`` shape from the pipeline's applied-write list."""
+    memory = None
+    relationships: list[dict] = []
+    for item in items or ():
+        if isinstance(item, dict) and "memory" in item:
+            memory = item["memory"]
+        elif isinstance(item, dict):
+            relationships.append(item)
+    return {"memory": memory, "relationships": relationships}
+
+
+def _usage(client) -> dict:
+    summary = getattr(client, "usage_summary", None)
+    return summary() if callable(summary) else {}
+
+
+def _run_cafe_bifrost(
+    service: WorldService,
+    client,
+    *,
+    seed: bool,
+    advance: bool,
 ) -> dict:
-    """Run the café beat with both character turns generated through Bifrost."""
-    service = service or WorldService()
-    if client is None:
-        from gateway.bifrost import BifrostClient
-
-        client = BifrostClient()
-
     known = service.who_knows(DEMO_KEY)["holders"]
     alice_knows = any(
-        holder["holder"] == "alice" and holder["source"] == "user" for holder in known
+        holder["holder"] == "alice" and holder["source"] == "user"
+        for holder in known
     )
-    if not alice_knows:
-        if not seed:
-            raise ValueError("Alice does not know the secret; seed it first")
-        user_tells_alice(service, secret=DEMO_SECRET, key=DEMO_KEY)
+    if not alice_knows and not seed:
+        raise ValueError("Alice does not know the secret; seed it first")
 
-    canon = load_canon()
     context = world_context(service)
-    service.record_event(
-        "director",
-        "scene_start",
-        "Café, 18:30. Alice and Emily are at a table. The dialogue is generated through Bifrost.",
-        participants=["alice", "emily"],
-        visibility="public",
+    result = _pipeline_run_beat(
+        load_spec(
+            "cafe",
+            transport="bifrost",
+            seed=seed,
+            advance=advance,
+        ),
+        BifrostBeatStrategy(
+            LegacyModelClient(client),
+            prompts=prompts_for,
+        ),
+        service,
+        SystemClock(),
     )
 
-    alice_messages = [
-        {
-            "role": "system",
-            "content": _system("alice", canon, context, clock=service.clock()["now"]),
-        },
-        {
-            "role": "user",
-            "content": (
-                "It is 18:30 at the café. Emily is across the table and notices you are "
-                "distracted. She asks directly: \"Is something wrong?\" A friend of yours — "
-                "the person who has been coming around lately — told you in a private DM "
-                "that they are leaving the city at the end of the month. They have not told "
-                "the others. You decide whether to tell Emily. You already know the secret; "
-                "set memory to null — do not record a new belief. If your view of Emily "
-                "changed, include relationship deltas. Do not call them \"the user\" in the "
-                "room. Reply with dialogue only, 1-3 sentences, no stage directions."
-            ),
-        },
-    ]
-    alice = _parse_envelope(client.chat_json("alice", alice_messages), "alice")
-    alice["reply"] = clean_scene_line(alice["reply"])
-    if not alice["reply"]:
-        service.record_event("director", "no_reply", "Alice did not answer in the room.", ["alice"], "public")
-        card = service.scene_card("Café, 18:30 — no reply")
+    turns = {turn["character"]: turn for turn in result["turns"]}
+    usage = _usage(client)
+    if "alice" not in turns:
         return {
             "shared": None,
             "branch": None,
@@ -230,65 +236,50 @@ def run_cafe_bifrost(
             "emily": None,
             "alice_writes": None,
             "emily_writes": None,
-            "card": card,
-            "matrix": service.matrix(),
-            "bifrost": client.usage_summary() if hasattr(client, "usage_summary") else {},
+            "card": result["card"],
+            "matrix": result["matrix"],
+            "bifrost": usage,
             "world_context": context,
         }
-    service.record_event("alice", "dialogue", "Alice: " + alice["reply"], ["alice"], "public")
-    alice_writes = _apply(service, "alice", alice)
 
-    emily_messages = [
-        {
-            "role": "system",
-            "content": _system("emily", canon, context, clock=service.clock()["now"]),
-        },
-        {
-            "role": "user",
-            "content": (
-                f"Alice says: \"{alice['reply']}\" — how do you respond? If you learned the "
-                "secret, include a memory with source \"character:alice\", confidence "
-                "0.7-0.9, visibility \"shared\" and proposition_key "
-                "\"user-leaving-city\". If she only dodged and you merely suspect, record a "
-                "suspicion with proposition_key \"alice-holding-back\", source "
-                "\"observation\", confidence 0.3-0.5 and visibility \"private\". If your view "
-                "of Alice or the friend changed, include relationship deltas. Reply with "
-                "dialogue only, 1-3 sentences, no stage directions."
-            ),
-        },
-    ]
-    emily = _parse_envelope(client.chat_json("emily", emily_messages), "emily")
-    emily["reply"] = clean_scene_line(emily["reply"])
-    if emily["reply"]:
-        service.record_event("emily", "dialogue", "Emily: " + emily["reply"], ["emily"], "public")
-    else:
-        service.record_event("director", "no_reply", "Emily did not answer in the room.", ["emily"], "public")
-    emily_writes = _apply(service, "emily", emily)
-
-    branch = branch_for(service, DEMO_KEY)
-    issues = validate(service, canon)
-    record_branch(service, branch, issues)
-    service.advance_time("director", 30)
-    service.record_event(
-        "director", "scene_end", "The Bifrost café scene ends.", ["alice", "emily"], "public"
-    )
-    beat = get_beat("cafe", canon)
-    _record_beat(service, beat)
-    card = service.scene_card(f"Café, 18:30 — {branch['id']}")
-    usage = client.usage_summary() if hasattr(client, "usage_summary") else {}
+    alice = turns["alice"]["reply"]
+    emily_turn = turns.get("emily")
     return {
-        "shared": branch["id"] == "disclosure",
-        "branch": branch,
-        "canon_issues": issues,
-        "alice": alice["reply"],
-        "emily": emily["reply"],
-        "alice_writes": alice_writes,
-        "emily_writes": emily_writes,
-        "card": card,
-        "matrix": service.matrix(),
+        "shared": (result["branch"] or {}).get("id") == "disclosure",
+        "branch": result["branch"],
+        "canon_issues": result["canon_issues"],
+        "alice": alice,
+        "emily": emily_turn["reply"] if emily_turn else "",
+        "alice_writes": _group_writes(turns["alice"]["writes"]),
+        "emily_writes": (
+            _group_writes(emily_turn["writes"])
+            if emily_turn
+            else {"memory": None, "relationships": []}
+        ),
+        "card": result["card"],
+        "matrix": result["matrix"],
         "bifrost": usage,
         "world_context": context,
     }
+
+
+def run_cafe_bifrost(
+    service: WorldService | None = None,
+    client=None,
+    seed: bool = True,
+) -> dict:
+    """Run the café beat with both character turns generated through Bifrost.
+
+    The caller owns the clock: like the historical function, this does not move
+    the world to 18:30.  ``director.beats`` and ``run_beat_bifrost`` do that
+    before calling in.
+    """
+    service = service or WorldService()
+    if client is None:
+        from gateway.bifrost import BifrostClient
+
+        client = BifrostClient()
+    return _run_cafe_bifrost(service, client, seed=seed, advance=False)
 
 
 def run_beat_bifrost(
@@ -306,83 +297,61 @@ def run_beat_bifrost(
     beat = get_beat(beat_id, canon)
 
     if beat_id == "cafe":
-        _ensure_secret(service)
+        _pipeline_ensure_secret(service, DEMO_KEY)
         advance_to_beat(service, canon, beat["id"])
         result = run_cafe_bifrost(service, client=client)
         result["beat"] = beat
         result["transport"] = "bifrost"
         return result
 
-    branch = None
-    branch_id = None
-    if beat_id == "aftermath":
-        if service.latest_event("branch") is None:
-            raise ValueError("run the café beat first; aftermath needs a branch")
-        branch = branch_for(service, DEMO_KEY)
-        branch_id = branch["id"]
-
-    if beat_id in {"morning-shop", "roundup"}:
-        _ensure_secret(service)
-    advance_to_beat(service, canon, beat["id"])
     context = world_context(service)
-    service.record_event(
-        "director",
-        "beat_start",
-        f"Beat: {beat['id']} — {beat['title']}",
-        participants=beat.get("characters", []),
-        visibility="public",
+    result = _pipeline_run_beat(
+        load_spec(beat_id, transport="bifrost"),
+        BifrostBeatStrategy(
+            LegacyModelClient(client),
+            prompts=prompts_for,
+        ),
+        service,
+        SystemClock(),
     )
-
-    prompts = prompts_for(beat, branch_id)
-    turns = []
-    transcript = []
-    for character in beat.get("characters", []):
-        if character in {"user", "director"}:
-            continue
-        prompt = prompts.get(character)
-        if not prompt:
-            continue
-        messages = [
-            {"role": "system", "content": _system(character, canon, context, clock=service.clock()["now"])},
-            {"role": "user", "content": prompt},
-        ]
-        envelope = _parse_envelope(client.chat_json(character, messages), character)
-        reply = clean_scene_line(envelope["reply"])
-        if not reply:
-            service.record_event(
-                "director", "no_reply", f"{character.title()} did not answer.", [character], "public"
-            )
-            continue
-        # Authored beats take the same policy gate as the group, DM and whisper.
-        from switch_world.application.group_planning import _sanitise_reply
-
-        verdict = appraise(service, character, prompt, public=False)
-        envelope["reply"] = _sanitise_reply(character, reply, verdict, prompt)
-        service.record_event(
-            character,
-            "dialogue",
-            f"{character.title()}: {envelope['reply']}",
-            [character],
-            "public",
-        )
-        writes = _apply(service, character, envelope)
-        turns.append({"character": character, "reply": envelope["reply"], "writes": writes})
-        transcript.append(f"{character.title()}: {envelope['reply']}")
-
-    _apply_effects(service, beat_id, branch_id)
-    _record_beat(service, beat)
-    issues = _canon_warning(service, canon)
-    card = service.scene_card(f"{beat['title']} — {beat_id}")
-    usage = client.usage_summary() if hasattr(client, "usage_summary") else {}
+    turns = [
+        {
+            "character": turn["character"],
+            "reply": turn["reply"],
+            "writes": _group_writes(turn["writes"]),
+        }
+        for turn in result["turns"]
+    ]
     return {
-        "beat": beat,
-        "transport": "bifrost",
-        "branch": branch,
-        "canon_issues": issues,
+        "beat": result["beat"],
+        "transport": result["transport"],
+        "branch": result["branch"],
+        "canon_issues": result["canon_issues"],
         "turns": turns,
-        "transcript": transcript,
-        "card": card,
-        "matrix": service.matrix(),
-        "bifrost": usage,
+        "transcript": result["transcript"],
+        "card": result["card"],
+        "matrix": result["matrix"],
+        "bifrost": _usage(client),
         "world_context": context,
     }
+
+
+__all__ = [
+    "DEMO_SECRET",
+    "LANGUAGE_AND_VOICE",
+    "SCHEMA",
+    "TONE",
+    "_apply",
+    "_identity",
+    "_parse_envelope",
+    "_system",
+    "appraise",
+    "branch_for",
+    "clean_scene_line",
+    "load_canon",
+    "record_branch",
+    "run_beat_bifrost",
+    "run_cafe_bifrost",
+    "user_tells_alice",
+    "validate",
+]

@@ -827,6 +827,39 @@ historical gateway/cloud schema. The authored beat runners
 through the same `_sanitise_reply` policy gate, and a line that is only an ellipsis or a
 Switch placeholder is treated as no reply on every path.
 
+The one authored-beat pipeline now lives in
+`switch_world/application/beats.py`:
+`run_beat(spec, agent, store, clock)` runs
+`scene_start → per-turn prompt → reply → branch_for → validate → record_branch →
+advance_time → scene_end → get_beat → scene card`. The transport-specific half is
+injected from `switch_world/application/beat_strategies.py`: `LocalBeatStrategy` uses
+the authored canon lines, `BifrostBeatStrategy` and `CloudBeatStrategy` call a
+`ModelClient`, and `SwitchBeatStrategy` delivers through a `CharacterTransport`. Cloud
+beats use the injected model client directly, so there is no room and no `wait_for`.
+The four historical runners are now thin compatibility wrappers over that
+pipeline: `director.beats.run_local_beat` / `run_beat` / `run_arc`,
+`bifrost_scene.run_cafe_bifrost` / `run_beat_bifrost`,
+`run_switch.run_cafe_switch` / `run_beat_switch`, and
+`simulate.run_cafe` resolve a `BeatSpec`, pick the matching strategy, and adapt
+the result back to their historical signatures and return shapes. `get_beat`,
+`prompts_for`, `advance_to`, `_apply_effects` and the Bifrost `_system` /
+`_parse_envelope` / `_apply` helpers are still importable from the same modules.
+`tests/integration/test_beats_parity.py` compares the new pipeline against the
+vendored pre-step runners in `tests/fixtures/legacy_beats/` (not the current
+compatibility wrappers): local café and later beats, Bifrost and Switch café and
+morning-shop, and cloud café and later beats. `simulate.run_cafe` keeps the
+direct café runner's historical feed — only `run_local_beat` adds the `beat` and
+`canon_warning` events — and every recorded line, authored or generated, goes
+through `clean_scene_line`.
+
+With `WORLD_AGENT_MODE=cloud` a `switch` beat no longer needs a room:
+`POST /api/dev/run-beat` and `director --beat --transport switch` (or the
+explicit `--transport cloud`) run the same pipeline with `CloudBeatStrategy`
+over the injected `ModelClient`. `director/cloud_switch.py` is a compatibility
+shim: `CloudSwitch` keeps the Switch-shaped room surface for the group shim and
+`CloudBifrost` keeps `chat_json` / `usage_summary`, while both delegate every
+provider call to `DeepSeekModelClient`.
+
 ### Persistence boundary
 
 SQL lives in exactly one adapter: `switch_world/adapters/persistence/`. `schema.py` owns
@@ -1108,7 +1141,7 @@ the scene card above: the user and the cast co-produce a scene and its provenanc
 | `switch_world/domain/` | pure vocabulary: cast ids, visibilities, proposition labels and value helpers; no I/O |
 | `switch_world/adapters/persistence/` | the only SQLite adapter: schema, migrations, seed, and `WorldStore` reader/writer/admin faces |
 | `switch_world/adapters/transports/` | Switch, cloud-room, local and legacy-bridge transports over the `CharacterTransport` port |
-| `switch_world/application/` | use cases: `scene.say_in_group`, `scene.dm`, `scene.whisper`, and the `TurnRecorder` pipeline (plan → deliver → sanitise → writes → beats → relay) |
+| `switch_world/application/` | use cases: `scene.say_in_group`, `scene.dm`, `scene.whisper`, the `TurnRecorder` pipeline (plan → deliver → sanitise → writes → beats → relay), and the one authored-beat pipeline `beats.run_beat` with its injected `beat_strategies` |
 | `switch_world/` | composition root (`Settings`, `build_container`) and the HTTP/MCP entry points |
 | `world_engine/` | compatibility facade over the store, MCP tools, canon API, scene card and Studio summary |
 | `web/` | the vanilla dashboard (Story/arc/profile, World Tree, ledger, settings) |
@@ -1119,7 +1152,7 @@ the scene card above: the user and the cast co-produce a scene and its provenanc
 | `tests/` | pytest for the service, API, canon, café beat, store/model/transport contracts, architecture guardrails and the one-connection `/api/state` probe |
 | `agents/<name>/` | per-character working directories: `AGENTS.md`, `IDENTITY.md`, `CLAUDE.md`, generated `opencode.json` / `.mcp.json` |
 | `mcp/` | the world engine's MCP tool surface (design notes) |
-| `director/` | authored beat runners (local/Bifrost/Switch), the DM, group-turn and whisper compatibility shims (`dm.py` / `group.py` / `whisper.py` → `switch_world.application.scene`), the time machine (`clock.py`), the social gate (`social.py`), the optional high-reasoning arbiter (`arbiter.py`), and `canon.py` |
+| `director/` | compatibility wrappers over the authored-beat pipeline (`beats.py` / `bifrost_scene.py` / `run_switch.py` / `simulate.py` → `switch_world.application.beats`, local/Bifrost/Switch/cloud), the DM, group-turn and whisper shims (`dm.py` / `group.py` / `whisper.py` → `switch_world.application.scene`), the cloud room/model shim (`cloud_switch.py` → `CloudRoomTransport` / `DeepSeekModelClient` surfaces), the time machine (`clock.py`), the social gate (`social.py`), the optional high-reasoning arbiter (`arbiter.py`), and `canon.py` |
 | `demo-links.html` | the recording tab board: every URL, the 4:00 timer, pre-flight checklist and architecture plate |
 | `docs/DEMO_TODAY.md` | the four-minute cut and the test pass to run before recording |
 | `scripts/fetch-switch.sh` | pull the pinned Switch compose artifact |

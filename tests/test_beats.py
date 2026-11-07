@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from director.beats import BEAT_ORDER, run_arc, run_beat, run_local_beat
+from switch_world.adapters.models.scripted import ScriptedModelClient
 from world_engine import config
 from world_engine.service import WorldService
 
@@ -117,6 +118,30 @@ def test_bifrost_meta_reply_is_skipped_as_no_reply(tmp_path):
     assert all("@user" not in event["summary"] for event in dialogues)
 
 
+def test_cloud_mode_serves_a_switch_beat_without_a_room(tmp_path, monkeypatch):
+    """AGENT_MODE=cloud substitutes the model path for the Switch transport."""
+    monkeypatch.setattr(config, "AGENT_MODE", "cloud")
+    service = make_service(tmp_path)
+    model = ScriptedModelClient(
+        {
+            "alice": {
+                "reply": "You're early. The kettle is still deciding.",
+                "memory": None,
+                "relationships": [],
+            }
+        }
+    )
+
+    result = run_beat(service, "morning-shop", transport="switch", client=model)
+
+    assert result["transport"] == "cloud"
+    assert result["beat"]["id"] == "morning-shop"
+    assert result["transcript"] == [
+        "Alice: You're early. The kettle is still deciding."
+    ]
+    assert "Scene card" in result["card"]["text"]
+
+
 def test_branch_and_arc_survive_more_than_50_events(tmp_path):
     service = make_service(tmp_path)
     run_local_beat(service, "cafe")
@@ -129,3 +154,39 @@ def test_branch_and_arc_survive_more_than_50_events(tmp_path):
     assert service.latest_event("branch") is not None
     result = run_local_beat(service, "aftermath")
     assert result["beat"]["id"] == "aftermath"
+
+
+def test_authored_lines_go_through_the_meta_sanitiser(tmp_path):
+    """Authored canon lines are not exempt from the scene-line filter."""
+    from switch_world.adapters.clock.system import SystemClock
+    from switch_world.application.beat_strategies import LocalBeatStrategy
+    from switch_world.application.beats import BeatSpec, run_beat
+
+    service = make_service(tmp_path)
+    beat = {
+        "id": "probe",
+        "title": "Probe",
+        "characters": ["alice"],
+        "local": [
+            {
+                "speaker": "alice",
+                "text": "@user started a session\n```sh\nrm -rf /\n```\n…",
+            }
+        ],
+    }
+    result = run_beat(
+        BeatSpec(
+            beat=beat,
+            canon={"beats": [beat]},
+            transport="local",
+            seed=False,
+            advance=False,
+        ),
+        LocalBeatStrategy(),
+        service,
+        SystemClock(),
+    )
+
+    assert result["transcript"] == []
+    assert service.events(kind="no_reply")
+    assert all("@user" not in event["summary"] for event in service.events(kind="dialogue"))

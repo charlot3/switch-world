@@ -43,7 +43,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--query", default=None, help="Tavily query for --tavily-event")
     parser.add_argument("--bifrost", action="store_true", help="run the café beat through Bifrost")
     parser.add_argument("--beat", default=None, help="run one authored beat, e.g. morning-shop")
-    parser.add_argument("--transport", choices=["local", "bifrost", "switch"], default="local", help="transport for --beat")
+    parser.add_argument("--transport", choices=["local", "bifrost", "switch", "cloud"], default="local", help="transport for --beat (switch becomes cloud when WORLD_AGENT_MODE=cloud)")
     parser.add_argument("--arc", action="store_true", help="run all five beats locally")
     parser.add_argument("--switch-log", action="store_true", help="export detailed Switch room history")
     args = parser.parse_args(argv)

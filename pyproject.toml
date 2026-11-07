@@ -20,6 +20,7 @@ dev = [
   "pytest>=8",
   "pytest-asyncio>=0.24",
   "python-pptx>=1.0.2",
+  "respx>=0.22",
 ]
 
 [build-system]

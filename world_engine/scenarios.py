@@ -20,8 +20,6 @@ from typing import Any
 from . import config
 from .service import (
     CHARACTER_ORDER,
-    SCENARIO_ID_META,
-    SCENARIO_META,
     VISIBILITIES,
     WorldService,
 )
@@ -283,25 +281,6 @@ def _validate(scenario: dict, path: Path) -> None:
             _fail(path, "ending.evidence must be a list of strings")
 
 
-def _scenario_items(scenario: dict) -> list[dict]:
-    """Both the singular `item` chip and an optional `items` list."""
-    candidates: list[Any] = []
-    if scenario.get("item") is not None:
-        candidates.append(scenario["item"])
-    candidates.extend(scenario.get("items") or [])
-    out: list[dict] = []
-    seen: set[str] = set()
-    for spec in candidates:
-        if not isinstance(spec, dict):
-            continue
-        item_id = spec.get("id")
-        if not isinstance(item_id, str) or not item_id or item_id in seen:
-            continue
-        seen.add(item_id)
-        out.append(spec)
-    return out
-
-
 def _load_file(path: Path) -> dict:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -351,18 +330,6 @@ def list_scenarios() -> list[dict]:
     return out
 
 
-def _belief_source(conn, holder: str, source: str) -> tuple[str, str]:
-    if source == "user":
-        return "user", "user"
-    if source == "observation":
-        return "observation", holder
-    kind, source_id = source.split(":", 1)
-    row = conn.execute("SELECT 1 FROM characters WHERE id = ?", (source_id,)).fetchone()
-    if not row:
-        raise ValueError("unknown character in belief source: " + source_id)
-    return "character", source_id
-
-
 def load_scenario(service: WorldService, scenario_id: str) -> dict:
     """Reset the world and apply one scenario seed. Returns the full scenario."""
     scenario = get_scenario(scenario_id)
@@ -380,141 +347,15 @@ def load_scenario(service: WorldService, scenario_id: str) -> dict:
     )
     cast = list(scenario.get("cast") or [])
 
-    with service._conn() as conn:
-        conn.execute(
-            "UPDATE clock SET now = ?, day = ?, mode = ?, anchor_real = ?, scale = ? "
-            "WHERE id = 1",
-            (now_iso, now.date().isoformat(), mode, anchor, scale),
-        )
-        for character in scenario.get("friends") or []:
-            conn.execute(
-                "INSERT OR IGNORE INTO friends(character, since) VALUES (?, ?)",
-                (character, now_iso),
-            )
-        for character in scenario.get("absent") or []:
-            conn.execute(
-                "INSERT INTO meta(key, value) VALUES (?, ?) "
-                "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-                (service.ABSENT_PREFIX + character, "out of scene"),
-            )
-
-        for edge in scenario.get("relationships") or []:
-            conn.execute(
-                """INSERT INTO relationships(a, b, trust, closeness, tension,
-                                             shared_secret_count, last_interaction)
-                   VALUES (?,?,?,?,?,?,?)
-                   ON CONFLICT(a, b) DO UPDATE SET
-                     trust = excluded.trust,
-                     closeness = excluded.closeness,
-                     tension = excluded.tension,
-                     shared_secret_count = excluded.shared_secret_count,
-                     last_interaction = excluded.last_interaction""",
-                (
-                    edge["a"], edge["b"], float(edge["trust"]),
-                    float(edge["closeness"]), float(edge["tension"]),
-                    int(edge.get("shared_secret_count", 0)), now_iso,
-                ),
-            )
-
-        for belief in scenario.get("beliefs") or []:
-            holder = belief["holder"]
-            key = belief.get("key") or belief.get("proposition_key")
-            kind, source_id = _belief_source(conn, holder, belief["source"])
-            confidence = float(belief.get("confidence", 0.8))
-            visibility = belief.get("visibility", "private")
-            existing = conn.execute(
-                """SELECT id FROM beliefs
-                    WHERE holder = ? AND proposition_key = ?
-                    ORDER BY id DESC LIMIT 1""",
-                (holder, key),
-            ).fetchone()
-            if existing:
-                conn.execute(
-                    """UPDATE beliefs
-                          SET proposition = ?, source_kind = ?, source_id = ?,
-                              confidence = ?, learned_at = ?, visibility = ?,
-                              superseded_by = NULL
-                        WHERE id = ?""",
-                    (
-                        belief["proposition"], kind, source_id, confidence,
-                        now_iso, visibility, existing["id"],
-                    ),
-                )
-            else:
-                conn.execute(
-                    """INSERT INTO beliefs(holder, proposition, proposition_key,
-                                           source_kind, source_id, confidence,
-                                           learned_at, visibility)
-                       VALUES (?,?,?,?,?,?,?,?)""",
-                    (
-                        holder, belief["proposition"], key, kind, source_id,
-                        confidence, now_iso, visibility,
-                    ),
-                )
-            # A belief learned from another character is a secret between the two.
-            if kind == "character" and source_id != holder:
-                updated = conn.execute(
-                    """UPDATE relationships
-                          SET shared_secret_count = shared_secret_count + 1,
-                              last_interaction = ?
-                        WHERE a = ? AND b = ?""",
-                    (now_iso, holder, source_id),
-                ).rowcount
-                if not updated:
-                    conn.execute(
-                        """INSERT INTO relationships(a, b, trust, closeness, tension,
-                                                     shared_secret_count, last_interaction)
-                           VALUES (?,?,?,?,?,?,?)""",
-                        (holder, source_id, 0.5, 0.5, 0.0, 1, now_iso),
-                    )
-
-        # Arm the declared outfits before applying them; set_outfit checks this.
-        conn.execute(
-            "INSERT INTO meta(key, value) VALUES (?, ?) "
-            "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-            (SCENARIO_META, json.dumps(scenario, ensure_ascii=False)),
-        )
-        conn.execute(
-            "INSERT INTO meta(key, value) VALUES (?, ?) "
-            "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-            (SCENARIO_ID_META, scenario["id"]),
-        )
-
-        for spec in _scenario_items(scenario):
-            holder = spec.get("holder", "user")
-            owner = spec.get("owner", holder)
-            conn.execute(
-                """INSERT INTO items(id, label, holder, owner, status, created_at)
-                   VALUES (?,?,?,?,?,?)
-                   ON CONFLICT(id) DO UPDATE SET
-                     label = excluded.label,
-                     holder = excluded.holder,
-                     owner = excluded.owner,
-                     status = excluded.status,
-                     created_at = excluded.created_at""",
-                (
-                    spec["id"], spec["label"], holder, owner,
-                    spec.get("status", "carried"), now_iso,
-                ),
-            )
-
-        conn.execute(
-            """INSERT INTO events(kind, summary, participants_json, visibility,
-                                  created_at, metadata_json)
-               VALUES ('scenario_load', ?, ?, 'public', ?, ?)""",
-            (
-                f"Loaded scenario {scenario['id']} — {scenario.get('title', '')}.",
-                json.dumps(cast),
-                now_iso,
-                json.dumps(
-                    {
-                        "scenario_id": scenario["id"],
-                        "cast": cast,
-                        "seed": scenario.get("seed"),
-                    },
-                    ensure_ascii=False,
-                ),
-            ),
+    with service.store.transaction() as conn:
+        service.store.admin.apply_scenario(
+            conn,
+            scenario,
+            now_iso=now_iso,
+            mode=mode,
+            scale=scale,
+            anchor=anchor,
+            cast=cast,
         )
 
     for character, spec in (scenario.get("outfits") or {}).items():

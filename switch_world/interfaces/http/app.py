@@ -28,6 +28,7 @@ from world_engine.takes import (
     load_take,
     next_scene,
     take_snapshot,
+    take_snapshot_from_snapshot,
 )
 
 CANON_PATH = config.ROOT / "world" / "canon.json"
@@ -138,17 +139,20 @@ def create_app(
 
     @app.get("/api/state")
     def state():
-        data = service.state()
+        # One store snapshot for the whole projection: clock, take and every
+        # subprojection come from the same read.
+        snapshot = service.store.reader.snapshot()
+        data = service.state_from_snapshot(snapshot)
         data["canon"] = load_canon()
         # `scene` already carries the clock/beat view the Story stage reads. When a
         # take is active, merge its scene card into the same object so both the old
         # dashboard keys and the new take fields stay available.
-        clock = clock_view()
-        snapshot = take_snapshot(service)
-        take_scene = snapshot.get("scene")
+        clock = clock_view(clock=snapshot["clock"])
+        take = take_snapshot_from_snapshot(snapshot)
+        take_scene = take.get("scene")
         data["scene"] = {**clock, **take_scene} if take_scene else clock
-        data["take"] = snapshot.get("take")
-        data["take_index"] = snapshot.get("take_index")
+        data["take"] = take.get("take")
+        data["take_index"] = take.get("take_index")
         return data
 
     @app.get("/api/canon")
@@ -250,11 +254,11 @@ def create_app(
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from exc
 
-    def clock_view() -> dict:
+    def clock_view(clock: dict | None = None) -> dict:
         from director.clock import current_beat, next_beat
 
         canon_data = load_canon()
-        clock = service.clock()
+        clock = clock or service.clock()
         now = datetime.fromisoformat(clock["now"])
         current = current_beat(canon_data, now)
         upcoming, target = next_beat(canon_data, now)

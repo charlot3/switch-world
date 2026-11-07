@@ -794,6 +794,30 @@ gating; callers that omit them (older tests) fall back to the ambient
 never constructs the app, opens the database or binds a socket. `world_engine/config.py`
 remains as a lazy compatibility shim for older callers and tests.
 
+### Persistence boundary
+
+SQL lives in exactly one adapter: `switch_world/adapters/persistence/`. `schema.py` owns
+the SQLite schema, migrations and seed; `store.py` owns every query and exposes three
+narrow faces over one `WorldStore`:
+
+- `store.reader` — clock, beliefs, relationships, events, matrix, outfits, items,
+  connections, presence, phone history and `snapshot()`.
+- `store.writer` — clock moves, beliefs, relationship deltas, events, outfits, items,
+  presence, pause and idempotency records.
+- `store.admin` — whole-database reset and transactional scenario seeding.
+
+Writers accept an optional connection. Passing one from `store.transaction()` lets a
+loader commit several changes atomically; omitting it commits one change on its own
+connection. `store.snapshot()` reads the whole `/api/state` projection on a single
+connection, so the dashboard no longer opens one handle per subprojection.
+
+`world_engine/service.py` is a compatibility facade: `WorldService` keeps its constructor
+and every public method name, signature and return shape, but each method delegates to the
+store. `world_engine/db.py` is a shim over `schema.py`. No production module runs SQL or
+calls `WorldService._conn()`; that private helper is deprecated and kept only for legacy
+callers (the clock test). Scenario and take loaders write through
+`store.transaction()` / `store.admin`.
+
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and [`docs/SWITCH.md`](docs/SWITCH.md).
 
 ## Quickstart
@@ -1006,13 +1030,16 @@ the scene card above: the user and the cast co-produce a scene and its provenanc
 | `gateway/` | Bifrost client, Tavily client, offline fixture |
 | `world/state/` | seed characters, relationship graph and beliefs |
 | `world/rooms.json` | surface ↔ character ↔ channel/DM mapping |
-| `world_engine/` | FastAPI + SQLite + MCP world engine, token scoping, canon API, scene card, Studio summary |
+| `switch_world/domain/` | pure vocabulary: cast ids, visibilities, proposition labels and value helpers; no I/O |
+| `switch_world/adapters/persistence/` | the only SQLite adapter: schema, migrations, seed, and `WorldStore` reader/writer/admin faces |
+| `switch_world/` | composition root (`Settings`, `build_container`) and the HTTP/MCP entry points |
+| `world_engine/` | compatibility facade over the store, MCP tools, canon API, scene card and Studio summary |
 | `web/` | the vanilla dashboard (Story/arc/profile, World Tree, ledger, settings) |
 | `web/assets/portraits/` | bust, full-body 立绘, avatar crops, contact sheets, `PROMPTS.md` |
 | `web/assets/scenes/` | demo scene plates (first meeting, day café, solo date, trio, endings) |
 | `web/assets/portraits/outfits/` | date outfit full/bust and the memory-chain outfit plate |
 | `web/assets/portraits/props/` | the wrapped-book prop and other demo objects |
-| `tests/` | pytest for the service, API, canon and café beat |
+| `tests/` | pytest for the service, API, canon, café beat, store contract, architecture guardrails and the one-connection `/api/state` probe |
 | `agents/<name>/` | per-character working directories: `AGENTS.md`, `IDENTITY.md`, `CLAUDE.md`, generated `opencode.json` / `.mcp.json` |
 | `mcp/` | the world engine's MCP tool surface (design notes) |
 | `director/` | authored beat runners (local/Bifrost/Switch), the phone DM, group turns (`group.py`), whisper (`whisper.py`), the time machine (`clock.py`), the social gate (`social.py`), the optional high-reasoning arbiter (`arbiter.py`), and `canon.py` |

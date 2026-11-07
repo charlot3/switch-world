@@ -18,18 +18,18 @@ so no scene or policy text is built here.
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from typing import Any
 
+from switch_world.domain.agents import AgentReply, parse_agent_reply
 from switch_world.domain.ids import CharacterId, TurnId
 from switch_world.domain.ports.model import (
     Message,
     ModelClient,
     ModelError,
     ModelFormat,
-    ModelReply,
 )
 from switch_world.domain.ports.transport import (
     Delivery,
@@ -106,6 +106,7 @@ class CloudRoomTransport:
         prompts: Sequence[Prompt],
         *,
         turn_id: TurnId,
+        deadline: float | None = None,
     ) -> Delivery:
         events = self._rooms.setdefault(room.room_id, [])
         cursor = f"n:{len(events)}"
@@ -114,14 +115,16 @@ class CloudRoomTransport:
 
         replies = self._reply_many(prompts)
         inline: list[InboundTurn] = []
-        for index, (prompt, text) in enumerate(zip(prompts, replies, strict=True)):
+        for index, (prompt, reply) in enumerate(zip(prompts, replies, strict=True)):
             turn = InboundTurn(
                 sender=CharacterId(str(prompt.speaker)),
-                text=text,
+                text=reply.text,
                 event_id=(
                     f"cloud-{turn_id}-{index}-{str(prompt.speaker)}"
                 ),
                 received_at=self._now(),
+                writes=reply.writes,
+                source=reply.source,
             )
             events.append(turn)
             inline.append(turn)
@@ -156,10 +159,10 @@ class CloudRoomTransport:
         return None
 
     # ---- model ------------------------------------------------------------
-    def _reply_many(self, prompts: Sequence[Prompt]) -> list[str]:
+    def _reply_many(self, prompts: Sequence[Prompt]) -> list[AgentReply]:
         workers = self._max_workers or max(1, len(prompts))
         errors: list[BaseException] = []
-        replies: list[str] = []
+        replies: list[AgentReply] = []
         with ThreadPoolExecutor(max_workers=workers) as pool:
             futures = [pool.submit(self._answer, prompt) for prompt in prompts]
             for future in futures:
@@ -174,13 +177,18 @@ class CloudRoomTransport:
             raise TransportError(f"cloud reply failed: {first}") from first
         return replies
 
-    def _answer(self, prompt: Prompt) -> str:
+    def _answer(self, prompt: Prompt) -> AgentReply:
+        character = str(prompt.speaker)
         reply = self._model.generate(
-            CharacterId(str(prompt.speaker)),
+            CharacterId(character),
             [Message(role="user", content=prompt.text)],
             format=self._format,
         )
-        return _reply_text(reply, character=str(prompt.speaker))
+        return parse_agent_reply(
+            character,
+            reply,
+            envelope=self._format is ModelFormat.JSON,
+        )
 
     # ---- cursor / clock ---------------------------------------------------
     def _after_cursor(self, room_id: str, cursor: str) -> list[InboundTurn]:
@@ -197,20 +205,6 @@ class CloudRoomTransport:
         if self._clock is not None:
             return self._clock.now()
         return datetime.now(timezone.utc)
-
-
-def _reply_text(reply: ModelReply, *, character: str) -> str:
-    """Read the character's line from a JSON envelope or plain text."""
-    data = reply.data
-    if isinstance(data, Mapping):
-        for key in ("reply", "text", "message", "content"):
-            value = data.get(key)
-            if isinstance(value, str) and value.strip():
-                return value.strip()
-    text = (reply.text or "").strip()
-    if not text:
-        raise ModelError(f"{character} returned an empty reply")
-    return text
 
 
 __all__ = ["CloudRoomTransport"]

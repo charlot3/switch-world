@@ -85,16 +85,19 @@ def to_inbound(
     """Turn one wire event into an :class:`InboundTurn`.
 
     A missing id gets a deterministic synthetic value scoped to the room and
-    position so dedupe still works inside a snapshot.
+    position so dedupe still works inside a snapshot. That id is marked
+    ``synthetic`` so the recorder never persists it as a message id.
     """
     event_id = event_id_of(event)
-    if event_id is None:
+    synthetic = event_id is None
+    if synthetic:
         event_id = f"{room}:{index}"
     return InboundTurn(
         sender=CharacterId(sender_of(event)),
         text=text_of(event),
         event_id=MessageId(event_id),
         received_at=timestamp_of(event, fallback=fallback),
+        synthetic=synthetic,
     )
 
 

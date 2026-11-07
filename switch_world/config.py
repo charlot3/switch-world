@@ -38,6 +38,13 @@ class Settings:
     world_start: str
     world_day: str
     token_overrides: tuple[tuple[str, str], ...] = ()
+    # Transport settings resolved once for the composition root.
+    switch_base_url: str = "http://127.0.0.1:8000"
+    switch_agent_id: str = "director"
+    switch_token: str = ""
+    cloud_api_key: str = ""
+    cloud_base_url: str = "https://api.deepseek.com/v1"
+    cloud_model: str = "deepseek-flash"
 
     def token_map(self) -> dict[str, str]:
         """token -> actor id. Env tokens override the dev defaults."""
@@ -85,4 +92,14 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         world_start=env.get("WORLD_START", "2026-11-03T08:00:00+09:00"),
         world_day=env.get("WORLD_DAY", "2026-11-03"),
         token_overrides=token_overrides,
+        switch_base_url=env.get("SWITCH_API_ENDPOINT", "http://127.0.0.1:8000"),
+        switch_agent_id=env.get("SWITCH_AGENT_ID", "director"),
+        switch_token=env.get("SWITCH_API_TOKEN", ""),
+        cloud_api_key=env.get(
+            "DEEPSEEK_API_KEY", env.get("WORLD_CLOUD_API_KEY", "")
+        ),
+        cloud_base_url=env.get(
+            "WORLD_CLOUD_BASE_URL", "https://api.deepseek.com/v1"
+        ),
+        cloud_model=env.get("WORLD_CLOUD_MODEL", "deepseek-flash"),
     )

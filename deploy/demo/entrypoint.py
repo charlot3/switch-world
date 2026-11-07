@@ -97,7 +97,7 @@ def main() -> None:
     else:
         print(f"switch-world-demo: database already seeded with {current!r}")
 
-    app = create_app(service, settings)
+    app = create_app(service, settings, container=container)
 
     host = settings.host
     port = settings.port

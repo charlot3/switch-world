@@ -14,7 +14,7 @@ def main() -> None:
     settings = load_settings(os.environ)
     container = build_container(settings)
     uvicorn.run(
-        create_app(container.service, settings),
+        create_app(container.service, settings, container=container),
         host=settings.host,
         port=settings.port,
         log_level="info",

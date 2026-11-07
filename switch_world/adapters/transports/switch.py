@@ -99,10 +99,15 @@ class SwitchTransport:
         prompts: Sequence[Prompt],
         *,
         turn_id: TurnId,
+        deadline: float | None = None,
     ) -> Delivery:
         # Capture the boundary first: the reply may share the post's timestamp.
         cursor = self._cursor(room.room_id)
         for prompt in prompts:
+            # Posting is synchronous, so check the turn cap between posts; a
+            # slow room must not push the turn past its deadline.
+            if deadline is not None and self._monotonic() >= deadline:
+                break
             self._post_message(room.room_id, prompt.text)
         return Delivery(room=room, turn_id=turn_id, cursor=cursor)
 
@@ -114,10 +119,14 @@ class SwitchTransport:
         deadline: float,
     ) -> list[InboundTurn]:
         wanted = {str(speaker) for speaker in speakers}
+        if not wanted:
+            return []
         seen = {str(turn.event_id) for turn in delivery.inline}
         collected: list[InboundTurn] = []
 
-        while True:
+        # The deadline gates polling itself: no snapshot is read once the turn
+        # has expired, matching the historical loop.
+        while self._monotonic() < deadline:
             try:
                 events = self._raw_history(delivery.room.room_id)
             except TransportError:

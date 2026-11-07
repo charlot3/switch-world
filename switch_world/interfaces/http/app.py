@@ -99,17 +99,49 @@ def _check_revision(service: WorldService, expected: int | None) -> None:
         )
 
 
+def _legacy_transport(settings: Settings | None = None):
+    """A deferred transport for a caller that built no container.
+
+    The client is resolved on first use, so the compatibility path still works
+    with a monkeypatched ``director.group.SwitchClient`` in older tests. The
+    agent mode selects the same room HEAD did, so a direct
+    ``create_app(service, settings)`` caller is not always sent to Switch. The
+    composition root path never reaches this helper.
+    """
+    from switch_world.adapters.transports.legacy import LegacySwitchTransport
+
+    mode = settings.agent_mode if settings is not None else config.AGENT_MODE
+    if str(mode).strip().lower() == "cloud":
+
+        def client_factory():
+            from director.cloud_switch import CloudSwitch
+
+            return CloudSwitch()
+
+    else:
+
+        def client_factory():
+            from director.group import SwitchClient
+
+            return SwitchClient()
+
+    return LegacySwitchTransport(client_factory=client_factory)
+
+
 def create_app(
-    service: WorldService | None = None, settings: Settings | None = None
+    service: WorldService | None = None,
+    settings: Settings | None = None,
+    container=None,
 ) -> FastAPI:
+    if service is None and container is not None:
+        service = container.service
     service = service or WorldService()
+    # The composition root owns transport construction; routes only receive it.
+    transport = getattr(container, "transport", None) or _legacy_transport(settings)
 
     def dev_enabled() -> bool:
         """Prefer the composition root's Settings over the ambient shim."""
         return settings.dev_mode if settings is not None else config.DEV_MODE
-
-    def agent_mode() -> str:
-        return settings.agent_mode if settings is not None else config.AGENT_MODE
 
     mcp = create_mcp(service)
     mcp_app = mcp.streamable_http_app(streamable_http_path="/", stateless_http=True)
@@ -505,16 +537,13 @@ def create_app(
             return replayed
         _check_revision(service, _expected_revision(payload))
         try:
-            switch_client = None
-            if agent_mode() == "cloud":
-                from director.cloud_switch import CloudSwitch
+            from switch_world.application.scene import say_in_group
 
-                switch_client = CloudSwitch()
             result = say_in_group(
                 service,
                 message,
                 characters=characters if isinstance(characters, list) else None,
-                switch=switch_client,
+                transport=transport,
                 timeout=float(payload.get("timeout") or 45.0),
             )
         except ValueError as exc:

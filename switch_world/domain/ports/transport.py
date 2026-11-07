@@ -10,9 +10,12 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Literal, Protocol
+from typing import TYPE_CHECKING, Literal, Protocol
 
 from ..ids import CharacterId, MessageId, TurnId
+
+if TYPE_CHECKING:
+    from ..agents import WorldWrite
 
 
 class TransportError(RuntimeError):
@@ -61,6 +64,14 @@ class InboundTurn:
     text: str
     event_id: MessageId
     received_at: datetime
+    # In-band transports may carry an envelope's writes; out-of-band ones
+    # leave the tuple empty because the character already wrote through MCP.
+    writes: tuple[WorldWrite, ...] = ()
+    source: str = "mcp"
+    # True when the adapter invented the id because the wire event had none.
+    # A synthetic id is only valid inside one snapshot, so it is never stored
+    # as a durable message id.
+    synthetic: bool = False
 
 
 @dataclass(frozen=True)
@@ -90,7 +101,12 @@ class CharacterTransport(Protocol):
     ) -> RoomHandle: ...
 
     def deliver_many(
-        self, room: RoomHandle, prompts: Sequence[Prompt], *, turn_id: TurnId
+        self,
+        room: RoomHandle,
+        prompts: Sequence[Prompt],
+        *,
+        turn_id: TurnId,
+        deadline: float | None = None,
     ) -> Delivery: ...
 
     def collect(

@@ -788,11 +788,31 @@ user ── Mattermost channel/DM ── Switch room ── Switch agent (Alice)
 The application is assembled explicitly in `switch_world/`. `load_settings(os.environ)` is
 a pure function over the environment, `build_container(settings)` constructs the
 `WorldService`, and `switch_world.interfaces.http.app` builds the FastAPI app.
-`create_app(service, settings)` takes those resolved settings for dev/agent endpoint
-gating; callers that omit them (older tests) fall back to the ambient
-`world_engine.config` shim. Importing `world_engine.api` only re-exports `create_app`: it
-never constructs the app, opens the database or binds a socket. `world_engine/config.py`
-remains as a lazy compatibility shim for older callers and tests.
+`create_app(service, settings, container=...)` takes those resolved settings for
+dev/agent endpoint gating and receives the container's transport; callers that omit the
+container (older tests) fall back to the ambient `world_engine.config` shim.
+Importing `world_engine.api` only re-exports `create_app`: it never constructs the app,
+opens the database or binds a socket. `world_engine/config.py` remains as a lazy
+compatibility shim for older callers and tests.
+
+`build_container` resolves `WORLD_AGENT_MODE` once and injects a
+`CharacterTransport` (and, for cloud, a `ModelClient`):
+
+| `WORLD_AGENT_MODE` | transport | model | write path |
+|---|---|---|---|
+| `switch` (default) | `SwitchTransport` | none | the cast writes through scoped MCP tools |
+| `cloud` | `CloudRoomTransport` | `DeepSeekModelClient` | the JSON envelope's `memory` / `relationships` writes are applied with the character as actor |
+| `local` | `LocalRoomTransport` | none | scripted replies for tests and the demo |
+
+No HTTP route constructs a provider client. `POST /api/group/say` calls
+`switch_world.application.scene.say_in_group`, and the pipeline in
+`switch_world.application.turns.TurnRecorder` fixes the order: record the user's line,
+record the turn plan, select planned speakers, deliver prompts through the transport,
+sanitise each reply once, apply any `AgentReply.writes` with the character as actor,
+record dialogue/action/silence beats, then deliver at most one one-hop relay. An
+in-band envelope therefore has exactly the authority a character has through MCP, and an
+out-of-band room still relies on the character's own scoped MCP writes.
+`director/group.py` is now a compatibility shim over that use case.
 
 ### Persistence boundary
 
@@ -1068,7 +1088,8 @@ the scene card above: the user and the cast co-produce a scene and its provenanc
 | `world/rooms.json` | surface ↔ character ↔ channel/DM mapping |
 | `switch_world/domain/` | pure vocabulary: cast ids, visibilities, proposition labels and value helpers; no I/O |
 | `switch_world/adapters/persistence/` | the only SQLite adapter: schema, migrations, seed, and `WorldStore` reader/writer/admin faces |
-| `switch_world/adapters/transports/` | Switch, cloud-room and local room adapters over the `CharacterTransport` port |
+| `switch_world/adapters/transports/` | Switch, cloud-room, local and legacy-bridge transports over the `CharacterTransport` port |
+| `switch_world/application/` | use cases: `scene.say_in_group` and the `TurnRecorder` pipeline (plan → deliver → sanitise → writes → beats → relay) |
 | `switch_world/` | composition root (`Settings`, `build_container`) and the HTTP/MCP entry points |
 | `world_engine/` | compatibility facade over the store, MCP tools, canon API, scene card and Studio summary |
 | `web/` | the vanilla dashboard (Story/arc/profile, World Tree, ledger, settings) |
@@ -1079,7 +1100,7 @@ the scene card above: the user and the cast co-produce a scene and its provenanc
 | `tests/` | pytest for the service, API, canon, café beat, store/model/transport contracts, architecture guardrails and the one-connection `/api/state` probe |
 | `agents/<name>/` | per-character working directories: `AGENTS.md`, `IDENTITY.md`, `CLAUDE.md`, generated `opencode.json` / `.mcp.json` |
 | `mcp/` | the world engine's MCP tool surface (design notes) |
-| `director/` | authored beat runners (local/Bifrost/Switch), the phone DM, group turns (`group.py`), whisper (`whisper.py`), the time machine (`clock.py`), the social gate (`social.py`), the optional high-reasoning arbiter (`arbiter.py`), and `canon.py` |
+| `director/` | authored beat runners (local/Bifrost/Switch), the phone DM, the group-turn compatibility shim (`group.py` → `switch_world.application.scene`), whisper (`whisper.py`), the time machine (`clock.py`), the social gate (`social.py`), the optional high-reasoning arbiter (`arbiter.py`), and `canon.py` |
 | `demo-links.html` | the recording tab board: every URL, the 4:00 timer, pre-flight checklist and architecture plate |
 | `docs/DEMO_TODAY.md` | the four-minute cut and the test pass to run before recording |
 | `scripts/fetch-switch.sh` | pull the pinned Switch compose artifact |

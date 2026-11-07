@@ -1,0 +1,178 @@
+"""Compatibility transport over a legacy ``director.switch_client.SwitchClient``.
+
+The v2 application talks to :class:`CharacterTransport`. Older callers (and the
+compatibility shim in ``director/group.py``) still pass a Switch-shaped object
+with ``find_room`` / ``post`` / ``history``. This adapter narrows that surface
+without letting the application depend on the legacy class, and normalizes the
+wire event id through the same helper as :class:`SwitchTransport` so an event
+that carries ``id`` instead of ``event_id`` is no longer a split-brain.
+
+It is a compatibility bridge only: production code uses ``SwitchTransport``.
+"""
+from __future__ import annotations
+
+import time
+from collections.abc import Sequence
+from typing import Any
+
+from switch_world.domain.ids import CharacterId, TurnId
+from switch_world.domain.ports.transport import (
+    Delivery,
+    InboundTurn,
+    Prompt,
+    RoomHandle,
+    TransportCapabilities,
+    TransportError,
+)
+
+from director.switch_client import SwitchError
+
+from ._support import dedupe, to_inbound
+
+
+class LegacySwitchTransport:
+    """A :class:`CharacterTransport` over the old Switch client interface."""
+
+    name = "switch-legacy"
+
+    def __init__(
+        self,
+        client: Any | None = None,
+        *,
+        client_factory: Any | None = None,
+        time_source: Any | None = None,
+    ) -> None:
+        if client is None and client_factory is None:
+            raise ValueError("client or client_factory is required")
+        self._client = client
+        self._client_factory = client_factory
+        self._time = time_source or time
+
+    def capabilities(self) -> TransportCapabilities:
+        return TransportCapabilities(
+            response_format="text",
+            write_mode="out_of_band",
+            private_rooms=False,
+            non_blocking_post=True,
+            addressing=True,
+            event_id_field="event_id",
+        )
+
+    def open_room(
+        self, *, name: str, private_for: CharacterId | None = None
+    ) -> RoomHandle:
+        if private_for is not None:
+            raise TransportError(
+                "Switch transport has no private rooms; use a DM transport"
+            )
+        room = self._backend().find_room(name)
+        room_id = str(room.get("room_id") or room.get("id") or name)
+        return RoomHandle(room_id=room_id, name=name)
+
+    def deliver_many(
+        self,
+        room: RoomHandle,
+        prompts: Sequence[Prompt],
+        *,
+        turn_id: TurnId,
+        deadline: float | None = None,
+    ) -> Delivery:
+        # Same turn boundary the old code used: events older than half a second
+        # before the first post belong to a previous turn.
+        cutoff = int(self._time.time() * 1000) - 500
+        try:
+            for prompt in prompts:
+                if deadline is not None and self._monotonic() >= deadline:
+                    break
+                self._backend().post(room.room_id, prompt.text)
+        except SwitchError as exc:
+            # The port owns failures: the application catches TransportError
+            # and its message stays the historical one.
+            raise TransportError(str(exc)) from exc
+        return Delivery(room=room, turn_id=turn_id, cursor=f"ms:{cutoff}")
+
+    def collect(
+        self,
+        delivery: Delivery,
+        *,
+        speakers: Sequence[CharacterId],
+        deadline: float,
+    ) -> list[InboundTurn]:
+        wanted = {str(speaker) for speaker in speakers}
+        if not wanted:
+            return []
+        cutoff = self._cutoff(delivery.cursor)
+        seen: set[str] = set()
+        collected: list[InboundTurn] = []
+        # The deadline gates polling itself, as in HEAD: once the turn is over
+        # this poll must not answer with events that arrived after the cap.
+        while self._monotonic() < deadline:
+            try:
+                events = self._backend().history(delivery.room.room_id)
+            except Exception:
+                # A transient history failure is a missed poll, exactly as before.
+                events = []
+            for index, event in enumerate(events or []):
+                if not isinstance(event, dict):
+                    continue
+                if str(event.get("sender_name") or "").strip() not in wanted:
+                    continue
+                try:
+                    stamp = int(event.get("timestamp") or 0)
+                except (TypeError, ValueError):
+                    stamp = 0
+                if stamp <= cutoff:
+                    continue
+                turn = to_inbound(event, room=delivery.room.room_id, index=index)
+                key = str(turn.event_id)
+                if key in seen:
+                    continue
+                seen.add(key)
+                collected.append(turn)
+            if wanted <= {str(turn.sender) for turn in collected}:
+                break
+            remaining = deadline - self._monotonic()
+            if remaining <= 0:
+                break
+            interval = 0.5 if str(delivery.turn_id).endswith("-relay") else 1.0
+            self._time.sleep(min(interval, remaining))
+        return dedupe(collected)
+
+    def history(self, room: RoomHandle) -> list[InboundTurn]:
+        try:
+            events = self._backend().history(room.room_id)
+        except Exception:
+            events = []
+        turns = [
+            to_inbound(event, room=room.room_id, index=index)
+            for index, event in enumerate(events or [])
+            if isinstance(event, dict)
+        ]
+        return dedupe(turns)
+
+    def close(self) -> None:
+        return None
+
+    # ---- helpers ----------------------------------------------------------
+    def _backend(self) -> Any:
+        if self._client is None:
+            self._client = self._client_factory()
+        return self._client
+
+    @staticmethod
+    def _cutoff(cursor: str) -> int:
+        if cursor.startswith("ms:"):
+            try:
+                return int(cursor[3:])
+            except ValueError:
+                return 0
+        return 0
+
+    def _monotonic(self) -> float:
+        monotonic = getattr(self._time, "monotonic", None)
+        if callable(monotonic):
+            return float(monotonic())
+        return float(self._time.time())
+
+
+__all__ = ["LegacySwitchTransport"]

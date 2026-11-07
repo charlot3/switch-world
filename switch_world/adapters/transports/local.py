@@ -97,6 +97,7 @@ class LocalRoomTransport:
         prompts: Sequence[Prompt],
         *,
         turn_id: TurnId,
+        deadline: float | None = None,
     ) -> Delivery:
         events = self._rooms.setdefault(room.room_id, [])
         cursor = f"n:{len(events)}"

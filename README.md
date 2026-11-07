@@ -657,8 +657,10 @@ path gets a second, **high**-reasoning opinion:
 
 - `world/models.json` sets `"reasoning": "low"` on the four characters and
   `"reasoning": "high"` on the `arbiter` profile;
-- `director/dm.py` and `director/whisper.py` send `reasoning="high"` only when the
-  classified topic is `body` or `contact`; everything else stays low;
+- `switch_world.application.scene.dm` and `switch_world.application.scene.whisper`
+  (through the `director/dm.py` and `director/whisper.py` shims) send
+  `reasoning="high"` only when the classified topic is `body` or `contact`;
+  everything else stays low;
 - `director/group.py` keeps the deterministic social ladder for the live Switch cast and
   (when `WORLD_ARBITER=1`, off by default) adds one bounded `director/arbiter.py` call for
   a non-coercive body/contact turn. The arbiter never writes prose and can only keep or
@@ -812,7 +814,18 @@ sanitise each reply once, apply any `AgentReply.writes` with the character as ac
 record dialogue/action/silence beats, then deliver at most one one-hop relay. An
 in-band envelope therefore has exactly the authority a character has through MCP, and an
 out-of-band room still relies on the character's own scoped MCP writes.
-`director/group.py` is now a compatibility shim over that use case.
+`director/group.py` is now a compatibility shim over that use case. `POST /api/dm`
+calls `switch_world.application.scene.dm`, which keeps the historical DM prompt, phone
+history, world-time string and JSON envelope but shares the group's `_sanitise_reply`
+instead of the old inline copy. `director/dm.py` is a compatibility shim: it resolves a
+Bifrost or DeepSeek `ModelClient` from `WORLD_AGENT_MODE`, wraps a caller-supplied legacy
+`chat_json` client in `LegacyModelClient`, and keeps the old `reply_to_dm` signature and
+return shape. The default client is built lazily, after input validation, and its request
+log and budget live under `WORLD_DATA_DIR`; the returned `bifrost` block keeps the
+historical gateway/cloud schema. The authored beat runners
+(`bifrost_scene.run_beat_bifrost`, `run_switch.run_beat_switch`) put each generated line
+through the same `_sanitise_reply` policy gate, and a line that is only an ellipsis or a
+Switch placeholder is treated as no reply on every path.
 
 ### Persistence boundary
 
@@ -859,9 +872,11 @@ silent empty reply, and has no same-millisecond cutoff. `LocalRoomTransport` is
 the scripted in-process double used by tests and the demo, including private
 rooms.
 
-This step is deliberately **not wired** into `create_app` or the director yet;
-the running app still uses `gateway/bifrost.py`, `director/switch_client.py`
-and `director/cloud_switch.py`, and the group/DM/whisper paths are unchanged.
+These adapters began deliberately unwired; steps 4, 5a and 5b now route the
+group turn, the DM and the whisper through `switch_world.application.scene`
+(live Switch still comes from `SwitchTransport`). The whisper branches on
+`TransportCapabilities.private_rooms` rather than probing the backend, so the
+staged path and the private-room path are selected from one declared contract.
 The new contracts are exercised by `tests/contract/test_model_contract.py`
 (Scripted, Bifrost, DeepSeek: text, JSON, fenced JSON, kwargs, usage, budget and
 errors), `tests/contract/test_transport_contract.py` (Switch with `respx`,
@@ -871,8 +886,12 @@ private rooms) and `tests/contract/test_content_contract.py` (missing file,
 mtime cache, parse-once). The DeepSeek adapter fixes the audited cloud defects:
 an error or empty reply raises `ModelError` instead of becoming a silent
 silence, fenced/preamble JSON is accepted, budgets and request logs are per
-character, and there is no same-millisecond turn cutoff. `make check` covers all
-of it.
+character, and there is no same-millisecond turn cutoff. The whisper's two
+branches are covered by `tests/integration/test_whisper_capability.py` (staged
+when `private_rooms` is false, the transport's private room when true, and a
+failed lookup falling back to staged), its HEAD-vs-worktree behaviour by
+`tests/integration/test_whisper_parity.py`, and the shared policy/metadata by
+`tests/unit/test_sanitise_parity.py`. `make check` covers all of it.
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and [`docs/SWITCH.md`](docs/SWITCH.md).
 
@@ -1089,7 +1108,7 @@ the scene card above: the user and the cast co-produce a scene and its provenanc
 | `switch_world/domain/` | pure vocabulary: cast ids, visibilities, proposition labels and value helpers; no I/O |
 | `switch_world/adapters/persistence/` | the only SQLite adapter: schema, migrations, seed, and `WorldStore` reader/writer/admin faces |
 | `switch_world/adapters/transports/` | Switch, cloud-room, local and legacy-bridge transports over the `CharacterTransport` port |
-| `switch_world/application/` | use cases: `scene.say_in_group` and the `TurnRecorder` pipeline (plan → deliver → sanitise → writes → beats → relay) |
+| `switch_world/application/` | use cases: `scene.say_in_group`, `scene.dm`, `scene.whisper`, and the `TurnRecorder` pipeline (plan → deliver → sanitise → writes → beats → relay) |
 | `switch_world/` | composition root (`Settings`, `build_container`) and the HTTP/MCP entry points |
 | `world_engine/` | compatibility facade over the store, MCP tools, canon API, scene card and Studio summary |
 | `web/` | the vanilla dashboard (Story/arc/profile, World Tree, ledger, settings) |
@@ -1100,7 +1119,7 @@ the scene card above: the user and the cast co-produce a scene and its provenanc
 | `tests/` | pytest for the service, API, canon, café beat, store/model/transport contracts, architecture guardrails and the one-connection `/api/state` probe |
 | `agents/<name>/` | per-character working directories: `AGENTS.md`, `IDENTITY.md`, `CLAUDE.md`, generated `opencode.json` / `.mcp.json` |
 | `mcp/` | the world engine's MCP tool surface (design notes) |
-| `director/` | authored beat runners (local/Bifrost/Switch), the phone DM, the group-turn compatibility shim (`group.py` → `switch_world.application.scene`), whisper (`whisper.py`), the time machine (`clock.py`), the social gate (`social.py`), the optional high-reasoning arbiter (`arbiter.py`), and `canon.py` |
+| `director/` | authored beat runners (local/Bifrost/Switch), the DM, group-turn and whisper compatibility shims (`dm.py` / `group.py` / `whisper.py` → `switch_world.application.scene`), the time machine (`clock.py`), the social gate (`social.py`), the optional high-reasoning arbiter (`arbiter.py`), and `canon.py` |
 | `demo-links.html` | the recording tab board: every URL, the 4:00 timer, pre-flight checklist and architecture plate |
 | `docs/DEMO_TODAY.md` | the four-minute cut and the test pass to run before recording |
 | `scripts/fetch-switch.sh` | pull the pinned Switch compose artifact |

@@ -266,6 +266,25 @@ class BifrostModelClient:
             requests=len(entries),
         )
 
+    def usage_summary(self) -> dict[str, Any]:
+        """The historical ``gateway.bifrost`` evidence block, unchanged."""
+        state = self._budget()
+        return {
+            "date": state["date"],
+            "characters": {
+                character: {
+                    "used_tokens": int(state["characters"].get(character, 0)),
+                    "daily_tokens": cfg.daily_tokens,
+                    "model": cfg.model,
+                    "fallbacks": list(cfg.fallbacks),
+                    "reasoning": cfg.reasoning,
+                }
+                for character, cfg in self.models.items()
+            },
+            "requests": len(self.requests),
+            "log_path": str(self.log_path),
+        }
+
     # ---- HTTP -------------------------------------------------------------
     def _http_post(self, url: str, payload: dict, headers: dict) -> dict:
         try:

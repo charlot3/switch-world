@@ -29,6 +29,18 @@ PLACEHOLDERS = (
     "session is starting",
 )
 
+# A line made only of ellipses is a model's "no reply" placeholder, not dialogue.
+ELLIPSIS_ONLY = re.compile(r"^[\s.…]+$")
+
+
+def _is_placeholder_line(line: str) -> bool:
+    """True when the line is a Switch placeholder or only an ellipsis."""
+    if not line.strip():
+        return True
+    if any(marker in line.lower() for marker in PLACEHOLDERS):
+        return True
+    return bool(ELLIPSIS_ONLY.fullmatch(line))
+
 # Live models occasionally leak the room's addressing grammar into the scene:
 # a literal "@user", an "@director" aside, or a line about not being online.
 # None of that is in-character, so the line is dropped before it is recorded.
@@ -121,8 +133,7 @@ def clean_scene_line(text: str | None) -> str:
     kept = [
         line
         for line in (text or "").splitlines()
-        if not any(marker in line.lower() for marker in PLACEHOLDERS)
-        and not _is_meta_line(line)
+        if not _is_placeholder_line(line) and not _is_meta_line(line)
     ]
     return "\n".join(kept).strip()
 

@@ -9,8 +9,10 @@ from __future__ import annotations
 import os
 import tempfile
 
-os.environ["WORLD_DEV"] = "1"
-os.environ["WORLD_AGENT_MODE"] = "switch"
+# Defaults only: an explicitly requested mode must reach the tests, so the
+# env suite can exercise dev/switch and cloud/switch independently.
+os.environ.setdefault("WORLD_DEV", "1")
+os.environ.setdefault("WORLD_AGENT_MODE", "switch")
 
 # Never write a world database, exports or request logs into the checkout.
 _SESSION_DATA = tempfile.mkdtemp(prefix="switch-world-tests-")

@@ -106,6 +106,9 @@ class DeepSeekModelClient:
         self.budget_path = Path(budget_path or DEFAULT_DATA_DIR / "deepseek_budget.json")
         self.log_path = Path(log_path or DEFAULT_DATA_DIR / "logs" / "deepseek.jsonl")
         self.requests: list[dict[str, Any]] = []
+        # The historical cloud client exposed the last raw provider ``usage``
+        # object; keep it so the DM return shape does not change.
+        self.last_usage: dict[str, Any] = {}
 
     # ---- model client -----------------------------------------------------
     def generate(
@@ -153,6 +156,10 @@ class DeepSeekModelClient:
         try:
             raw = self.transport(
                 self.base_url + "/chat/completions", payload, headers
+            )
+            raw_usage = raw.get("usage") if isinstance(raw, Mapping) else None
+            self.last_usage = (
+                dict(raw_usage) if isinstance(raw_usage, Mapping) else {}
             )
             content = response_content(raw, character=name)
             usage = usage_from_response(raw)
@@ -207,6 +214,10 @@ class DeepSeekModelClient:
             total_tokens=total,
             requests=len(entries),
         )
+
+    def usage_summary(self) -> dict[str, Any]:
+        """The historical cloud evidence block: the last raw provider usage."""
+        return dict(self.last_usage)
 
     # ---- HTTP -------------------------------------------------------------
     def _http_post(self, url: str, payload: dict, headers: dict) -> dict:

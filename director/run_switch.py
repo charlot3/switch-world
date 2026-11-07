@@ -21,7 +21,7 @@ from .beats import (
 )
 from .canon import brief, branch_for, load as load_canon, record_branch, validate
 from .clock import advance_to_beat
-from .social import clean_scene_line
+from .social import appraise, clean_scene_line
 from .switch_client import SwitchClient
 
 ALICE_PROMPT = (
@@ -219,6 +219,11 @@ def run_beat_switch(
                 "director", "no_reply", f"{character.title()} did not answer.", [character], "public"
             )
             continue
+        # Authored beats take the same policy gate as the group, DM and whisper.
+        from switch_world.application.group_planning import _sanitise_reply
+
+        verdict = appraise(service, character, prompt, public=False)
+        reply = _sanitise_reply(character, reply, verdict, prompt)
         service.record_event(
             character, "dialogue", f"{character.title()}: {reply}", [character], "public"
         )

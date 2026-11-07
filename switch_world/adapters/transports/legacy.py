@@ -52,18 +52,42 @@ class LegacySwitchTransport:
         return TransportCapabilities(
             response_format="text",
             write_mode="out_of_band",
-            private_rooms=False,
+            private_rooms=self._has_private_rooms(),
             non_blocking_post=True,
             addressing=True,
             event_id_field="event_id",
         )
 
+    def _has_private_rooms(self) -> bool:
+        """The legacy Switch client exposed private rooms through ``find_private_room``.
+
+        The probe lives in the adapter boundary, not the application: a
+        factory-backed transport cannot know before construction and reports
+        ``False`` (the group path never asks for a private room).
+        """
+        if self._client is None:
+            return False
+        return callable(getattr(self._client, "find_private_room", None))
+
     def open_room(
         self, *, name: str, private_for: CharacterId | None = None
     ) -> RoomHandle:
         if private_for is not None:
-            raise TransportError(
-                "Switch transport has no private rooms; use a DM transport"
+            finder = getattr(self._backend(), "find_private_room", None)
+            if not callable(finder):
+                raise TransportError(
+                    "Switch transport has no private rooms; use a DM transport"
+                )
+            try:
+                room = finder(str(private_for))
+            except Exception as exc:  # a failed lookup is simply "no private room"
+                raise TransportError(str(exc)) from exc
+            if not isinstance(room, dict) or not room.get("room_id"):
+                raise TransportError(f"no private room for {private_for}")
+            return RoomHandle(
+                room_id=str(room["room_id"]),
+                name=name,
+                private_for=private_for,
             )
         room = self._backend().find_room(name)
         room_id = str(room.get("room_id") or room.get("id") or name)
@@ -77,6 +101,19 @@ class LegacySwitchTransport:
         turn_id: TurnId,
         deadline: float | None = None,
     ) -> Delivery:
+        if room.private_for is not None:
+            # HEAD read ``history`` twice to find the start marker; read it once
+            # and carry it as the delivery cursor for ``collect``.
+            started = self._private_started(room.room_id)
+            try:
+                for prompt in prompts:
+                    if deadline is not None and self._monotonic() >= deadline:
+                        break
+                    self._backend().post(room.room_id, prompt.text)
+            except SwitchError as exc:
+                raise TransportError(str(exc)) from exc
+            return Delivery(room=room, turn_id=turn_id, cursor=f"ts:{started}")
+
         # Same turn boundary the old code used: events older than half a second
         # before the first post belong to a previous turn.
         cutoff = int(self._time.time() * 1000) - 500
@@ -98,6 +135,8 @@ class LegacySwitchTransport:
         speakers: Sequence[CharacterId],
         deadline: float,
     ) -> list[InboundTurn]:
+        if delivery.room.private_for is not None:
+            return self._collect_private(delivery, deadline=deadline)
         wanted = {str(speaker) for speaker in speakers}
         if not wanted:
             return []
@@ -149,6 +188,52 @@ class LegacySwitchTransport:
             if isinstance(event, dict)
         ]
         return dedupe(turns)
+
+    # ---- private rooms ---------------------------------------------------
+    def _private_started(self, room_id: str) -> Any:
+        """The last event timestamp before the whisper, from one history read."""
+        try:
+            events = self._backend().history(room_id) or []
+        except Exception:
+            events = []
+        if not events:
+            return 0
+        last = events[-1]
+        return last.get("timestamp", 0) if isinstance(last, dict) else 0
+
+    def _collect_private(
+        self, delivery: Delivery, *, deadline: float
+    ) -> list[InboundTurn]:
+        wait = getattr(self._backend(), "wait_for", None)
+        if not callable(wait):
+            return []
+        started = self._cursor_ts(delivery.cursor)
+        if deadline is None:
+            timeout = 0.0
+        else:
+            timeout = max(0.0, float(deadline) - self._monotonic())
+        try:
+            event = wait(
+                delivery.room.room_id,
+                str(delivery.room.private_for),
+                started,
+                timeout=timeout,
+            )
+        except Exception:
+            return []
+        if not isinstance(event, dict):
+            return []
+        return [to_inbound(event, room=delivery.room.room_id, index=0)]
+
+    @staticmethod
+    def _cursor_ts(cursor: str) -> Any:
+        if cursor.startswith("ts:"):
+            raw = cursor[3:]
+            try:
+                return int(raw)
+            except ValueError:
+                return raw
+        return 0
 
     def close(self) -> None:
         return None

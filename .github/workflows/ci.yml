@@ -1,0 +1,83 @@
+name: ci
+
+on:
+  push:
+    branches: [main, geekroom, v2-architecture, "v2/**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: Ruff (E, F)
+        run: uv run --with ruff ruff check switch_world world_engine director gateway mcp tests
+      - name: Byte-compile every module
+        run: uv run python -m compileall -q switch_world world_engine director gateway mcp
+
+  test:
+    name: test (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: Tests
+        env:
+          WORLD_DEV: "1"
+          WORLD_AGENT_MODE: "switch"
+          WORLD_DATA_DIR: ${{ runner.temp }}/data
+          WORLD_DB: ${{ runner.temp }}/data/world.sqlite
+        run: uv run pytest -q
+
+  web:
+    name: dashboard syntax
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node --check web/app.js
+      - run: node --check web/cast.js
+
+  package:
+    name: package (non-blocking until v2 packaging lands)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --frozen
+      - run: uv run --with build python -m build

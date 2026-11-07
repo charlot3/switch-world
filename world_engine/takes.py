@@ -26,6 +26,13 @@ from typing import Any
 from . import config
 from .scenarios import evaluate_ending, get_scenario, load_scenario
 from .service import CHARACTER_ORDER, VISIBILITIES, WorldService
+from switch_world.domain import (
+    TAKE_CHANGED_META,
+    TAKE_ID_META,
+    TAKE_INDEX_META,
+    TAKE_META,
+    TAKE_START_META,
+)
 
 TAKE_DIR = Path(config.ROOT) / "world" / "takes"
 
@@ -40,12 +47,6 @@ TAKE_ORDER = [
     "w6-long-tuesday",
     "w7-last-call",
 ]
-
-TAKE_META = "take"
-TAKE_ID_META = "take_id"
-TAKE_INDEX_META = "take_index"
-TAKE_START_META = "take_scene_start"
-TAKE_CHANGED_META = "take_scene_changed"
 
 CUE_OPS = (
     "remember_preference",
@@ -405,37 +406,28 @@ def validate_takes(takes_dir: Path | None = None) -> list[str]:
 # ---- stored take state ----------------------------------------------------
 
 
-def _get_meta(conn, key: str) -> str | None:
-    row = conn.execute("SELECT value FROM meta WHERE key = ?", (key,)).fetchone()
-    return str(row["value"]) if row else None
-
-
-def _set_meta(conn, key: str, value: str) -> None:
-    conn.execute(
-        "INSERT INTO meta(key, value) VALUES (?, ?) "
-        "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-        (key, value),
-    )
+def _parse_current(
+    raw: str | None, index_raw: str | None
+) -> tuple[dict | None, int | None]:
+    if not raw:
+        return None, None
+    try:
+        take = json.loads(raw)
+    except (TypeError, ValueError) as exc:
+        raise TakeError("the stored take is not valid JSON") from exc
+    if not isinstance(take, dict) or not take.get("scenes"):
+        raise TakeError("the stored take has no scenes")
+    try:
+        index = int(index_raw) if index_raw is not None else 0
+    except (TypeError, ValueError) as exc:
+        raise TakeError("the stored scene index is not a number") from exc
+    index = max(0, min(index, len(take["scenes"]) - 1))
+    return take, index
 
 
 def _current(service: WorldService) -> tuple[dict | None, int | None]:
-    with service._conn() as conn:
-        raw = _get_meta(conn, TAKE_META)
-        if not raw:
-            return None, None
-        try:
-            take = json.loads(raw)
-        except (TypeError, ValueError) as exc:
-            raise TakeError("the stored take is not valid JSON") from exc
-        if not isinstance(take, dict) or not take.get("scenes"):
-            raise TakeError("the stored take has no scenes")
-        index_raw = _get_meta(conn, TAKE_INDEX_META)
-        try:
-            index = int(index_raw) if index_raw is not None else 0
-        except (TypeError, ValueError) as exc:
-            raise TakeError("the stored scene index is not a number") from exc
-        index = max(0, min(index, len(take["scenes"]) - 1))
-        return take, index
+    meta = service.store.reader.get_metas((TAKE_META, TAKE_INDEX_META))
+    return _parse_current(meta[TAKE_META], meta[TAKE_INDEX_META])
 
 
 def scene_view(scene: dict, index: int) -> dict:
@@ -457,9 +449,7 @@ def scene_view(scene: dict, index: int) -> dict:
     }
 
 
-def take_snapshot(service: WorldService) -> dict:
-    """What `/api/state` adds: the take summary, the scene card and the index."""
-    take, index = _current(service)
+def _take_snapshot(take: dict | None, index: int | None) -> dict:
     if take is None or index is None:
         return {"take": None, "scene": None, "take_index": None}
     return {
@@ -469,35 +459,52 @@ def take_snapshot(service: WorldService) -> dict:
     }
 
 
+def take_snapshot(service: WorldService) -> dict:
+    """What `/api/state` adds: the take summary, the scene card and the index."""
+    take, index = _current(service)
+    return _take_snapshot(take, index)
+
+
+def take_snapshot_from_snapshot(snapshot: dict) -> dict:
+    """The same projection, built from a store snapshot (no second connection)."""
+    take, index = _parse_current(
+        snapshot.get("take_meta"), snapshot.get("take_index_meta")
+    )
+    return _take_snapshot(take, index)
+
+
 def _state_with_take(service: WorldService) -> dict:
-    state = service.state()
-    state.update(take_snapshot(service))
+    snapshot = service.store.reader.snapshot()
+    state = service.state_from_snapshot(snapshot)
+    state.update(take_snapshot_from_snapshot(snapshot))
     return state
 
 
 def _begin_scene(service: WorldService, event_id: int | None) -> None:
     """Mark the post-event boundary for the must-change invariant."""
-    with service._conn() as conn:
-        _set_meta(conn, TAKE_START_META, str(event_id or 0))
-        _set_meta(conn, TAKE_CHANGED_META, "0")
+    with service.store.transaction() as conn:
+        service.store.writer.set_meta(
+            TAKE_START_META, str(event_id or 0), conn=conn
+        )
+        service.store.writer.set_meta(TAKE_CHANGED_META, "0", conn=conn)
 
 
 def scene_changed(service: WorldService) -> bool:
     """True once a player turn or a cue landed after the scene began."""
-    with service._conn() as conn:
-        if _get_meta(conn, TAKE_CHANGED_META) == "1":
+    with service.store.transaction() as conn:
+        meta = service.store.reader.get_metas(
+            (TAKE_CHANGED_META, TAKE_START_META), conn=conn
+        )
+        if meta[TAKE_CHANGED_META] == "1":
             return True
-        start_raw = _get_meta(conn, TAKE_START_META) or "0"
+        start_raw = meta[TAKE_START_META] or "0"
         try:
             start = int(start_raw)
         except (TypeError, ValueError):
             start = 0
-        placeholders = ",".join("?" for _ in CHANGE_EVENT_KINDS)
-        row = conn.execute(
-            f"SELECT 1 FROM events WHERE id > ? AND kind IN ({placeholders}) LIMIT 1",
-            (start, *CHANGE_EVENT_KINDS),
-        ).fetchone()
-        return row is not None
+        return service.store.reader.has_change_event_after(
+            start, CHANGE_EVENT_KINDS, conn=conn
+        )
 
 
 def _sync_presence(service: WorldService, take: dict, scene: dict) -> None:
@@ -681,8 +688,8 @@ def apply_cues(
         )
 
     if applied:
-        with service._conn() as conn:
-            _set_meta(conn, TAKE_CHANGED_META, "1")
+        with service.store.transaction() as conn:
+            service.store.writer.set_meta(TAKE_CHANGED_META, "1", conn=conn)
     return {"scene_id": scene.get("id"), "applied": applied, "changed": bool(applied)}
 
 
@@ -698,10 +705,12 @@ def load_take(service: WorldService, take_id: str) -> dict:
         raise TakeError("the take has no scenes")
     scene = take["scenes"][0]
 
-    with service._conn() as conn:
-        _set_meta(conn, TAKE_META, json.dumps(take, ensure_ascii=False))
-        _set_meta(conn, TAKE_ID_META, take["id"])
-        _set_meta(conn, TAKE_INDEX_META, "0")
+    with service.store.transaction() as conn:
+        service.store.writer.set_meta(
+            TAKE_META, json.dumps(take, ensure_ascii=False), conn=conn
+        )
+        service.store.writer.set_meta(TAKE_ID_META, take["id"], conn=conn)
+        service.store.writer.set_meta(TAKE_INDEX_META, "0", conn=conn)
 
     _sync_presence(service, take, scene)
     event = service.record_event(
@@ -778,8 +787,10 @@ def next_scene(service: WorldService, force: bool = False) -> dict:
             "forced": bool(force),
         },
     )
-    with service._conn() as conn:
-        _set_meta(conn, TAKE_INDEX_META, str(next_index))
+    with service.store.transaction() as conn:
+        service.store.writer.set_meta(
+            TAKE_INDEX_META, str(next_index), conn=conn
+        )
     _begin_scene(service, event.get("id"))
     if next_scene_data.get("enter_cues"):
         apply_cues(

@@ -785,6 +785,75 @@ user ── Mattermost channel/DM ── Switch room ── Switch agent (Alice)
 5. **Dashboard** — polls `/api/state` for the projection; writes only through
    `/api/group/say`, `/api/dm` and `/api/clock/*`; never opens SQLite itself.
 
+The application is assembled explicitly in `switch_world/`. `load_settings(os.environ)` is
+a pure function over the environment, `build_container(settings)` constructs the
+`WorldService`, and `switch_world.interfaces.http.app` builds the FastAPI app.
+`create_app(service, settings)` takes those resolved settings for dev/agent endpoint
+gating; callers that omit them (older tests) fall back to the ambient
+`world_engine.config` shim. Importing `world_engine.api` only re-exports `create_app`: it
+never constructs the app, opens the database or binds a socket. `world_engine/config.py`
+remains as a lazy compatibility shim for older callers and tests.
+
+### Persistence boundary
+
+SQL lives in exactly one adapter: `switch_world/adapters/persistence/`. `schema.py` owns
+the SQLite schema, migrations and seed; `store.py` owns every query and exposes three
+narrow faces over one `WorldStore`:
+
+- `store.reader` — clock, beliefs, relationships, events, matrix, outfits, items,
+  connections, presence, phone history and `snapshot()`.
+- `store.writer` — clock moves, beliefs, relationship deltas, events, outfits, items,
+  presence, pause and idempotency records.
+- `store.admin` — whole-database reset and transactional scenario seeding.
+
+Writers accept an optional connection. Passing one from `store.transaction()` lets a
+loader commit several changes atomically; omitting it commits one change on its own
+connection. `store.snapshot()` reads the whole `/api/state` projection on a single
+connection, so the dashboard no longer opens one handle per subprojection.
+
+`world_engine/service.py` is a compatibility facade: `WorldService` keeps its constructor
+and every public method name, signature and return shape, but each method delegates to the
+store. `world_engine/db.py` is a shim over `schema.py`. No production module runs SQL or
+calls `WorldService._conn()`; that private helper is deprecated and kept only for legacy
+callers (the clock test). Scenario and take loaders write through
+`store.transaction()` / `store.admin`.
+
+### Ports and adapters (v2, unwired)
+
+The v2 core now has a stdlib-only ports layer in
+`switch_world/domain/ports/`: `ModelClient` (text or JSON in one `generate`
+call), `CharacterTransport` with an explicit `TransportCapabilities` record,
+`Clock`, `ContentStore` and `ArtifactStore`. Additive adapters live beside the
+persistence store: `adapters/models/{scripted,bifrost,deepseek}.py`,
+`adapters/transports/{switch,cloud_room,local}.py`, `adapters/clock/system.py`,
+`adapters/content/files.py`, `adapters/artifacts/files.py` and
+`adapters/search/tavily.py`.
+
+The three transports implement the same room contract. `SwitchTransport` wraps
+the `director/switch_client.py` wire semantics with an injected `httpx.Client`,
+an explicit per-request timeout, a cursor captured **before** posting, and one
+normalized event id (accepting either `id` or `event_id`). `CloudRoomTransport`
+generates every planned reply concurrently through a `ModelClient`, returns
+them inline on the `Delivery`, propagates `ModelError` instead of recording a
+silent empty reply, and has no same-millisecond cutoff. `LocalRoomTransport` is
+the scripted in-process double used by tests and the demo, including private
+rooms.
+
+This step is deliberately **not wired** into `create_app` or the director yet;
+the running app still uses `gateway/bifrost.py`, `director/switch_client.py`
+and `director/cloud_switch.py`, and the group/DM/whisper paths are unchanged.
+The new contracts are exercised by `tests/contract/test_model_contract.py`
+(Scripted, Bifrost, DeepSeek: text, JSON, fenced JSON, kwargs, usage, budget and
+errors), `tests/contract/test_transport_contract.py` (Switch with `respx`,
+CloudRoom with `ScriptedModel`, Local: `deliver_many`, per-turn history
+isolation, event-id normalization, duplicate suppression, capability flags and
+private rooms) and `tests/contract/test_content_contract.py` (missing file,
+mtime cache, parse-once). The DeepSeek adapter fixes the audited cloud defects:
+an error or empty reply raises `ModelError` instead of becoming a silent
+silence, fenced/preamble JSON is accepted, budgets and request logs are per
+character, and there is no same-millisecond turn cutoff. `make check` covers all
+of it.
+
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and [`docs/SWITCH.md`](docs/SWITCH.md).
 
 ## Quickstart
@@ -997,13 +1066,17 @@ the scene card above: the user and the cast co-produce a scene and its provenanc
 | `gateway/` | Bifrost client, Tavily client, offline fixture |
 | `world/state/` | seed characters, relationship graph and beliefs |
 | `world/rooms.json` | surface ↔ character ↔ channel/DM mapping |
-| `world_engine/` | FastAPI + SQLite + MCP world engine, token scoping, canon API, scene card, Studio summary |
+| `switch_world/domain/` | pure vocabulary: cast ids, visibilities, proposition labels and value helpers; no I/O |
+| `switch_world/adapters/persistence/` | the only SQLite adapter: schema, migrations, seed, and `WorldStore` reader/writer/admin faces |
+| `switch_world/adapters/transports/` | Switch, cloud-room and local room adapters over the `CharacterTransport` port |
+| `switch_world/` | composition root (`Settings`, `build_container`) and the HTTP/MCP entry points |
+| `world_engine/` | compatibility facade over the store, MCP tools, canon API, scene card and Studio summary |
 | `web/` | the vanilla dashboard (Story/arc/profile, World Tree, ledger, settings) |
 | `web/assets/portraits/` | bust, full-body 立绘, avatar crops, contact sheets, `PROMPTS.md` |
 | `web/assets/scenes/` | demo scene plates (first meeting, day café, solo date, trio, endings) |
 | `web/assets/portraits/outfits/` | date outfit full/bust and the memory-chain outfit plate |
 | `web/assets/portraits/props/` | the wrapped-book prop and other demo objects |
-| `tests/` | pytest for the service, API, canon and café beat |
+| `tests/` | pytest for the service, API, canon, café beat, store/model/transport contracts, architecture guardrails and the one-connection `/api/state` probe |
 | `agents/<name>/` | per-character working directories: `AGENTS.md`, `IDENTITY.md`, `CLAUDE.md`, generated `opencode.json` / `.mcp.json` |
 | `mcp/` | the world engine's MCP tool surface (design notes) |
 | `director/` | authored beat runners (local/Bifrost/Switch), the phone DM, group turns (`group.py`), whisper (`whisper.py`), the time machine (`clock.py`), the social gate (`social.py`), the optional high-reasoning arbiter (`arbiter.py`), and `canon.py` |

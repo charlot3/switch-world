@@ -1,0 +1,8 @@
+# Start with the correctness-only rules so CI is green on the existing tree.
+# Widen the selection (I, UP, B, SIM, RUF) as the v2 refactor lands.
+line-length = 100
+target-version = "py311"
+
+[lint]
+select = ["E", "F"]
+ignore = ["E501", "E731"]

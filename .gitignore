@@ -47,3 +47,7 @@ docs/*.wav
 docs/*-poster.jpg
 docs/setsuna-audition/
 deploy/demo/data/
+
+# build outputs
+dist/
+build/

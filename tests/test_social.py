@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import pytest
 
 from director import social
 from director.dm import reply_to_dm

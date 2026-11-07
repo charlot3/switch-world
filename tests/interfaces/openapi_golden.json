@@ -1,0 +1,2873 @@
+{
+  "components": {
+    "schemas": {
+      "BifrostUsageResponse": {
+        "additionalProperties": true,
+        "description": "The provider's usage block, whose keys are provider-specific.",
+        "properties": {},
+        "title": "BifrostUsageResponse",
+        "type": "object"
+      },
+      "CanonResponse": {
+        "additionalProperties": true,
+        "description": "The authored story bible; its keys are data, not a stable schema.",
+        "properties": {},
+        "title": "CanonResponse",
+        "type": "object"
+      },
+      "ClockAdvanceRequest": {
+        "properties": {
+          "beat": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Beat"
+          },
+          "character": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Character"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minutes"
+          },
+          "offscreen": {
+            "default": false,
+            "title": "Offscreen",
+            "type": "boolean"
+          },
+          "run": {
+            "default": false,
+            "title": "Run",
+            "type": "boolean"
+          }
+        },
+        "title": "ClockAdvanceRequest",
+        "type": "object"
+      },
+      "ClockAdvanceResponse": {
+        "additionalProperties": true,
+        "description": "A clock move: the keys depend on off-screen versus arc advance.",
+        "properties": {},
+        "title": "ClockAdvanceResponse",
+        "type": "object"
+      },
+      "ClockModeRequest": {
+        "properties": {
+          "mode": {
+            "default": "",
+            "title": "Mode",
+            "type": "string"
+          },
+          "scale": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scale"
+          }
+        },
+        "title": "ClockModeRequest",
+        "type": "object"
+      },
+      "ClockModeResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "clock": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clock"
+          },
+          "view": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "View"
+          }
+        },
+        "title": "ClockModeResponse",
+        "type": "object"
+      },
+      "ClockResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "current_beat": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Beat"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          },
+          "next_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next At"
+          },
+          "next_beat": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Beat"
+          },
+          "now": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Now"
+          },
+          "scale": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scale"
+          }
+        },
+        "title": "ClockResponse",
+        "type": "object"
+      },
+      "CueResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "applied": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Applied"
+          },
+          "changed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Changed"
+          }
+        },
+        "title": "CueResponse",
+        "type": "object"
+      },
+      "DmHistoryResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "character": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Character"
+          },
+          "has_more": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Has More"
+          },
+          "messages": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Messages"
+          }
+        },
+        "title": "DmHistoryResponse",
+        "type": "object"
+      },
+      "DmRequest": {
+        "properties": {
+          "character": {
+            "default": "",
+            "title": "Character",
+            "type": "string"
+          },
+          "message": {
+            "default": "",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "DmRequest",
+        "type": "object"
+      },
+      "DmResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "character": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Character"
+          },
+          "reply": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reply"
+          }
+        },
+        "title": "DmResponse",
+        "type": "object"
+      },
+      "EndingResponse": {
+        "additionalProperties": true,
+        "description": "The ending projection carries narrative fields defined by the scenario.",
+        "properties": {},
+        "title": "EndingResponse",
+        "type": "object"
+      },
+      "FriendResponse": {
+        "properties": {
+          "friend": {
+            "additionalProperties": true,
+            "title": "Friend",
+            "type": "object"
+          },
+          "friends": {
+            "items": {},
+            "title": "Friends",
+            "type": "array"
+          },
+          "state": {
+            "additionalProperties": true,
+            "title": "State",
+            "type": "object"
+          }
+        },
+        "required": [
+          "friend",
+          "friends",
+          "state"
+        ],
+        "title": "FriendResponse",
+        "type": "object"
+      },
+      "FriendsResponse": {
+        "properties": {
+          "friends": {
+            "items": {},
+            "title": "Friends",
+            "type": "array"
+          }
+        },
+        "required": [
+          "friends"
+        ],
+        "title": "FriendsResponse",
+        "type": "object"
+      },
+      "GroupSayRequest": {
+        "properties": {
+          "characters": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Characters"
+          },
+          "expected_revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Revision"
+          },
+          "message": {
+            "default": "",
+            "title": "Message",
+            "type": "string"
+          },
+          "request_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Request Id"
+          },
+          "timeout": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timeout"
+          }
+        },
+        "title": "GroupSayRequest",
+        "type": "object"
+      },
+      "GroupSayResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "replies": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replies"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision"
+          },
+          "turn": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turn"
+          },
+          "turn_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turn Number"
+          }
+        },
+        "title": "GroupSayResponse",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HealthResponse": {
+        "properties": {
+          "clock": {
+            "additionalProperties": true,
+            "title": "Clock",
+            "type": "object"
+          },
+          "dev": {
+            "title": "Dev",
+            "type": "boolean"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "dev",
+          "clock"
+        ],
+        "title": "HealthResponse",
+        "type": "object"
+      },
+      "MatrixResponse": {
+        "properties": {
+          "clock": {
+            "additionalProperties": true,
+            "title": "Clock",
+            "type": "object"
+          },
+          "matrix": {
+            "items": {},
+            "title": "Matrix",
+            "type": "array"
+          }
+        },
+        "required": [
+          "matrix",
+          "clock"
+        ],
+        "title": "MatrixResponse",
+        "type": "object"
+      },
+      "ResetResponse": {
+        "properties": {
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "state": {
+            "additionalProperties": true,
+            "title": "State",
+            "type": "object"
+          }
+        },
+        "required": [
+          "ok",
+          "state"
+        ],
+        "title": "ResetResponse",
+        "type": "object"
+      },
+      "RunArcRequest": {
+        "properties": {
+          "force_share": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Force Share"
+          }
+        },
+        "title": "RunArcRequest",
+        "type": "object"
+      },
+      "RunArcResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "beats": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Beats"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Branch"
+          }
+        },
+        "title": "RunArcResponse",
+        "type": "object"
+      },
+      "RunBeatRequest": {
+        "properties": {
+          "beat": {
+            "default": "cafe",
+            "title": "Beat",
+            "type": "string"
+          },
+          "force_share": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Force Share"
+          },
+          "transport": {
+            "default": "local",
+            "title": "Transport",
+            "type": "string"
+          }
+        },
+        "title": "RunBeatRequest",
+        "type": "object"
+      },
+      "RunBeatResponse": {
+        "additionalProperties": true,
+        "description": "A beat result; each runner contributes its own fields.",
+        "properties": {},
+        "title": "RunBeatResponse",
+        "type": "object"
+      },
+      "RunBifrostResponse": {
+        "additionalProperties": true,
+        "description": "The Bifrost caf\u00e9 result (branch, transcript, bifrost usage).",
+        "properties": {},
+        "title": "RunBifrostResponse",
+        "type": "object"
+      },
+      "RunCafeRequest": {
+        "properties": {
+          "force_share": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Force Share"
+          }
+        },
+        "title": "RunCafeRequest",
+        "type": "object"
+      },
+      "RunCafeResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "branch": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Branch"
+          },
+          "shared": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shared"
+          }
+        },
+        "title": "RunCafeResponse",
+        "type": "object"
+      },
+      "SafetyPauseRequest": {
+        "properties": {
+          "paused": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": true,
+            "title": "Paused"
+          }
+        },
+        "title": "SafetyPauseRequest",
+        "type": "object"
+      },
+      "SafetyPauseResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "paused": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paused"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision"
+          }
+        },
+        "title": "SafetyPauseResponse",
+        "type": "object"
+      },
+      "SafetyResponse": {
+        "properties": {
+          "paused": {
+            "title": "Paused",
+            "type": "boolean"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "paused",
+          "revision"
+        ],
+        "title": "SafetyResponse",
+        "type": "object"
+      },
+      "ScenarioCurrentResponse": {
+        "properties": {
+          "scenario": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scenario"
+          }
+        },
+        "required": [
+          "scenario"
+        ],
+        "title": "ScenarioCurrentResponse",
+        "type": "object"
+      },
+      "ScenarioLoadResponse": {
+        "properties": {
+          "scenario": {
+            "additionalProperties": true,
+            "title": "Scenario",
+            "type": "object"
+          },
+          "state": {
+            "additionalProperties": true,
+            "title": "State",
+            "type": "object"
+          }
+        },
+        "required": [
+          "scenario",
+          "state"
+        ],
+        "title": "ScenarioLoadResponse",
+        "type": "object"
+      },
+      "ScenariosResponse": {
+        "properties": {
+          "scenarios": {
+            "items": {},
+            "title": "Scenarios",
+            "type": "array"
+          }
+        },
+        "required": [
+          "scenarios"
+        ],
+        "title": "ScenariosResponse",
+        "type": "object"
+      },
+      "SceneCardExportRequest": {
+        "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "title": "SceneCardExportRequest",
+        "type": "object"
+      },
+      "SceneCardExportResponse": {
+        "properties": {
+          "media_type": {
+            "title": "Media Type",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "path",
+          "media_type",
+          "size"
+        ],
+        "title": "SceneCardExportResponse",
+        "type": "object"
+      },
+      "SceneCardResponse": {
+        "properties": {
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "SceneCardResponse",
+        "type": "object"
+      },
+      "StateResponse": {
+        "properties": {
+          "absent_characters": {
+            "items": {},
+            "title": "Absent Characters",
+            "type": "array"
+          },
+          "beliefs": {
+            "items": {},
+            "title": "Beliefs",
+            "type": "array"
+          },
+          "branch": {
+            "title": "Branch"
+          },
+          "canon": {
+            "additionalProperties": true,
+            "title": "Canon",
+            "type": "object"
+          },
+          "cast_art": {
+            "additionalProperties": true,
+            "title": "Cast Art",
+            "type": "object"
+          },
+          "characters": {
+            "items": {},
+            "title": "Characters",
+            "type": "array"
+          },
+          "clock": {
+            "additionalProperties": true,
+            "title": "Clock",
+            "type": "object"
+          },
+          "connections": {
+            "items": {},
+            "title": "Connections",
+            "type": "array"
+          },
+          "done_beats": {
+            "items": {},
+            "title": "Done Beats",
+            "type": "array"
+          },
+          "events": {
+            "items": {},
+            "title": "Events",
+            "type": "array"
+          },
+          "friends": {
+            "items": {},
+            "title": "Friends",
+            "type": "array"
+          },
+          "item": {
+            "title": "Item"
+          },
+          "items": {
+            "items": {},
+            "title": "Items",
+            "type": "array"
+          },
+          "matrix": {
+            "items": {},
+            "title": "Matrix",
+            "type": "array"
+          },
+          "outfits": {
+            "additionalProperties": true,
+            "title": "Outfits",
+            "type": "object"
+          },
+          "paused": {
+            "title": "Paused",
+            "type": "boolean"
+          },
+          "relationships": {
+            "items": {},
+            "title": "Relationships",
+            "type": "array"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "scenario": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scenario"
+          },
+          "scene": {
+            "additionalProperties": true,
+            "title": "Scene",
+            "type": "object"
+          },
+          "scene_art": {
+            "title": "Scene Art"
+          },
+          "take": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Take"
+          },
+          "take_index": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Take Index"
+          },
+          "turn": {
+            "title": "Turn",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "clock",
+          "revision",
+          "turn",
+          "paused",
+          "characters",
+          "beliefs",
+          "relationships",
+          "events",
+          "friends",
+          "absent_characters",
+          "done_beats",
+          "branch",
+          "matrix",
+          "scenario",
+          "outfits",
+          "items",
+          "item",
+          "cast_art",
+          "scene_art",
+          "connections",
+          "canon",
+          "scene",
+          "take",
+          "take_index"
+        ],
+        "title": "StateResponse",
+        "type": "object"
+      },
+      "StudioSummaryResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "clock": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clock"
+          },
+          "health": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "boolean"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Health"
+          }
+        },
+        "title": "StudioSummaryResponse",
+        "type": "object"
+      },
+      "TakeCurrentResponse": {
+        "properties": {
+          "index": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Index"
+          },
+          "scene": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scene"
+          },
+          "state": {
+            "additionalProperties": true,
+            "title": "State",
+            "type": "object"
+          },
+          "take": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Take"
+          }
+        },
+        "required": [
+          "take",
+          "scene",
+          "index",
+          "state"
+        ],
+        "title": "TakeCurrentResponse",
+        "type": "object"
+      },
+      "TakeLoadResponse": {
+        "properties": {
+          "index": {
+            "title": "Index",
+            "type": "integer"
+          },
+          "scene": {
+            "additionalProperties": true,
+            "title": "Scene",
+            "type": "object"
+          },
+          "state": {
+            "additionalProperties": true,
+            "title": "State",
+            "type": "object"
+          },
+          "take": {
+            "additionalProperties": true,
+            "title": "Take",
+            "type": "object"
+          }
+        },
+        "required": [
+          "take",
+          "scene",
+          "index",
+          "state"
+        ],
+        "title": "TakeLoadResponse",
+        "type": "object"
+      },
+      "TakeNextResponse": {
+        "additionalProperties": true,
+        "description": "A scene card with the take's dynamic fields.",
+        "properties": {},
+        "title": "TakeNextResponse",
+        "type": "object"
+      },
+      "TakesCueRequest": {
+        "properties": {
+          "choice": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Choice"
+          },
+          "line": {
+            "default": "",
+            "title": "Line",
+            "type": "string"
+          }
+        },
+        "title": "TakesCueRequest",
+        "type": "object"
+      },
+      "TakesNextRequest": {
+        "properties": {
+          "expected_revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Revision"
+          },
+          "force": {
+            "default": false,
+            "title": "Force",
+            "type": "boolean"
+          },
+          "request_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Request Id"
+          }
+        },
+        "title": "TakesNextRequest",
+        "type": "object"
+      },
+      "TakesResponse": {
+        "properties": {
+          "takes": {
+            "items": {},
+            "title": "Takes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "takes"
+        ],
+        "title": "TakesResponse",
+        "type": "object"
+      },
+      "TavilyEventRequest": {
+        "properties": {
+          "query": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Query"
+          }
+        },
+        "title": "TavilyEventRequest",
+        "type": "object"
+      },
+      "TavilyEventResponse": {
+        "additionalProperties": true,
+        "description": "A real-world event: offline results carry a different key set.",
+        "properties": {},
+        "title": "TavilyEventResponse",
+        "type": "object"
+      },
+      "TellAliceRequest": {
+        "properties": {
+          "key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key"
+          },
+          "secret": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Secret"
+          }
+        },
+        "title": "TellAliceRequest",
+        "type": "object"
+      },
+      "TellAliceResponse": {
+        "properties": {
+          "belief": {
+            "additionalProperties": true,
+            "title": "Belief",
+            "type": "object"
+          },
+          "matrix": {
+            "items": {},
+            "title": "Matrix",
+            "type": "array"
+          }
+        },
+        "required": [
+          "belief",
+          "matrix"
+        ],
+        "title": "TellAliceResponse",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "WhisperRequest": {
+        "properties": {
+          "message": {
+            "default": "",
+            "title": "Message",
+            "type": "string"
+          },
+          "timeout": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timeout"
+          },
+          "to": {
+            "default": "",
+            "title": "To",
+            "type": "string"
+          }
+        },
+        "title": "WhisperRequest",
+        "type": "object"
+      },
+      "WhisperResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "reply": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reply"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target"
+          },
+          "transport": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transport"
+          }
+        },
+        "title": "WhisperResponse",
+        "type": "object"
+      },
+      "WhoKnowsResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "holders": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Holders"
+          },
+          "key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key"
+          }
+        },
+        "title": "WhoKnowsResponse",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "A Switch-native AI social world with a provenance-tracked secret ledger.",
+    "title": "switch-world",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/bifrost/usage": {
+      "get": {
+        "description": "The configured model's usage block; 503 when no provider is configured.",
+        "operationId": "bifrost_usage_api_bifrost_usage_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BifrostUsageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Bifrost Usage",
+        "tags": [
+          "director"
+        ]
+      }
+    },
+    "/api/canon": {
+      "get": {
+        "operationId": "canon_api_canon_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CanonResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Canon",
+        "tags": [
+          "world"
+        ]
+      }
+    },
+    "/api/clock": {
+      "get": {
+        "operationId": "clock_api_clock_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClockResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Clock",
+        "tags": [
+          "world"
+        ]
+      }
+    },
+    "/api/clock/advance": {
+      "post": {
+        "operationId": "clock_advance_api_clock_advance_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ClockAdvanceRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClockAdvanceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Clock Advance",
+        "tags": [
+          "world"
+        ]
+      }
+    },
+    "/api/clock/mode": {
+      "post": {
+        "operationId": "clock_mode_api_clock_mode_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ClockModeRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClockModeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Clock Mode",
+        "tags": [
+          "world"
+        ]
+      }
+    },
+    "/api/dev/reset": {
+      "post": {
+        "operationId": "reset_api_dev_reset_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResetResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Reset",
+        "tags": [
+          "dev"
+        ]
+      }
+    },
+    "/api/dev/run-arc": {
+      "post": {
+        "operationId": "run_arc_endpoint_api_dev_run_arc_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RunArcRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunArcResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Arc Endpoint",
+        "tags": [
+          "dev"
+        ]
+      }
+    },
+    "/api/dev/run-beat": {
+      "post": {
+        "operationId": "run_beat_endpoint_api_dev_run_beat_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RunBeatRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunBeatResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Beat Endpoint",
+        "tags": [
+          "dev"
+        ]
+      }
+    },
+    "/api/dev/run-bifrost": {
+      "post": {
+        "operationId": "run_bifrost_api_dev_run_bifrost_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunBifrostResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Run Bifrost",
+        "tags": [
+          "dev"
+        ]
+      }
+    },
+    "/api/dev/run-cafe": {
+      "post": {
+        "operationId": "run_cafe_api_dev_run_cafe_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RunCafeRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunCafeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Cafe",
+        "tags": [
+          "dev"
+        ]
+      }
+    },
+    "/api/dev/scene-card/export": {
+      "post": {
+        "description": "Explicitly write the scene card through the artifact store.\n\nThe read route never writes; this is the only handler that does.",
+        "operationId": "export_scene_card_api_dev_scene_card_export_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/SceneCardExportRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SceneCardExportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Scene Card",
+        "tags": [
+          "dev"
+        ]
+      }
+    },
+    "/api/dev/tavily-event": {
+      "post": {
+        "operationId": "tavily_event_api_dev_tavily_event_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/TavilyEventRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TavilyEventResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Tavily Event",
+        "tags": [
+          "dev"
+        ]
+      }
+    },
+    "/api/dev/tell-alice": {
+      "post": {
+        "operationId": "tell_alice_api_dev_tell_alice_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/TellAliceRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TellAliceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Tell Alice",
+        "tags": [
+          "dev"
+        ]
+      }
+    },
+    "/api/dm": {
+      "post": {
+        "operationId": "dm_api_dm_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/DmRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DmResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Dm",
+        "tags": [
+          "scene"
+        ]
+      }
+    },
+    "/api/dm/{character}": {
+      "get": {
+        "operationId": "dm_history_api_dm__character__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "character",
+            "required": true,
+            "schema": {
+              "title": "Character",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "before_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Before Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DmHistoryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Dm History",
+        "tags": [
+          "scene"
+        ]
+      }
+    },
+    "/api/endings/evaluate": {
+      "post": {
+        "operationId": "endings_evaluate_api_endings_evaluate_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EndingResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Endings Evaluate",
+        "tags": [
+          "scenarios"
+        ]
+      }
+    },
+    "/api/friends": {
+      "get": {
+        "operationId": "friends_api_friends_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FriendsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Friends",
+        "tags": [
+          "world"
+        ]
+      }
+    },
+    "/api/friends/{character}": {
+      "post": {
+        "operationId": "add_friend_api_friends__character__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "character",
+            "required": true,
+            "schema": {
+              "title": "Character",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FriendResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Friend",
+        "tags": [
+          "world"
+        ]
+      }
+    },
+    "/api/group/say": {
+      "post": {
+        "operationId": "group_say_api_group_say_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/GroupSayRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupSayResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Group Say",
+        "tags": [
+          "scene"
+        ]
+      }
+    },
+    "/api/group/whisper": {
+      "post": {
+        "operationId": "group_whisper_api_group_whisper_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/WhisperRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WhisperResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Group Whisper",
+        "tags": [
+          "scene"
+        ]
+      }
+    },
+    "/api/matrix": {
+      "get": {
+        "operationId": "matrix_api_matrix_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatrixResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Matrix",
+        "tags": [
+          "world"
+        ]
+      }
+    },
+    "/api/safety": {
+      "get": {
+        "operationId": "safety_api_safety_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SafetyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Safety",
+        "tags": [
+          "world"
+        ]
+      }
+    },
+    "/api/safety/pause": {
+      "post": {
+        "description": "Pause or resume the scene. The flag lives in meta and is cleared explicitly.",
+        "operationId": "safety_pause_api_safety_pause_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/SafetyPauseRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SafetyPauseResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Safety Pause",
+        "tags": [
+          "world"
+        ]
+      }
+    },
+    "/api/safety/resume": {
+      "post": {
+        "operationId": "safety_resume_api_safety_resume_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SafetyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Safety Resume",
+        "tags": [
+          "world"
+        ]
+      }
+    },
+    "/api/scenarios": {
+      "get": {
+        "operationId": "scenarios_api_scenarios_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScenariosResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Scenarios",
+        "tags": [
+          "scenarios"
+        ]
+      }
+    },
+    "/api/scenarios/current": {
+      "get": {
+        "operationId": "current_scenario_api_scenarios_current_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScenarioCurrentResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Current Scenario",
+        "tags": [
+          "scenarios"
+        ]
+      }
+    },
+    "/api/scenarios/{scenario_id}/load": {
+      "post": {
+        "operationId": "load_scenario_endpoint_api_scenarios__scenario_id__load_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "scenario_id",
+            "required": true,
+            "schema": {
+              "title": "Scenario Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScenarioLoadResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Load Scenario Endpoint",
+        "tags": [
+          "scenarios"
+        ]
+      }
+    },
+    "/api/scene-card": {
+      "get": {
+        "description": "Render the card from one snapshot. A GET never writes an artifact.",
+        "operationId": "scene_card_api_scene_card_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SceneCardResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Scene Card",
+        "tags": [
+          "scene"
+        ]
+      }
+    },
+    "/api/scene-card.md": {
+      "get": {
+        "operationId": "scene_card_md_api_scene_card_md_get",
+        "responses": {
+          "200": {
+            "content": {
+              "text/markdown": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The rendered scene card"
+          }
+        },
+        "summary": "Scene Card Md",
+        "tags": [
+          "scene"
+        ]
+      }
+    },
+    "/api/state": {
+      "get": {
+        "operationId": "state_api_state_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "State",
+        "tags": [
+          "world"
+        ]
+      }
+    },
+    "/api/studio/summary": {
+      "get": {
+        "operationId": "studio_summary_endpoint_api_studio_summary_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudioSummaryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Studio Summary Endpoint",
+        "tags": [
+          "studio"
+        ]
+      }
+    },
+    "/api/switch-log": {
+      "get": {
+        "description": "Export room history through the transport port, never a private op.\n\nThe transport owns room lookup and ``history(room)``; this route only maps\nthe returned turns to JSONL.  A caller that built no transport gets 503,\nnot a client constructed on the request path.",
+        "operationId": "switch_log_api_switch_log_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "room",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": "world",
+              "title": "Room"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/x-ndjson": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "One JSON object per transport event"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Switch Log",
+        "tags": [
+          "director"
+        ]
+      }
+    },
+    "/api/takes": {
+      "get": {
+        "operationId": "takes_api_takes_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TakesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Takes",
+        "tags": [
+          "takes"
+        ]
+      }
+    },
+    "/api/takes/cue": {
+      "post": {
+        "description": "Internal/dev hook: apply the current scene's cues after a turn/choice.",
+        "operationId": "takes_cue_api_takes_cue_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/TakesCueRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CueResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Takes Cue",
+        "tags": [
+          "takes"
+        ]
+      }
+    },
+    "/api/takes/current": {
+      "get": {
+        "operationId": "takes_current_api_takes_current_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TakeCurrentResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Takes Current",
+        "tags": [
+          "takes"
+        ]
+      }
+    },
+    "/api/takes/next": {
+      "post": {
+        "operationId": "takes_next_api_takes_next_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/TakesNextRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TakeNextResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Takes Next",
+        "tags": [
+          "takes"
+        ]
+      }
+    },
+    "/api/takes/{take_id}/load": {
+      "post": {
+        "operationId": "takes_load_api_takes__take_id__load_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "take_id",
+            "required": true,
+            "schema": {
+              "title": "Take Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TakeLoadResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Takes Load",
+        "tags": [
+          "takes"
+        ]
+      }
+    },
+    "/api/who-knows/{key}": {
+      "get": {
+        "operationId": "who_knows_api_who_knows__key__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WhoKnowsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Who Knows",
+        "tags": [
+          "world"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health",
+        "tags": [
+          "health"
+        ]
+      }
+    }
+  }
+}

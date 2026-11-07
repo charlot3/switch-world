@@ -5,8 +5,8 @@ PY ?= .venv/bin/python
 check: lint test web
 
 lint:
-	uv run --with ruff ruff check switch_world world_engine director gateway mcp tests
-	$(PY) -m compileall -q switch_world world_engine director gateway mcp
+	uv run --with ruff ruff check switch_world world_engine director gateway tests
+	$(PY) -m compileall -q switch_world world_engine director gateway
 
 test:
 	$(PY) -m pytest -q

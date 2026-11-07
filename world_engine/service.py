@@ -245,9 +245,16 @@ class WorldService:
         label: str | None = None,
         owner: str | None = None,
         status: str = "carried",
+        *,
+        actor: str | None = None,
     ) -> dict:
         return self.store.writer.give_item(
-            item_id, to, label=label, owner=owner, status=status
+            item_id,
+            to,
+            label=label,
+            owner=owner,
+            status=status,
+            actor=actor,
         )
 
     # ---- connections ------------------------------------------------------

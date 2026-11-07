@@ -18,14 +18,16 @@ from pathlib import Path
 
 import httpx
 
+from switch_world.adapters.artifacts.files import FileArtifactStore
 from switch_world.adapters.clock import SystemClock
-from switch_world.adapters.models import DeepSeekModelClient
+from switch_world.adapters.models import BifrostModelClient, DeepSeekModelClient
 from switch_world.adapters.transports import (
     CloudRoomTransport,
     LocalRoomTransport,
     SwitchTransport,
 )
 from switch_world.config import Settings
+from switch_world.domain.ports.artifacts import ArtifactStore
 from switch_world.domain.ports.model import ModelClient
 from switch_world.domain.ports.transport import CharacterTransport
 from world_engine.service import WorldService
@@ -38,6 +40,7 @@ class Container:
     transport: CharacterTransport | None = None
     model: ModelClient | None = None
     clock: SystemClock | None = None
+    artifacts: ArtifactStore | None = None
 
     def close(self) -> None:
         """Release any transport-owned resources (HTTP pools, workers)."""
@@ -80,7 +83,7 @@ def build_container(settings: Settings) -> Container:
     mode = (settings.agent_mode or "switch").strip().lower()
 
     transport: CharacterTransport
-    model: ModelClient | None = None
+    model: ModelClient
     if mode == "switch":
         creds = _switch_credentials(settings)
         transport = SwitchTransport(
@@ -90,6 +93,10 @@ def build_container(settings: Settings) -> Container:
             base_url=creds["base_url"],
             clock=clock,
             own_client=True,
+        )
+        model = BifrostModelClient(
+            log_path=settings.data_dir / "logs" / "bifrost.jsonl",
+            budget_path=settings.data_dir / "bifrost_budget.json",
         )
     elif mode == "cloud":
         model = DeepSeekModelClient(
@@ -103,6 +110,10 @@ def build_container(settings: Settings) -> Container:
         transport = CloudRoomTransport(model, clock=clock)
     elif mode == "local":
         transport = LocalRoomTransport(clock=clock)
+        model = BifrostModelClient(
+            log_path=settings.data_dir / "logs" / "bifrost.jsonl",
+            budget_path=settings.data_dir / "bifrost_budget.json",
+        )
     else:
         raise ValueError(
             "WORLD_AGENT_MODE must be one of switch, cloud, local "
@@ -115,6 +126,7 @@ def build_container(settings: Settings) -> Container:
         transport=transport,
         model=model,
         clock=clock,
+        artifacts=FileArtifactStore(settings.export_dir),
     )
 
 

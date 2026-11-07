@@ -80,7 +80,7 @@ private beliefs, and they write them through a scoped token.
   supplies Mattermost, so the demo needs no external workspace.
 - See [`SWITCH.md`](SWITCH.md) for the setup and the agent protocol.
 
-### 2. World engine (`mcp/`)
+### 2. World engine (`switch_world/interfaces/mcp/`)
 
 A small FastAPI service on `127.0.0.1:8890` with three surfaces:
 

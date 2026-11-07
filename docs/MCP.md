@@ -4,6 +4,11 @@ The world engine is the source of truth for beliefs, relationships, events and t
 It is an MCP server so that each character can read and write its own state through a
 scoped token.
 
+The MCP surface is implemented in
+[`switch_world/interfaces/mcp/`](../switch_world/interfaces/mcp/) (`server.py` builds the
+server, `tools.py` registers the tools). `world_engine/mcp_server.py` is a re-export shim
+kept for older callers.
+
 ## Why MCP
 
 The characters are agents; a tool surface is how they act. The server maps a bearer token
@@ -22,19 +27,49 @@ confused. "Alice knows something Emily does not" is enforced at the API layer.
 
 ## Tools
 
+The server advertises exactly fourteen tools. The name, argument order, defaults and
+result shape are the public MCP contract (enforced by
+`tests/interfaces/test_mcp_tools.py`).
+
 | Tool | Caller | Input | Output |
 | --- | --- | --- | --- |
 | `world__recall` | character | `query: str`, `limit: int = 8` | ranked beliefs + relationship facts the caller may see |
-| `world__remember` | character | `proposition: str`, `source: str`, `confidence: float = 0.8`, `visibility: str = "private"`, `proposition_key: str?` | the stored belief id |
+| `world__search_web` | character | `query: str`, `max_results: int = 5`, `topic: str = "news"` | Tavily results (titles, URLs, snippets, offline flag) |
+| `world__remember` | character | `proposition: str`, `source: str`, `confidence: float = 0.8`, `visibility: str = "private"`, `proposition_key: str?` | the stored belief |
 | `world__relationship` | character | `other: str` | trust / closeness / tension from the caller's view |
 | `world__update_relationship` | character | `other: str`, `trust_delta: float`, `closeness_delta: float`, `tension_delta: float`, `reason: str` | the updated edge and the event id |
-| `world__record_event` | director | `kind, summary, participants, visibility` | event id (characters cannot write arbitrary public lines) |
+| `world__record_event` | director | `kind: str`, `summary: str`, `participants: list[str]?`, `visibility: str = "public"` | event id |
 | `world__who_knows` | director | `proposition_key: str` | every holder, source, confidence, timestamp |
+| `world__set_outfit` | character | `outfit_id: str`, `reason: str`, `source_belief_id: str?` | the stored outfit |
+| `world__give_item` | holder or director | `item_id: str`, `to: str`, `note: str?` | the moved item |
+| `world__allowed_looks` | character | — | the outfits this scenario declares for the caller |
+| `world__connections` | any | — | the cast↔cast relationship projection |
+| `world__items` | any | — | the props/items in the world and who holds them |
+| `world__ending_status` | any | — | the active scenario's ending card |
 | `world__advance_time` | director | `minutes: int` | the new world clock |
 
 `source` is `user`, `character:<id>`, `event:<id>` or `observation`. The server rejects a
 source that is not one of these, and rejects `visibility="public"` from a character for a
 belief about a third party.
+
+## Authorization
+
+Authentication stays at the edge: `switch_world/interfaces/mcp/tools.py` resolves the
+actor from the bearer token with a constant-time compare. Authorization is enforced in the
+store, so every caller — MCP, an in-band agent envelope, or a future adapter — gets the
+same answer.
+
+- **A non-holder cannot give an item.** `world__give_item` passes the authenticated actor;
+  `WorldStore.give_item` accepts the hand-off only when the actor currently holds the item
+  (or is the director).
+- **A character cannot write a public turn event.** `world__record_event` is director-only
+  at the tool edge, and `WorldStore.record_event` independently rejects a character
+  writing a public lifecycle/turn event (`scene_start`, `scene_end`, `turn_plan`, `beat`,
+  `branch`, `scenario`, system lines). Characters may still write their own dialogue,
+  action, silence, DM and whisper events.
+- **Visibility and participant rules are unchanged.** Participant ids are canonicalised,
+  private beliefs stay with their holder, and the director keeps the broader view because
+  it owns the ending check and the scene card.
 
 **`proposition_key`** is the matrix row. Alice's "I am leaving the city" and Emily's "Alice
 is leaving the city" must share `user-leaving-city`; otherwise the dashboard cannot show

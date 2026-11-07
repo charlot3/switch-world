@@ -57,6 +57,30 @@ ABSENT_PREFIX = "absent:"
 # Meta keys that belong to the take layer, read together with the state snapshot.
 TAKE_SNAPSHOT_KEYS = (TAKE_META, TAKE_INDEX_META, TAKE_START_META, TAKE_CHANGED_META)
 
+# Public events that only the director (or system) may write.  Characters may
+# still write their own dialogue, action, silence, DM and whisper events, but
+# they cannot forge a turn plan, a beat, a branch or any lifecycle/system line.
+DIRECTOR_ONLY_PUBLIC_KINDS = frozenset(
+    {
+        "scene_start",
+        "scene_end",
+        "turn_plan",
+        "beat",
+        "branch",
+        "scenario",
+        "system",
+        "canon_warning",
+        "boundary_violation",
+        "social_arbiter",
+        "item_given",
+        "outfit_change",
+        "relationship_update",
+        "friend",
+        "offscreen",
+        "no_reply",
+    }
+)
+
 
 class WorldStore:
     def __init__(
@@ -1062,6 +1086,8 @@ class WorldStore:
         owner: str | None = None,
         status: str = "carried",
         conn: sqlite3.Connection | None = None,
+        *,
+        actor: str | None = None,
     ) -> dict:
         item_id = (item_id or "").strip()
         if not item_id:
@@ -1078,6 +1104,16 @@ class WorldStore:
                     raise ValueError("the director cannot own an item")
             now = self._now(c)
             row = c.execute("SELECT * FROM items WHERE id = ?", (item_id,)).fetchone()
+            if row is not None and actor is not None:
+                # Authorization belongs here, not in the prompt or the caller.
+                # ``None`` marks a trusted in-process caller (takes, seeds); the
+                # MCP edge always passes the authenticated actor.
+                who = self._canonical_actor(c, actor)
+                if who != "director" and who != row["holder"]:
+                    raise PermissionError(
+                        f"{who} does not hold {item_id!r}; only the holder or the "
+                        "director can give it"
+                    )
             if row is None:
                 if not label:
                     raise ValueError("unknown item: " + item_id)
@@ -1283,6 +1319,17 @@ class WorldStore:
     ) -> dict:
         if visibility not in VISIBILITIES:
             raise ValueError("visibility must be one of " + ", ".join(VISIBILITIES))
+        actor_key = str(actor).strip().lower()
+        if (
+            actor_key in CHARACTER_ORDER
+            and visibility == "public"
+            and kind in DIRECTOR_ONLY_PUBLIC_KINDS
+        ):
+            # Characters own their dialogue/DM/whisper writes; the shared turn
+            # machinery (plans, beats, branches, lifecycle lines) is director-only.
+            raise PermissionError(
+                f"{actor_key} cannot write a public {kind} event; it is director-only"
+            )
         supplied = list(participants or [])
         meta = dict(metadata or {})
 

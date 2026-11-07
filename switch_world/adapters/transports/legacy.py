@@ -260,4 +260,28 @@ class LegacySwitchTransport:
         return float(self._time.time())
 
 
-__all__ = ["LegacySwitchTransport"]
+def deferred_transport(mode: str) -> LegacySwitchTransport:
+    """Build the historical transport for a caller with no composition root.
+
+    The client is resolved on first use, so a monkeypatched
+    ``director.group.SwitchClient`` still drives older tests.  This is the one
+    compatibility bridge; production code injects a real transport.
+    """
+    if str(mode).strip().lower() == "cloud":
+
+        def client_factory():
+            from director.cloud_switch import CloudSwitch
+
+            return CloudSwitch()
+
+    else:
+
+        def client_factory():
+            from director.group import SwitchClient
+
+            return SwitchClient()
+
+    return LegacySwitchTransport(client_factory=client_factory)
+
+
+__all__ = ["LegacySwitchTransport", "deferred_transport"]

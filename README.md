@@ -579,7 +579,9 @@ Switch and the live room stops while the recorded world remains.
 
 The private/secret model is enforced twice: the token mapping decides which character is
 calling, and the tool implementation filters beliefs/relationships before they leave the
-server. The director has a broader view because it owns the ending check and the scene card,
+server. Write authorization is enforced again in the store, so a non-holder cannot give an
+item and a character cannot write a public turn event even if a caller bypasses the tool
+edge. The director has a broader view because it owns the ending check and the scene card,
 not because it shares a database handle with the cast.
 
 | MCP primitive | In this project |
@@ -587,9 +589,10 @@ not because it shares a database handle with the cast.
 | **Server** | `switch-world` — the local world engine |
 | **Transport** | Streamable HTTP at `http://127.0.0.1:8890/mcp` |
 | **Resources** | `world://characters/<id>` · `world://beliefs/<holder>` · `world://relationships/<from>/<to>` · `world://events` |
-| **Tools** | `world__recall` · `world__remember` · `world__relationship` · `world__update_relationship` · `world__record_event` · `world__who_knows` · `world__advance_time` · `world__set_outfit` · `world__give_item` · `world__allowed_looks` · `world__connections` · `world__ending_status` |
+| **Tools** | `world__recall` · `world__search_web` · `world__remember` · `world__relationship` · `world__update_relationship` · `world__record_event` · `world__who_knows` · `world__set_outfit` · `world__give_item` · `world__allowed_looks` · `world__connections` · `world__items` · `world__ending_status` · `world__advance_time` |
 
-Tool surface (implemented in [`world_engine/mcp_server.py`](world_engine/mcp_server.py)):
+Tool surface (implemented in [`switch_world/interfaces/mcp/`](switch_world/interfaces/mcp/);
+the contract lives in [`docs/MCP.md`](docs/MCP.md)):
 
 | Tool | Caller | What it does |
 | --- | --- | --- |
@@ -602,9 +605,10 @@ Tool surface (implemented in [`world_engine/mcp_server.py`](world_engine/mcp_ser
 | `world__who_knows(proposition_key)` | director | the full matrix with provenance; the dashboard reads `GET /api/who-knows/<key>` instead |
 | `world__advance_time(minutes)` | director | moves the world clock and enqueues the next beat |
 | `world__set_outfit(outfit_id, reason, source_belief_id?)` | character | changes into a scenario-declared outfit, citing the memory that motivated it |
-| `world__give_item(item_id, to, note?)` | character | hands over a gift/prop and records the hand-off |
+| `world__give_item(item_id, to, note?)` | holder or director | hands over a gift/prop and records the hand-off; the store rejects a non-holder |
 | `world__allowed_looks()` | character | the outfits the current scenario declares for this character |
 | `world__connections()` | any | the cast↔cast relationship projection |
+| `world__items()` | any | the props/items in the world and who currently holds them |
 | `world__ending_status()` | any | the active scenario's ending card |
 
 The dashboard also reads `GET /api/canon` (the read-only story bible) and
@@ -802,11 +806,14 @@ compatibility shim for older callers and tests.
 
 | `WORLD_AGENT_MODE` | transport | model | write path |
 |---|---|---|---|
-| `switch` (default) | `SwitchTransport` | none | the cast writes through scoped MCP tools |
+| `switch` (default) | `SwitchTransport` | `BifrostModelClient` | the cast writes through scoped MCP tools |
 | `cloud` | `CloudRoomTransport` | `DeepSeekModelClient` | the JSON envelope's `memory` / `relationships` writes are applied with the character as actor |
-| `local` | `LocalRoomTransport` | none | scripted replies for tests and the demo |
+| `local` | `LocalRoomTransport` | `BifrostModelClient` | scripted replies for tests and the demo |
 
-No HTTP route constructs a provider client. `POST /api/group/say` calls
+No HTTP route constructs a provider client. The composition root puts the
+service, transport, model and artifact store in one container; `create_app`
+stores the resulting HTTP runtime on `app.state` and every route receives it
+through `switch_world.interfaces.http.deps.get_runtime`. `POST /api/group/say` calls
 `switch_world.application.scene.say_in_group`, and the pipeline in
 `switch_world.application.turns.TurnRecorder` fixes the order: record the user's line,
 record the turn plan, select planned speakers, deliver prompts through the transport,
@@ -860,6 +867,41 @@ shim: `CloudSwitch` keeps the Switch-shaped room surface for the group shim and
 `CloudBifrost` keeps `chat_json` / `usage_summary`, while both delegate every
 provider call to `DeepSeekModelClient`.
 
+### Typed HTTP and the route split (step 7)
+
+`switch_world/interfaces/http/app.py` now only builds the app, mounts `/mcp`,
+`/static` and the routers, and registers the error map. The 39 v1 paths and
+methods are unchanged and live in eight route modules:
+
+| module | surface |
+|---|---|
+| `routes/world.py` | `/`, state, canon, matrix, clock, friends, safety, who-knows |
+| `routes/scene.py` | scene card, DM history/phone, group say, whisper |
+| `routes/director.py` | Switch log export, Bifrost usage |
+| `routes/scenarios.py` | scenario list/current/load, ending evaluation |
+| `routes/takes.py` | take list/current/load/next/cue |
+| `routes/studio.py` | Studio summary |
+| `routes/dev.py` | every `/api/dev/*` route plus the new scene-card export |
+| `routes/health.py` | `/health` |
+
+`schemas.py` declares a request model for every mutating route (no more
+`payload: dict | None`) and a response model for every JSON route. `deps.py`
+resolves the container, optional bearer-token actor, request-id/revision
+helpers and the shared read-only projections. `errors.py` maps domain failures
+to one response shape: 400 (`ValueError`/`BadRequest`), 403
+(`PermissionError`/`Forbidden`), 404 (`NotFound`), 409
+(`IdempotencyConflict`/`TakeNotChanged`/stale revision), 423 (paused scene),
+502 (`TransportError`/`ModelError`/explicit upstream failure) and 503 (no
+transport, model or artifact store was supplied).
+
+Two data paths changed on purpose. `GET /api/switch-log` now reads
+`transport.history(room)` through the port instead of calling the Switch
+client's private `_op("list_rooms")`; an absent transport is a 503 with the
+reason. `GET /api/scene-card` renders from one `store.reader.snapshot()` and
+writes nothing — `POST /api/dev/scene-card/export` is the only route that
+writes, through the injected `ArtifactStore`. `tests/interfaces/` pins the 39
+routes, the OpenAPI snapshot, the status-code map and the no-write invariant.
+
 ### Persistence boundary
 
 SQL lives in exactly one adapter: `switch_world/adapters/persistence/`. `schema.py` owns
@@ -905,9 +947,11 @@ silent empty reply, and has no same-millisecond cutoff. `LocalRoomTransport` is
 the scripted in-process double used by tests and the demo, including private
 rooms.
 
-These adapters began deliberately unwired; steps 4, 5a and 5b now route the
-group turn, the DM and the whisper through `switch_world.application.scene`
-(live Switch still comes from `SwitchTransport`). The whisper branches on
+These adapters began deliberately unwired; steps 4, 5a, 5b, 6 and 7 now route
+the group turn, the DM, the whisper, the authored beats and the scene-card
+export through `switch_world.application.scene` / `application.beats` and the
+`ArtifactStore` port (live Switch still comes from `SwitchTransport`). The
+whisper branches on
 `TransportCapabilities.private_rooms` rather than probing the backend, so the
 staged path and the private-room path are selected from one declared contract.
 The new contracts are exercised by `tests/contract/test_model_contract.py`
@@ -1143,7 +1187,7 @@ the scene card above: the user and the cast co-produce a scene and its provenanc
 | `switch_world/adapters/transports/` | Switch, cloud-room, local and legacy-bridge transports over the `CharacterTransport` port |
 | `switch_world/application/` | use cases: `scene.say_in_group`, `scene.dm`, `scene.whisper`, the `TurnRecorder` pipeline (plan → deliver → sanitise → writes → beats → relay), and the one authored-beat pipeline `beats.run_beat` with its injected `beat_strategies` |
 | `switch_world/` | composition root (`Settings`, `build_container`) and the HTTP/MCP entry points |
-| `world_engine/` | compatibility facade over the store, MCP tools, canon API, scene card and Studio summary |
+| `world_engine/` | compatibility facade over the store, the `mcp_server` re-export shim, canon API, scene card and Studio summary |
 | `web/` | the vanilla dashboard (Story/arc/profile, World Tree, ledger, settings) |
 | `web/assets/portraits/` | bust, full-body 立绘, avatar crops, contact sheets, `PROMPTS.md` |
 | `web/assets/scenes/` | demo scene plates (first meeting, day café, solo date, trio, endings) |
@@ -1151,7 +1195,7 @@ the scene card above: the user and the cast co-produce a scene and its provenanc
 | `web/assets/portraits/props/` | the wrapped-book prop and other demo objects |
 | `tests/` | pytest for the service, API, canon, café beat, store/model/transport contracts, architecture guardrails and the one-connection `/api/state` probe |
 | `agents/<name>/` | per-character working directories: `AGENTS.md`, `IDENTITY.md`, `CLAUDE.md`, generated `opencode.json` / `.mcp.json` |
-| `mcp/` | the world engine's MCP tool surface (design notes) |
+| `switch_world/interfaces/mcp/` | the actor-scoped MCP server and its 14 tools (contract: [`docs/MCP.md`](docs/MCP.md)) |
 | `director/` | compatibility wrappers over the authored-beat pipeline (`beats.py` / `bifrost_scene.py` / `run_switch.py` / `simulate.py` → `switch_world.application.beats`, local/Bifrost/Switch/cloud), the DM, group-turn and whisper shims (`dm.py` / `group.py` / `whisper.py` → `switch_world.application.scene`), the cloud room/model shim (`cloud_switch.py` → `CloudRoomTransport` / `DeepSeekModelClient` surfaces), the time machine (`clock.py`), the social gate (`social.py`), the optional high-reasoning arbiter (`arbiter.py`), and `canon.py` |
 | `demo-links.html` | the recording tab board: every URL, the 4:00 timer, pre-flight checklist and architecture plate |
 | `docs/DEMO_TODAY.md` | the four-minute cut and the test pass to run before recording |

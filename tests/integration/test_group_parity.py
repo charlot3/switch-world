@@ -17,7 +17,6 @@ apart from the two intentional step-4 fixes:
 from __future__ import annotations
 
 import re
-import subprocess
 import sys
 import types
 from dataclasses import dataclass, field
@@ -34,16 +33,16 @@ TURN_ID = re.compile(r"^t-[0-9a-f]{12}(?:-relay)?$")
 
 
 def _load_head_group():
-    try:
-        source = subprocess.run(
-            ["git", "-C", str(REPO_ROOT), "show", "HEAD:director/group.py"],
-            capture_output=True,
-            text=True,
-            check=True,
-            timeout=30,
-        ).stdout
-    except (OSError, subprocess.SubprocessError):
-        pytest.skip("HEAD:director/group.py is unavailable (no git history)")
+    """Load the pre-step implementation from a vendored fixture.
+
+    Reading ``HEAD:director/group.py`` would compare the new shim with itself
+    once step 4 is committed (and the CI checkout has no history to reach the
+    baseline). The fixture is the exact file from the commit before the shim.
+    """
+    fixture = REPO_ROOT / "tests" / "fixtures" / "legacy_group.py"
+    if not fixture.exists():
+        pytest.skip(f"missing parity baseline: {fixture}")
+    source = fixture.read_text(encoding="utf-8")
 
     module = types.ModuleType("director._head_group")
     module.__package__ = "director"

@@ -1,7 +1,6 @@
 # Keep the build context small. This file only applies when Docker builds with
 # deploy/demo/Dockerfile (BuildKit reads <Dockerfile>.dockerignore next to it).
 .git
-.gitignore
 .venv
 .pytest_cache
 __pycache__

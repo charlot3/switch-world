@@ -21,8 +21,9 @@ router = APIRouter()
 
 
 @router.get("/", response_class=FileResponse, include_in_schema=False)
-def index():
-    return FileResponse(config.WEB_DIR / "index.html")
+def index(runtime: HttpRuntime = Depends(get_runtime)):
+    web_dir = runtime.settings.web_dir if runtime.settings is not None else config.WEB_DIR
+    return FileResponse(web_dir / "index.html")
 
 
 @router.get("/api/state", response_model=schemas.StateResponse)
@@ -32,11 +33,11 @@ def state(runtime: HttpRuntime = Depends(get_runtime)):
     # subprojection come from the same read.
     snapshot = service.store.reader.snapshot()
     data = service.state_from_snapshot(snapshot)
-    data["canon"] = load_canon()
+    data["canon"] = load_canon(runtime)
     # `scene` already carries the clock/beat view the Story stage reads. When a
     # take is active, merge its scene card into the same object so both the old
     # dashboard keys and the new take fields stay available.
-    clock = clock_view(service, clock=snapshot["clock"])
+    clock = clock_view(service, clock=snapshot["clock"], runtime=runtime)
     take = take_snapshot_from_snapshot(snapshot)
     take_scene = take.get("scene")
     data["scene"] = {**clock, **take_scene} if take_scene else clock
@@ -46,8 +47,8 @@ def state(runtime: HttpRuntime = Depends(get_runtime)):
 
 
 @router.get("/api/canon", response_model=schemas.CanonResponse)
-def canon():
-    return load_canon()
+def canon(runtime: HttpRuntime = Depends(get_runtime)):
+    return load_canon(runtime)
 
 
 @router.get("/api/matrix", response_model=schemas.MatrixResponse)
@@ -61,7 +62,7 @@ def matrix(runtime: HttpRuntime = Depends(get_runtime)):
 
 @router.get("/api/clock", response_model=schemas.ClockResponse)
 def clock(runtime: HttpRuntime = Depends(get_runtime)):
-    return clock_view(runtime.service)
+    return clock_view(runtime.service, runtime=runtime)
 
 
 @router.post("/api/clock/mode", response_model=schemas.ClockModeResponse)
@@ -81,11 +82,18 @@ def clock_mode(
     try:
         scale = None if raw_scale is None else float(raw_scale)
         if mode == "realtime":
-            result = align_realtime(service, load_canon(), scale=scale)
-            return {**result, "clock": service.clock(), "view": clock_view(service)}
+            result = align_realtime(service, load_canon(runtime), scale=scale)
+            return {
+                **result,
+                "clock": service.clock(),
+                "view": clock_view(service, runtime=runtime),
+            }
         if mode == "mock":
             service.set_clock_mode("mock", scale=scale)
-            return {"clock": service.clock(), "view": clock_view(service)}
+            return {
+                "clock": service.clock(),
+                "view": clock_view(service, runtime=runtime),
+            }
         raise BadRequest("mode must be mock or realtime")
     except (TypeError, ValueError) as exc:
         raise BadRequest(str(exc)) from exc
@@ -121,18 +129,18 @@ def clock_advance(
         return {
             "offscreen": event,
             "clock": service.clock(),
-            "view": clock_view(service),
+            "view": clock_view(service, runtime=runtime),
             "played": None,
             "revision": service.revision(),
         }
-    canon_data = load_canon()
+    canon_data = load_canon(runtime)
     try:
         explicit = str(payload_value(payload, "beat")) if payload_value(payload, "beat") else None
         if payload_value(payload, "run") and not explicit:
             # Fast-forward the arc: play the first beat that has not happened yet.
             upcoming = next_unplayed(canon_data, done_beats(service))
             if upcoming is None:
-                view = clock_view(service)
+                view = clock_view(service, runtime=runtime)
                 return {
                     "beat": view["current_beat"],
                     "clock": service.clock(),
@@ -152,7 +160,7 @@ def clock_advance(
         return {
             "beat": moved["beat"],
             "clock": service.clock(),
-            "view": clock_view(service),
+            "view": clock_view(service, runtime=runtime),
             "played": played,
         }
     except ValueError as exc:

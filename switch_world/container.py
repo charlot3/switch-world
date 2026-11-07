@@ -97,6 +97,7 @@ def build_container(settings: Settings) -> Container:
         model = BifrostModelClient(
             log_path=settings.data_dir / "logs" / "bifrost.jsonl",
             budget_path=settings.data_dir / "bifrost_budget.json",
+            models_path=settings.content_root / "models.json",
         )
     elif mode == "cloud":
         model = DeepSeekModelClient(
@@ -113,6 +114,7 @@ def build_container(settings: Settings) -> Container:
         model = BifrostModelClient(
             log_path=settings.data_dir / "logs" / "bifrost.jsonl",
             budget_path=settings.data_dir / "bifrost_budget.json",
+            models_path=settings.content_root / "models.json",
         )
     else:
         raise ValueError(

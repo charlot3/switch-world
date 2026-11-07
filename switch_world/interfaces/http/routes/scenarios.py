@@ -35,8 +35,8 @@ def load_scenario_endpoint(
     service = runtime.service
     scenario = load_scenario(service, scenario_id)
     state = service.state()
-    state["canon"] = load_canon()
-    state["scene"] = clock_view(service)
+    state["canon"] = load_canon(runtime)
+    state["scene"] = clock_view(service, runtime=runtime)
     return {"scenario": scenario, "state": state}
 
 

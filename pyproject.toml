@@ -12,8 +12,8 @@ dependencies = [
 ]
 
 [project.scripts]
-world-engine = "world_engine.__main__:main"
-director = "director.__main__:main"
+world-engine = "switch_world.interfaces.cli.world:main"
+director = "switch_world.interfaces.cli.director:main"
 
 [dependency-groups]
 dev = [
@@ -28,7 +28,25 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
+# The v2 package owns the code. The legacy packages are still imported by the
+# compatibility shims and are deleted in step 10; until then the wheel must
+# contain them or an installed console script cannot start.
 packages = ["switch_world", "world_engine", "director", "gateway"]
+
+# Authored content is shipped inside the package. Settings reads these from
+# ``switch_world/resources`` when no source checkout is present.
+#
+# Agent identities are listed one by one on purpose: force-include copies a
+# directory verbatim and bypasses both .gitignore and ``exclude``, so a
+# generated ``opencode.json`` / ``.mcp.json`` in a developer checkout must never
+# be reachable from the source side of this mapping.
+[tool.hatch.build.targets.wheel.force-include]
+"world" = "switch_world/resources/world"
+"web" = "switch_world/resources/web"
+"agents/alice/IDENTITY.md" = "switch_world/resources/agents/alice/IDENTITY.md"
+"agents/emily/IDENTITY.md" = "switch_world/resources/agents/emily/IDENTITY.md"
+"agents/mia/IDENTITY.md" = "switch_world/resources/agents/mia/IDENTITY.md"
+"agents/sophia/IDENTITY.md" = "switch_world/resources/agents/sophia/IDENTITY.md"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

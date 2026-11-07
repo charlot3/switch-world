@@ -20,8 +20,10 @@ _SETTINGS: Settings | None = None
 
 _FIELDS = {
     "ROOT": "root",
+    "CONTENT_ROOT": "content_root",
     "STATE_DIR": "state_dir",
     "WEB_DIR": "web_dir",
+    "AGENTS_DIR": "agents_dir",
     "DATA_DIR": "data_dir",
     "DB_PATH": "db_path",
     "EXPORT_DIR": "export_dir",

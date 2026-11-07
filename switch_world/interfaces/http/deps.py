@@ -17,6 +17,7 @@ import json
 import re
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from fastapi import Request
@@ -30,7 +31,17 @@ from world_engine.service import WorldService
 
 from .errors import BadRequest, Conflict, Forbidden, ServiceUnavailable
 
-CANON_PATH = config.ROOT / "world" / "canon.json"
+
+def _canon_path(settings: Settings | None = None) -> Path:
+    """Resolve canon.json from the injected Settings or the module shim.
+
+    ``Settings.content_root`` already accounts for a checkout, an installed
+    wheel and either ``WORLD_ROOT`` form (checkout root or content root), so
+    callers with a runtime never fall back to the ambient environment.
+    """
+    root = Path(settings.content_root) if settings is not None else Path(config.CONTENT_ROOT)
+    return root / "canon.json"
+
 
 REQUEST_ID = re.compile(r"^[A-Za-z0-9_-]{8,64}$")
 STALE_MESSAGE = "the world moved since you loaded it; refresh and try again"
@@ -232,15 +243,24 @@ def require_artifacts(runtime: HttpRuntime) -> ArtifactStore:
 # ---------------------------------------------------------------------------
 
 
-def load_canon() -> dict:
-    """The authored story bible. It is read-only state, not world state."""
-    return json.loads(CANON_PATH.read_text(encoding="utf-8"))
+def load_canon(runtime: HttpRuntime | None = None) -> dict:
+    """The authored story bible. It is read-only state, not world state.
+
+    Pass the request runtime so an app built with injected settings reads that
+    content root instead of whatever the process environment happens to hold.
+    """
+    settings = runtime.settings if runtime is not None else None
+    return json.loads(_canon_path(settings).read_text(encoding="utf-8"))
 
 
-def clock_view(service: WorldService, clock: dict | None = None) -> dict:
+def clock_view(
+    service: WorldService,
+    clock: dict | None = None,
+    runtime: HttpRuntime | None = None,
+) -> dict:
     from director.clock import current_beat, next_beat
 
-    canon_data = load_canon()
+    canon_data = load_canon(runtime)
     clock = clock or service.clock()
     now = datetime.fromisoformat(clock["now"])
     current = current_beat(canon_data, now)

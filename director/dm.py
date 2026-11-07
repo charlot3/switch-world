@@ -16,6 +16,8 @@ through. New code should inject the model from the composition root and call
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 from world_engine.service import WorldService
 
 from switch_world.adapters.models.legacy import LegacyModelClient
@@ -41,6 +43,7 @@ def _default_model():
     return BifrostModelClient(
         log_path=data_dir / "logs" / "bifrost.jsonl",
         budget_path=data_dir / "bifrost_budget.json",
+        models_path=Path(config.CONTENT_ROOT) / "models.json",
     )
 
 

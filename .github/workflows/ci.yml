@@ -29,9 +29,9 @@ jobs:
           enable-cache: true
       - run: uv sync --frozen
       - name: Ruff (E, F)
-        run: uv run --with ruff ruff check switch_world world_engine director gateway mcp tests
+        run: uv run --with ruff ruff check switch_world world_engine director gateway tests
       - name: Byte-compile every module
-        run: uv run python -m compileall -q switch_world world_engine director gateway mcp
+        run: uv run python -m compileall -q switch_world world_engine director gateway
 
   test:
     name: test (py${{ matrix.python-version }})
@@ -54,7 +54,7 @@ jobs:
           WORLD_AGENT_MODE: "switch"
           WORLD_DATA_DIR: ${{ runner.temp }}/data
           WORLD_DB: ${{ runner.temp }}/data/world.sqlite
-        run: uv run pytest -q
+        run: uv run pytest -q --ignore=tests/packaging
 
   web:
     name: dashboard syntax
@@ -69,10 +69,9 @@ jobs:
       - run: node --check web/cast.js
 
   package:
-    name: package (non-blocking until v2 packaging lands)
+    name: wheel install smoke
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    continue-on-error: true
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -80,4 +79,5 @@ jobs:
           python-version: "3.12"
           enable-cache: true
       - run: uv sync --frozen
-      - run: uv run --with build python -m build
+      - name: Build, install in a clean venv and start
+        run: uv run pytest -q tests/packaging/test_wheel.py

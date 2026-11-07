@@ -4,41 +4,62 @@
 #   docker build -f deploy/demo/Dockerfile -t switch-world-demo .
 #
 # The app is pure Python (fastapi/uvicorn/mcp/httpx/pydantic + stdlib sqlite3),
-# so build-essential is not needed. Hatchling builds a pure-Python wheel.
-FROM python:3.12-slim
+# so build-essential is not needed. Hatchling builds a pure-Python wheel with
+# the authored content (world/, web/ and the agent identities) force-included,
+# so the runtime image installs one artifact and does not copy those trees a
+# second time.
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+# ---- build -----------------------------------------------------------------
+FROM python:3.12-slim AS builder
 
-WORKDIR /app
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PYTHONDONTWRITEBYTECODE=1
 
-# Build inputs for `pip install .` (the package list lives in pyproject.toml).
+WORKDIR /src
+
+# Everything hatch needs to build the wheel: the code, the compatibility
+# packages the shims still import, and the authored resources. `.gitignore`
+# travels with the build so hatchling keeps ignoring credentials that a
+# developer checkout may hold (`switch_world/.env`, `director/.switch/...`).
 COPY pyproject.toml ./
+COPY .gitignore ./
 COPY switch_world ./switch_world
 COPY world_engine ./world_engine
 COPY director ./director
 COPY gateway ./gateway
-
-RUN pip install --no-cache-dir .
-
-# Runtime-only assets. These are not part of the wheel: world_engine resolves
-# canon/scenarios/takes and the dashboard relative to the source tree at /app.
 COPY world ./world
 COPY web ./web
-# Character identity/rules for the cloud reply path. Token-bearing connector
-# configs are excluded by Dockerfile.dockerignore.
 COPY agents ./agents
-COPY deploy/demo/entrypoint.py ./deploy/demo/entrypoint.py
+
+RUN pip wheel --no-cache-dir --no-deps --wheel-dir /dist .
+
+# ---- runtime ---------------------------------------------------------------
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    WORLD_DB=/data/world.sqlite \
+    WORLD_DATA_DIR=/data \
+    WORLD_ENGINE_HOST=0.0.0.0 \
+    WORLD_ENGINE_PORT=8893 \
+    WORLD_DEV=0
+
+WORKDIR /app
+
+# One wheel carries the API, MCP endpoint, dashboard and agent identities.
+COPY --from=builder /dist/*.whl /tmp/
+RUN pip install --no-cache-dir /tmp/*.whl && rm -f /tmp/*.whl
 
 # Non-root runtime user. The bind-mounted /data directory must be writable by
 # uid 10001 on the host (see README: chown -R 10001:10001 deploy/demo/data).
 RUN useradd --uid 10001 --create-home --shell /usr/sbin/nologin app \
     && mkdir -p /data \
-    && chown -R app:app /data /app
+    && chown -R app:app /data
 
 USER app
 
 EXPOSE 8893
 
-CMD ["python", "deploy/demo/entrypoint.py"]
+# The console script seeds w5-good only on a fresh database, then serves.
+CMD ["world-engine", "--seed", "w5-good"]

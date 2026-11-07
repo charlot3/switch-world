@@ -72,7 +72,7 @@ def _beat_slim(beat: dict | None) -> dict | None:
 
 
 def _load_rooms() -> list[dict]:
-    path = config.ROOT / "world" / "rooms.json"
+    path = config.CONTENT_ROOT / "rooms.json"
     try:
         rooms = json.loads(path.read_text(encoding="utf-8")).get("rooms") or {}
     except (OSError, ValueError):
@@ -100,7 +100,7 @@ def studio_summary(service: WorldService, prober=None) -> dict:
 
     prober = prober or probe
 
-    canon = json.loads((config.ROOT / "world" / "canon.json").read_text(encoding="utf-8"))
+    canon = json.loads((config.CONTENT_ROOT / "canon.json").read_text(encoding="utf-8"))
     clock = service.clock()
     now = datetime.fromisoformat(clock["now"])
     current = current_beat(canon, now)

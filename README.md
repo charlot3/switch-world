@@ -502,6 +502,25 @@ The dashboard has **Tell Alice**, **Run café beat** and **Reset world** buttons
 beat, the hero reads `2 of 4 know`, the matrix shows Alice 1.00 (user) and Emily 0.80
 (alice), and the scene card is downloadable.
 
+**Packaging.** `world-engine` and `director` are now `switch_world.interfaces.cli`
+entry points; their `--help` parses arguments without building an app or touching the
+database. The wheel force-includes `world/`, `web/` and each character's `IDENTITY.md`
+under `switch_world/resources/`, so an installed engine serves the same canon and
+dashboard with no source checkout. Agent directories are mapped file by file because a
+directory force-include would also copy a developer's generated `opencode.json` /
+`.mcp.json`, which carry literal tokens:
+
+```sh
+uv build --wheel
+uv venv .wheel-venv && uv pip install --python .wheel-venv/bin/python dist/*.whl
+WORLD_DATA_DIR=/tmp/switch-world-data .wheel-venv/bin/world-engine --seed w5-good
+```
+
+`Settings` prefers a checkout when one is present, otherwise the packaged resources;
+`WORLD_ROOT` overrides the content root and `WORLD_DATA_DIR`/`WORLD_DB` keep writable
+state outside the install. `pytest tests/packaging/test_wheel.py` installs the built wheel
+into a clean venv and smoke-tests `/health`, `/api/state`, `/` and both `--help` screens.
+
 The same tools are on the MCP endpoint, scoped per character:
 
 ```sh
@@ -1187,6 +1206,8 @@ the scene card above: the user and the cast co-produce a scene and its provenanc
 | `switch_world/adapters/transports/` | Switch, cloud-room, local and legacy-bridge transports over the `CharacterTransport` port |
 | `switch_world/application/` | use cases: `scene.say_in_group`, `scene.dm`, `scene.whisper`, the `TurnRecorder` pipeline (plan → deliver → sanitise → writes → beats → relay), and the one authored-beat pipeline `beats.run_beat` with its injected `beat_strategies` |
 | `switch_world/` | composition root (`Settings`, `build_container`) and the HTTP/MCP entry points |
+| `switch_world/interfaces/cli/` | the `world-engine` and `director` console entry points; argparse `--help` builds nothing |
+| `switch_world/resources/` | wheel-only: `world/`, `web/` and `agents/*/IDENTITY.md` force-included by hatch |
 | `world_engine/` | compatibility facade over the store, the `mcp_server` re-export shim, canon API, scene card and Studio summary |
 | `web/` | the vanilla dashboard (Story/arc/profile, World Tree, ledger, settings) |
 | `web/assets/portraits/` | bust, full-body 立绘, avatar crops, contact sheets, `PROMPTS.md` |

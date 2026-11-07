@@ -3,6 +3,18 @@
 ``load_settings`` is a pure function: it reads only the mapping it is given and
 never touches ``os.environ``, the filesystem, or the network at import time.
 Callers that need process settings pass ``os.environ`` explicitly.
+
+Paths resolve in two stages so the same package works from a source checkout
+and from an installed wheel:
+
+* when the repository is present (``<root>/world/canon.json`` exists) the
+  authored content, dashboard and agent identities are read from the checkout;
+* otherwise they are read from the resources hatch force-includes into the
+  wheel at ``switch_world/resources/{world,web,agents}``.
+
+``WORLD_ROOT`` overrides the resolved root and ``WORLD_DATA_DIR`` overrides the
+writable data directory. The data directory is never the package directory in
+a wheel, so an installed engine does not try to write inside site-packages.
 """
 from __future__ import annotations
 
@@ -26,8 +38,10 @@ class Settings:
     """Everything the composition root needs, resolved once."""
 
     root: Path
+    content_root: Path
     state_dir: Path
     web_dir: Path
+    agents_dir: Path
     data_dir: Path
     db_path: Path
     export_dir: Path
@@ -57,9 +71,63 @@ class Settings:
         """Backwards-friendly alias for :meth:`token_map`."""
         return self.token_map()
 
+    @property
+    def web_root(self) -> Path:
+        """Historical name used by the packaging smoke test."""
+        return self.web_dir
+
 
 def _dev_mode(value: str) -> bool:
     return value.lower() not in ("0", "false", "no")
+
+
+def _repo_root() -> Path:
+    """The checkout root when ``switch_world`` is imported from one."""
+    return Path(__file__).resolve().parent.parent
+
+
+def _package_resources() -> Path:
+    """The force-included resource root inside an installed wheel."""
+    from importlib.resources import files
+
+    return Path(str(files("switch_world").joinpath("resources")))
+
+
+def _is_repo_root(path: Path) -> bool:
+    return (path / "world" / "canon.json").is_file()
+
+
+def _first_dir(*candidates: Path) -> Path:
+    for candidate in candidates:
+        if candidate.is_dir():
+            return candidate
+    return candidates[-1]
+
+
+def _resolve_roots(env: Mapping[str, str]) -> tuple[Path, Path, Path, Path]:
+    """Return ``(root, content_root, web_dir, agents_dir)``.
+
+    The repository wins when it is present. An explicit ``WORLD_ROOT`` may be
+    either a checkout root (contains ``world/canon.json``) or a content root
+    (contains ``canon.json``). The wheel resources are the final fallback.
+    """
+    repo = _repo_root()
+    resources = _package_resources()
+    override = (env.get("WORLD_ROOT") or "").strip()
+
+    if override:
+        root = Path(override).expanduser()
+        content_root = root / "world" if _is_repo_root(root) else root
+    elif _is_repo_root(repo):
+        root = repo
+        content_root = repo / "world"
+    else:
+        root = resources
+        content_root = resources / "world"
+
+    web_dir = _first_dir(root / "web", repo / "web", resources / "web")
+    agents_dir = _first_dir(root / "agents", repo / "agents", resources / "agents")
+    return root, content_root, web_dir, agents_dir
 
 
 def load_settings(env: Mapping[str, str] | None = None) -> Settings:
@@ -69,8 +137,19 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
     ``os.environ`` for process settings.
     """
     env = {} if env is None else env
-    root = Path(__file__).resolve().parent.parent
-    data_dir = Path(env.get("WORLD_DATA_DIR", root / "data"))
+    root, content_root, web_dir, agents_dir = _resolve_roots(env)
+
+    override = (env.get("WORLD_ROOT") or "").strip()
+    data_override = env.get("WORLD_DATA_DIR")
+    if data_override:
+        data_dir = Path(data_override)
+    elif override:
+        data_dir = root / "data"
+    elif _is_repo_root(_repo_root()):
+        data_dir = _repo_root() / "data"
+    else:
+        # An installed wheel must not write into site-packages.
+        data_dir = Path.home() / ".switch-world" / "data"
 
     token_overrides = tuple(
         (value, name.lower())
@@ -80,8 +159,10 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
 
     return Settings(
         root=root,
-        state_dir=root / "world" / "state",
-        web_dir=root / "web",
+        content_root=content_root,
+        state_dir=content_root / "state",
+        web_dir=web_dir,
+        agents_dir=agents_dir,
         data_dir=data_dir,
         db_path=Path(env.get("WORLD_DB", data_dir / "world.sqlite")),
         export_dir=data_dir / "exports",

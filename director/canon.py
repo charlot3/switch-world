@@ -17,7 +17,7 @@ from pathlib import Path
 from world_engine import config
 from world_engine.service import WorldService
 
-CANON_PATH = Path(config.ROOT) / "world" / "canon.json"
+CANON_PATH = Path(config.CONTENT_ROOT) / "canon.json"
 
 _STOPWORDS = {
     "about", "after", "again", "already", "also", "because", "been", "before",

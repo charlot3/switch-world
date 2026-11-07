@@ -16,7 +16,7 @@ from pathlib import Path
 from world_engine import config
 from world_engine.service import WorldService
 
-POLICY_PATH = Path(config.ROOT) / "world" / "social.json"
+POLICY_PATH = Path(config.CONTENT_ROOT) / "social.json"
 CJK = re.compile(r"[一-鿿]")
 TOPIC_LABELS = ["small talk", "daily life", "private feelings", "body or appearance", "physical contact"]
 

@@ -161,7 +161,9 @@ if command -v rsync >/dev/null 2>&1; then
     --exclude='node_modules' \
     --exclude='.env' \
     --exclude='.env.*' \
-    --exclude='agents' \
+    --exclude='agents/*/opencode.json' \
+    --exclude='agents/*/.mcp.json' \
+    --exclude='agents/*/.switch' \
     --exclude='.switch' \
     --exclude='director/.switch' \
     --exclude='.claude' \
@@ -183,7 +185,10 @@ else
     --exclude='./scratch' \
     --exclude='./node_modules' \
     --exclude='./.env' \
-    --exclude='./agents' \
+    --exclude='./.env.*' \
+    --exclude='./agents/*/opencode.json' \
+    --exclude='./agents/*/.mcp.json' \
+    --exclude='./agents/*/.switch' \
     --exclude='./.switch' \
     --exclude='./director/.switch' \
     --exclude='./.claude' \

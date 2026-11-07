@@ -34,7 +34,7 @@ from switch_world.domain import (
     TAKE_START_META,
 )
 
-TAKE_DIR = Path(config.ROOT) / "world" / "takes"
+TAKE_DIR = Path(config.CONTENT_ROOT) / "takes"
 
 # Authored order, matching the Worlds rail. w5-good and w5-bad are a fork.
 TAKE_ORDER = [

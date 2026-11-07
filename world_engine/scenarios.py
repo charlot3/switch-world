@@ -24,7 +24,7 @@ from .service import (
     WorldService,
 )
 
-SCENARIO_DIR = Path(config.ROOT) / "world" / "scenarios"
+SCENARIO_DIR = Path(config.CONTENT_ROOT) / "scenarios"
 
 # Authored order, not alphabetical: w5-good and w5-bad are a fork and should sit
 # together in the Worlds rail.

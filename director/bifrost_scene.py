@@ -95,7 +95,7 @@ TONE = (
 
 
 def _identity(character: str, limit: int = 3200) -> str:
-    path = Path(config.ROOT) / "agents" / character / "IDENTITY.md"
+    path = Path(config.AGENTS_DIR) / character / "IDENTITY.md"
     if not path.exists():
         return ""
     return path.read_text(encoding="utf-8")[:limit]

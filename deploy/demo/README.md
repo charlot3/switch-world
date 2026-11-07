@@ -113,14 +113,19 @@ Notes:
 
 ```
 deploy/demo/
-├── Dockerfile                 # python:3.12-slim, non-root uid 10001, port 8893
+├── Dockerfile                 # multi-stage: build one wheel, install it; non-root uid 10001, port 8893
 ├── Dockerfile.dockerignore    # small build context (BuildKit)
 ├── docker-compose.yml         # build from repo root, ./data:/data, 127.0.0.1:8893
-├── entrypoint.py              # seeds w5-good once, then uvicorn on 0.0.0.0:8893
+├── entrypoint.py              # legacy standalone launcher (the image uses `world-engine --seed w5-good`)
 ├── Caddyfile.snippet           # site block with {$DEMO_*} placeholders
 ├── deploy.sh                  # idempotent deploy, --dry-run supported
 └── README.md
 ```
+
+The image builds the package wheel (which force-includes `world/`, `web/` and
+each character's `IDENTITY.md`), installs that one artifact, and starts
+`world-engine --seed w5-good`. The console script seeds the scenario only when
+the database is fresh, then serves on `0.0.0.0:8893` with `WORLD_DEV=0`.
 
 The container stores its SQLite database at `/data/world.sqlite`, bind-mounted
 to `deploy/demo/data` on the host. The first boot loads `w5-good`; every later

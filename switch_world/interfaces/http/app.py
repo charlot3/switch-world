@@ -13,6 +13,7 @@ compatibility runtime (lazy director adapters) from
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -63,7 +64,12 @@ def create_app(
     register_error_handlers(app)
 
     app.mount("/mcp", mcp_app)
-    app.mount("/static", StaticFiles(directory=str(config.WEB_DIR)), name="static")
+    # The container's settings win so a wheel serves the resources bundled
+    # inside the package; legacy callers keep the module-level shim path.
+    web_dir = (
+        Path(runtime.settings.web_dir) if runtime.settings is not None else Path(config.WEB_DIR)
+    )
+    app.mount("/static", StaticFiles(directory=str(web_dir)), name="static")
 
     app.include_router(world.router, tags=["world"])
     app.include_router(scene.router, tags=["scene"])

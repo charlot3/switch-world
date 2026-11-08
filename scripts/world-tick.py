@@ -15,8 +15,8 @@ import argparse
 import sys
 import time
 
-from director.tavily_beat import fetch_world_event
-from world_engine.service import WorldService
+from switch_world.application.tavily_beat import fetch_world_event
+from switch_world.application.facade import WorldService
 
 
 def main() -> int:

@@ -19,8 +19,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from world_engine import config
-from world_engine.service import WorldService
+from switch_world import config
+from switch_world.application.facade import WorldService
 
 from . import DEMO_KEY, DEMO_SECRET
 from .beats import (
@@ -175,7 +175,7 @@ def run_cafe_bifrost(
     """Run the café beat with both character turns generated through Bifrost."""
     service = service or WorldService()
     if client is None:
-        from gateway.bifrost import BifrostClient
+        from switch_world.adapters.models.bifrost_compat import BifrostClient
 
         client = BifrostClient()
 
@@ -299,7 +299,7 @@ def run_beat_bifrost(
     """Run any authored beat through Bifrost; the café keeps its branch logic."""
     service = service or WorldService()
     if client is None:
-        from gateway.bifrost import BifrostClient
+        from switch_world.adapters.models.bifrost_compat import BifrostClient
 
         client = BifrostClient()
     canon = load_canon()

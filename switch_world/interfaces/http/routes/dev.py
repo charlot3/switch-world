@@ -25,7 +25,7 @@ def tell_alice(
 ):
     if not runtime.dev_enabled():
         raise NotFound()
-    from director.simulate import user_tells_alice
+    from switch_world.application.simulate import user_tells_alice
 
     secret = payload_value(payload, "secret") or (
         "I've decided to leave the city at the end of the month. "
@@ -44,7 +44,7 @@ def run_cafe(
 ):
     if not runtime.dev_enabled():
         raise NotFound()
-    from director.simulate import run_cafe as run_cafe_use_case
+    from switch_world.application.simulate import run_cafe as run_cafe_use_case
 
     try:
         return run_cafe_use_case(
@@ -63,7 +63,7 @@ def run_beat_endpoint(
 ):
     if not runtime.dev_enabled():
         raise NotFound()
-    from director.beats import run_beat
+    from switch_world.application.beat_runners import run_beat
 
     beat = payload_value(payload, "beat") or "cafe"
     transport = payload_value(payload, "transport") or "local"
@@ -87,7 +87,7 @@ def run_arc_endpoint(
 ):
     if not runtime.dev_enabled():
         raise NotFound()
-    from director.beats import run_arc
+    from switch_world.application.beat_runners import run_arc
 
     try:
         return run_arc(
@@ -104,7 +104,7 @@ def tavily_event(
 ):
     if not runtime.dev_enabled():
         raise NotFound()
-    from director.tavily_beat import fetch_world_event
+    from switch_world.application.tavily_beat import fetch_world_event
 
     try:
         return fetch_world_event(
@@ -118,7 +118,7 @@ def tavily_event(
 def run_bifrost(runtime: HttpRuntime = Depends(get_runtime)):
     if not runtime.dev_enabled():
         raise NotFound()
-    from director.bifrost_scene import run_cafe_bifrost
+    from switch_world.application.beat_runners import run_cafe_bifrost
 
     try:
         return run_cafe_bifrost(runtime.service)

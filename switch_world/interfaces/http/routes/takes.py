@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
-from world_engine.takes import (
+from switch_world.application.takes import (
     TakeNotChanged,
     apply_cues,
     current_take,

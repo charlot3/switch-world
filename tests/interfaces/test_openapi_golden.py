@@ -6,8 +6,8 @@ Regenerate deliberately after an intended contract change::
     import json, tempfile
     from pathlib import Path
     from switch_world.interfaces.http.app import create_app
-    from world_engine import config
-    from world_engine.service import WorldService
+    from switch_world import config
+    from switch_world.application.facade import WorldService
     tmp = Path(tempfile.mkdtemp())
     app = create_app(WorldService(db_path=tmp / "world.sqlite", state_dir=config.STATE_DIR))
     Path("tests/interfaces/openapi_golden.json").write_text(
@@ -21,8 +21,8 @@ import json
 from pathlib import Path
 
 from switch_world.interfaces.http.app import create_app
-from world_engine import config
-from world_engine.service import WorldService
+from switch_world import config
+from switch_world.application.facade import WorldService
 
 GOLDEN = Path(__file__).with_name("openapi_golden.json")
 

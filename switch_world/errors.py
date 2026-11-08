@@ -1,8 +1,8 @@
 """Application-level error types.
 
-The HTTP adapter maps these to responses where it can; the domain errors that
-currently live in :mod:`world_engine.service` and :mod:`world_engine.takes`
-will move here as the v2 refactor progresses.
+The HTTP adapter maps these to responses where it can. Domain failures live in
+the store and application modules; this module holds the small shared base
+classes the interfaces can catch without importing an adapter.
 """
 from __future__ import annotations
 

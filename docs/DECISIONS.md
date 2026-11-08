@@ -150,11 +150,11 @@ is the provider card plus `scripts/render-agent-configs.sh`.
 The director is registered in Console as `director` (Claude Code provider) and added to
 `#world`, so it is owned by the user and the cast accepts its messages. It does not run a
 model session. `SwitchClient` reads the Console credentials from
-`director/.switch/agents/director.json`, discovers the room by name with `list_rooms`, posts
+`.switch/agents/director.json`, discovers the room by name with `list_rooms`, posts
 with `POST /agents/{id}/message`, and reads
 `GET /agents/{id}/rooms/{room_id}/history`.
 
-`run_switch.py` decides whether Emily learned the secret from the **world state**
+`switch_world/application/beat_runners.py` decides whether Emily learned the secret from the **world state**
 (`source: character:alice`), not from the fact that she replied. The live take produced
 Alice 0.90 (source user) and Emily 0.92 (source character:alice), and Emily's trust in the
 user fell from 0.45 to 0.24. The artifact is `docs/scene-card-example.md`.
@@ -195,7 +195,7 @@ returns to its original usable state.
 
 **Canon is a read-only story bible, not a prompt.** `world/canon.json` holds public and
 private facts, five authored beats, three branches (disclosure / non-disclosure / partial
-leak) and the invariants. `director/canon.py` gives each character only its own private
+leak) and the invariants. `switch_world/application/canon.py` gives each character only its own private
 facts, classifies the ending from the ledger, and writes the branch and any warning into the
 feed. The dashboard shows the same canon in the Story arc strip and Settings. The scene is
 free; the worldline is not. See `docs/CANON.md`.
@@ -233,8 +233,8 @@ dating sim.
 
 The project should be demonstrable in parts without turning into a free-roaming agent
 world. `world/canon.json` now carries authored local dialogue, prompts and branch-aware
-aftermath for all five beats; `director/beats.py` runs them locally, `bifrost_scene.py`
-runs them through Bifrost/OpenCode, and `run_switch.py` runs them through the live Switch
+aftermath for all five beats; `switch_world/application/beat_runners.py` runs them locally, through
+Bifrost/OpenCode, and through the live Switch
 room. The café remains the required beat and owns the branch; aftermath refuses to run
 before it. The dashboard adds a **Demo beats** selector and a full local arc; the story
 strip marks beats done from the immutable `beat` events. This is the "several partial
@@ -320,7 +320,7 @@ channel.
 ## 2026-11-05 — Affinity is a gate, not a decoration
 
 The relationship ledger was write-only: agents updated trust/closeness/tension, but no
-prompt ever read the result, and `dm.py` explicitly ordered a plain answer to every direct
+prompt ever read the result, and `switch_world/application/scene.py` explicitly ordered a plain answer to every direct
 question. A two-star character therefore had no reason to refuse an intimate question.
 We added a deterministic social appraisal before prose: live edge, tier, topic ladder,
 per-character ceiling, authored refusal lines, and a hard refusal for uninvited physical
@@ -350,3 +350,51 @@ sentence.
 **Ruled out:** broadcasting first and sorting replies afterwards; claiming transport
 privacy the transport cannot prove; letting a model decide who is silent or whether a
 boundary was crossed.
+
+## 2026-11-08 — v2: one package, ports and adapters, and MCP as the product surface
+
+The v1 tree had grown three overlapping packages (`world_engine/`, `director/`,
+`gateway/`) plus a local `mcp/`, with audited import cycles and duplicated logic. Each new
+feature meant touching four layers, and "which module owns the turn?" had two answers. We
+replaced the tree with one `switch_world/` package and the Ports and Adapters rule:
+`domain/` is stdlib-only, `application/` depends inward on `domain`, `adapters/` implements
+the ports, `interfaces/` is the driving edge, and `container.py` is the only module that
+names a concrete adapter. `tests/architecture/test_layering.py`,
+`test_no_legacy_imports.py` and `test_no_private_connections.py` make the rule executable,
+so a regression fails in CI rather than in a demo.
+
+**One pipeline, not four.** Group, DM and whisper share `application/scene.py` and the
+`TurnRecorder` in `application/turns.py`; the four authored-beat runners share
+`application/beats.py` and injected strategies. The recorded order is fixed: user line,
+plan, delivery, one sanitise pass, writes with the character as actor, beats, at most one
+relay. This is what lets an in-band cloud envelope and an out-of-band Switch/MCP write have
+the same authority: `AgentReply.writes` is applied with `actor=character`, exactly as
+`world__remember` is.
+
+**MCP stays the product surface, not an integration detail.** The fourteen actor-scoped
+tools are the cast's only write path. Authentication stays at the edge (token → actor with
+a constant-time compare); authorization is domain policy applied inside the store, so
+`world__give_item` rejects a non-holder and `world__record_event` rejects a character even
+if a caller bypasses the tool edge. The HTTP routes and dashboard are projections of the
+same store, not a second source of truth. The README now leads with the tool contract, the
+scoped-token guarantee and the adapter map because that is the thing a reviewer or another
+agent should be able to read first.
+
+**Delete the shims; keep the compatibility edge in one named place.** `world_engine/`,
+`director/`, `gateway/`, the local `mcp/` and `web/app.js` are gone. The only legacy-shaped
+surface left is `switch_world/compat.py`, which adapts a caller-supplied Switch client or
+`chat_json` client onto the ports for tests and old tooling; it is deliberately named so it
+cannot hide. `make check` (ruff + compileall + pytest + node --check/node --test + generated
+cast-contract drift) is the single local gate, and coverage is ratcheted to 85%.
+
+**Ship an rc, not a merge.** The work lands on `v2-architecture` and is tagged
+`v2.0.0-rc` locally. `main` and `geekroom` are untouched and nothing is deployed: the work
+is a structural refactor whose acceptance is the full 3.11/3.12/3.13 matrix, the
+`WORLD_DEV=0` and `WORLD_AGENT_MODE=cloud` runs, the wheel-install and Docker `/health`
+smokes, and the browser smoke. If the rc is rejected, the tag plus the step commits are the
+rollback story.
+
+**Ruled out:** keeping the v1 shims indefinitely (two import paths, two owners); a
+big-bang rewrite in one commit; moving authentication into the tools (it would leave
+in-band and direct-store callers unaudited); a coverage target that pays for itself only in
+untested glue.

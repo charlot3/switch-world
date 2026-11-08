@@ -11,12 +11,12 @@ credentials and writes JSONL that can be attached to a demo note.
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
-from world_engine import config
-
-from .switch_client import SwitchClient
+from switch_world.adapters.transports.switch_client import SwitchClient
+from switch_world.config import load_settings
 
 
 def _rooms(switch: SwitchClient) -> list[dict]:
@@ -66,7 +66,7 @@ def collect(switch: SwitchClient | None = None, room: str | None = None) -> list
 def write_jsonl(events: list[dict], path: Path | str | None = None) -> Path:
     if path is None:
         stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-        path = Path(config.EXPORT_DIR) / f"switch-log-{stamp}.jsonl"
+        path = load_settings(os.environ).export_dir / f"switch-log-{stamp}.jsonl"
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as handle:

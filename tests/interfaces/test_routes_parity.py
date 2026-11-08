@@ -4,8 +4,8 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 
 from switch_world.interfaces.http.app import create_app
-from world_engine import config
-from world_engine.service import WorldService
+from switch_world import config
+from switch_world.application.facade import WorldService
 
 # The 39 routes the v1 app defined, in (method, path) form.
 OLD_ROUTES = {

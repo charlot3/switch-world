@@ -24,9 +24,9 @@ from typing import Any, Callable, Mapping
 
 import httpx
 
-from world_engine import config
+from switch_world.config import load_settings
 
-MODELS_PATH = Path(config.CONTENT_ROOT) / "models.json"
+MODELS_PATH = Path(load_settings(os.environ).content_root) / "models.json"
 DEFAULT_BASE_URL = "http://127.0.0.1:8080/v1"
 
 
@@ -135,8 +135,9 @@ class BifrostClient:
         self.base_url = (base_url or os.environ.get("BIFROST_URL") or DEFAULT_BASE_URL).rstrip("/")
         self.api_key = api_key or os.environ.get("BIFROST_API_KEY") or "dummy"
         self.models = dict(models or load_models())
-        self.log_path = Path(log_path or config.DATA_DIR / "logs" / "bifrost.jsonl")
-        self.budget_path = Path(budget_path or config.DATA_DIR / "bifrost_budget.json")
+        data_dir = load_settings(os.environ).data_dir
+        self.log_path = Path(log_path or data_dir / "logs" / "bifrost.jsonl")
+        self.budget_path = Path(budget_path or data_dir / "bifrost_budget.json")
         self.transport = transport or self._http_post
         self.timeout = timeout
         self.requests: list[dict] = []

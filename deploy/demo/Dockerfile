@@ -17,16 +17,13 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
 
 WORKDIR /src
 
-# Everything hatch needs to build the wheel: the code, the compatibility
-# packages the shims still import, and the authored resources. `.gitignore`
-# travels with the build so hatchling keeps ignoring credentials that a
-# developer checkout may hold (`switch_world/.env`, `director/.switch/...`).
+# Everything hatch needs to build the wheel: the v2 code and the authored
+# resources. `.gitignore` travels with the build so hatchling keeps ignoring
+# credentials that a developer checkout may hold (`switch_world/.env`,
+# `.switch/...`).
 COPY pyproject.toml ./
 COPY .gitignore ./
 COPY switch_world ./switch_world
-COPY world_engine ./world_engine
-COPY director ./director
-COPY gateway ./gateway
 COPY world ./world
 COPY web ./web
 COPY agents ./agents

@@ -4,7 +4,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 from fastapi.responses import PlainTextResponse
 
-from world_engine.takes import apply_cues, take_snapshot
+from switch_world.application.takes import apply_cues, take_snapshot
 
 from .. import schemas
 from ..deps import (
@@ -105,7 +105,7 @@ def dm(
         if runtime.legacy_compat:
             # The shim keeps HEAD's lazy client construction and the tests that
             # patch it; the composition-root path never reaches this branch.
-            from director.dm import reply_to_dm
+            from switch_world.compat import reply_to_dm
 
             return reply_to_dm(service, character=character, message=message)
         from switch_world.application.scene import dm as dm_use_case
@@ -187,7 +187,7 @@ def group_whisper(
         raw_timeout = payload_value(payload, "timeout")
         timeout = float(raw_timeout or 35.0)
         if runtime.legacy_compat:
-            from director.whisper import whisper_to_character
+            from switch_world.compat import whisper_to_character
 
             return whisper_to_character(
                 service, to=to, message=message, timeout=timeout

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from . import DEMO_KEY, DEMO_SECRET
 from .canon import branch_for, load as load_canon, record_branch, validate
-from world_engine.service import WorldService
+from switch_world.application.facade import WorldService
 
 
 def user_tells_alice(

@@ -30,7 +30,7 @@ sys.addaudithook(_audit)
 
 import switch_world.config  # noqa: F401
 import switch_world.container  # noqa: F401
-import world_engine.api  # noqa: F401
+import switch_world.interfaces.http.app  # noqa: F401
 
 print(json.dumps(sorted(set(sockets))))
 """

@@ -5,9 +5,9 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from director import clock as story_clock
-from world_engine import config
-from world_engine.service import WorldService
+from switch_world.application import clock as story_clock
+from switch_world import config
+from switch_world.application.facade import WorldService
 
 CANON = json.loads((config.ROOT / "world" / "canon.json").read_text())
 

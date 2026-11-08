@@ -5,10 +5,10 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
-from world_engine import config
-from world_engine.api import create_app
-from world_engine.service import WorldService
-from world_engine.takes import (
+from switch_world import config
+from switch_world.interfaces.http.app import create_app
+from switch_world.application.facade import WorldService
+from switch_world.application.takes import (
     TAKE_ORDER,
     TakeNotChanged,
     apply_cues,
@@ -83,7 +83,7 @@ def test_load_take_resets_the_world_and_starts_scene_zero(service):
 
 
 def test_last_call_is_a_four_heart_route_for_the_warmest_character(service):
-    from director import social
+    from switch_world.application import social
 
     load_take(service, "w7-last-call")
     affinity = social.affinity(service, "mia")
@@ -293,7 +293,7 @@ def test_group_say_applies_the_current_scene_cues(client, monkeypatch):
                 }
             ]
 
-    monkeypatch.setattr("director.group.SwitchClient", lambda: FakeSwitch())
+    monkeypatch.setattr("switch_world.compat.SwitchClient", lambda: FakeSwitch())
     client.post("/api/takes/w1-gift/load")
 
     response = client.post(

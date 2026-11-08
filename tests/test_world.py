@@ -4,8 +4,8 @@ import json
 
 import pytest
 
-from world_engine import config
-from world_engine.service import WorldService
+from switch_world import config
+from switch_world.application.facade import WorldService
 
 
 @pytest.fixture()

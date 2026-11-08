@@ -20,7 +20,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from director.canon import brief
+from switch_world.application.canon import brief
 from switch_world.domain.agents import parse_agent_reply
 from switch_world.domain.ids import CharacterId
 from switch_world.domain.ports.model import Message, ModelClient, ModelFormat
@@ -322,7 +322,7 @@ class _ModelBeatStrategy:
         return BeatReply(text=parsed.text, writes=parsed.writes)
 
     def _system_prompt(self, character: str, context: BeatContext) -> str:
-        from director.bifrost_scene import _system
+        from switch_world.application.prompts import _system
 
         return _system(
             character,

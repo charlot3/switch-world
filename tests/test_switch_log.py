@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from director.switch_log import collect, write_jsonl
+from switch_world.application.switch_log import collect, write_jsonl
 
 
 class FakeSwitch:

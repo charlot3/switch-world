@@ -22,7 +22,7 @@ import time
 import uuid
 from typing import Mapping
 
-from world_engine.service import WorldService
+from switch_world.application.facade import WorldService
 
 from . import arbiter as social_arbiter
 from . import context, social

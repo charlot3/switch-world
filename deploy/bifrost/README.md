@@ -54,12 +54,12 @@ To use OpenAI or Anthropic instead of the OpenCode adapter, add the provider to
 ```
 
 Then pass `-e ANTHROPIC_API_KEY=...` to `docker run` (or add it to `.env` and the run
-script). The request shape does not change: `gateway/bifrost.py` always calls
+script). The request shape does not change: `switch_world/adapters/models/bifrost_compat.py` always calls
 `/v1/chat/completions`.
 
 ## Evidence
 
 - Bifrost UI at `:8080` shows request logs, routing and provider health.
-- `gateway/bifrost.py` writes one JSON line per request to `data/logs/bifrost.jsonl`.
+- `switch_world/adapters/models/bifrost_compat.py` writes one JSON line per request to `data/logs/bifrost.jsonl`.
 - `data/bifrost_budget.json` holds the local daily token counter.
 - `GET /api/bifrost/usage` returns the same counter and the configured models.

@@ -13,11 +13,10 @@ import re
 import uuid
 from typing import Mapping
 
-from world_engine.service import WorldService
-
-from director import arbiter as social_arbiter
-from director import context, social
-from director.social import PLACEHOLDERS, _strip_meta
+from switch_world.application import arbiter as social_arbiter
+from switch_world.application import context, social
+from switch_world.application.facade import WorldService
+from switch_world.application.social import PLACEHOLDERS, _strip_meta
 
 DEFAULT_CHARACTERS = ("alice", "emily", "sophia", "mia")
 CHORUS_TOPICS = {"small-talk", "personal"}

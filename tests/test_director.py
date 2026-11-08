@@ -4,10 +4,10 @@ import sqlite3
 
 import pytest
 
-from director.canon import branch_for, brief, validate
-from director.simulate import run_cafe, user_tells_alice
-from world_engine import config
-from world_engine.service import WorldService
+from switch_world.application.canon import branch_for, brief, validate
+from switch_world.application.simulate import run_cafe, user_tells_alice
+from switch_world import config
+from switch_world.application.facade import WorldService
 
 
 @pytest.fixture()

@@ -9,7 +9,7 @@ belief or move a relationship with provenance instead of vanishing into a transc
 """
 from __future__ import annotations
 
-from world_engine.service import WorldService
+from switch_world.application.facade import WorldService
 
 from . import context, social
 from .bifrost_scene import _apply, _parse_envelope, _system
@@ -35,14 +35,14 @@ def reply_to_dm(
     if character not in characters:
         raise ValueError(f"unknown character: {character}")
     if client is None:
-        from world_engine import config
+        from switch_world import config
 
         if config.AGENT_MODE == "cloud":
             from .cloud_switch import CloudBifrost
 
             client = CloudBifrost()
         else:
-            from gateway.bifrost import BifrostClient
+            from switch_world.adapters.models.bifrost_compat import BifrostClient
 
             client = BifrostClient()
 

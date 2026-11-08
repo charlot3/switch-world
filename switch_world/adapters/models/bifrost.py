@@ -2,7 +2,7 @@
 
 Bifrost exposes an OpenAI-compatible ``/v1/chat/completions``. This module keeps
 the routing, fallback, budget and request-log behaviour of the original
-``gateway/bifrost.py``, but exposes one provider-neutral ``generate`` method
+the deleted v1 ``gateway/bifrost.py``, but exposes one provider-neutral ``generate`` method
 that serves both plain text and JSON envelopes.
 
 Configuration lives in ``world/models.json`` (per-character model, fallbacks,

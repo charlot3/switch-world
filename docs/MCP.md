@@ -6,8 +6,7 @@ scoped token.
 
 The MCP surface is implemented in
 [`switch_world/interfaces/mcp/`](../switch_world/interfaces/mcp/) (`server.py` builds the
-server, `tools.py` registers the tools). `world_engine/mcp_server.py` is a re-export shim
-kept for older callers.
+server, `tools.py` registers the tools).
 
 ## Why MCP
 
@@ -83,19 +82,44 @@ receiver's `shared_secret_count` for the source increments.
 
 ## HTTP API (dashboard + director)
 
+The same store is projected over typed HTTP routes in
+`switch_world/interfaces/http/routes/`. The full route list is pinned by
+`tests/interfaces/test_routes_parity.py` and the OpenAPI golden; the main surfaces are:
+
 ```
-GET  /api/characters              cast
-GET  /api/beliefs                 all beliefs (dashboard, read-only)
-GET  /api/relationships           all edges
-GET  /api/events?since=<id>       event feed
-GET  /api/who-knows/<key>         provenance matrix
-GET  /api/export/scene-card       latest scene card (markdown)
-POST /api/director/beat           director state transitions
-GET  /health
+GET  /api/state                     the whole projection in one snapshot()
+GET  /api/canon                     the read-only story bible
+GET  /api/matrix                    beliefs × characters with provenance
+GET  /api/who-knows/<key>           provenance matrix for one proposition key
+GET  /api/clock                     clock, current beat, next beat
+POST /api/clock/mode                mock / real
+POST /api/clock/advance             {run, beat}
+GET  /api/scene-card                latest scene card (markdown, read-only)
+POST /api/group/say                 a group turn
+POST /api/group/whisper             a staged or private whisper
+GET  /api/dm/<character>            phone history
+POST /api/dm                        a phone turn
+GET  /api/friends                   friend gate
+POST /api/friends/<character>       add a friend
+GET  /api/switch-log                transport history as NDJSON
+GET  /api/bifrost/usage             per-character model usage
+GET  /api/scenarios                 loadable worlds
+POST /api/scenarios/<id>/load       load a scenario
+GET  /api/takes                     recording routes
+POST /api/takes/cue                 advance a take
+GET  /api/studio/summary            studio projection
+GET  /health                        liveness
 ```
 
-The dashboard polls these read-only endpoints. It never opens SQLite; the world engine is
-the only writer and the only process that opens the database file.
+`/api/dev/*` routes (tell-alice, run-cafe, run-beat, run-arc, tavily-event, run-bifrost,
+reset, scene-card export) exist only when `WORLD_DEV` is on. Every route except the
+scenario/take loaders, the scene writes and the dev routes is read-only; `POST /api/dm`,
+`POST /api/group/say` and `POST /api/group/whisper` are character-actor paths, and the
+loader/dev routes require the director token. `GET /api/state` reads the whole projection
+on one SQLite connection, and `GET /api/scene-card` writes nothing.
+
+The dashboard polls these endpoints. It never opens SQLite; the world engine is the only
+writer and the only process that opens the database file.
 
 ## Storage
 
@@ -109,7 +133,12 @@ relationships(a, b, trust, closeness, tension, last_interaction, shared_secret_c
 events(id, kind, summary, participants_json, visibility, created_at,
        room_id, message_id, supersedes)
 beats(id, day, ord, kind, participants_json, room_id, state, started_at, finished_at)
-clock(now, day)
+clock(id=1, now, day, mode, anchor_real)
+friends(character, since)
+outfits(character, outfit_id, reason, source_belief_id, updated_at)
+items(id, name, holder, note)
+meta(key, value)                 -- scenarios, takes and seeded flags
+idempotency(scope, request_id, digest, response_json)
 ```
 
 Migrations are a numbered list applied at startup; the schema version is stored in
@@ -125,7 +154,10 @@ belief has a source.
   loaded from the environment at startup.
 - Every write is one transaction. Beliefs are append-only; a correction writes a new row
   with `superseded_by` set on the old one.
-- `/api/*` is read-only except `/api/director/*`, which requires the director token.
+- `/api/*` is read-only except the scene writes, the scenario/take loaders (director
+  token) and `/api/dev/*` (dev mode only).
+- The SQLite adapter in `switch_world/adapters/persistence/` is the only module with SQL;
+  MCP tools and HTTP routes call the `WorldStore` port through `WorldService`.
 - Log every tool call with caller, tool, and a short argument hash — enough to debug the
   demo without storing secrets.
 

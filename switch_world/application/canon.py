@@ -11,13 +11,14 @@ simulation and the live Switch beat use the same rules.
 from __future__ import annotations
 
 import json
+import os
 import re
 from pathlib import Path
 
-from world_engine import config
-from world_engine.service import WorldService
+from switch_world.application.facade import WorldService
+from switch_world.config import load_settings
 
-CANON_PATH = Path(config.CONTENT_ROOT) / "canon.json"
+CANON_PATH = Path(load_settings(os.environ).content_root) / "canon.json"
 
 _STOPWORDS = {
     "about", "after", "again", "already", "also", "because", "been", "before",

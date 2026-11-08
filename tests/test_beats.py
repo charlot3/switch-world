@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import pytest
 
-from director.beats import BEAT_ORDER, run_arc, run_beat, run_local_beat
+from switch_world.application.beat_runners import BEAT_ORDER, run_arc, run_beat, run_local_beat
 from switch_world.adapters.models.scripted import ScriptedModelClient
-from world_engine import config
-from world_engine.service import WorldService
+from switch_world import config
+from switch_world.application.facade import WorldService
 
 
 def make_service(tmp_path):

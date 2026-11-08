@@ -20,8 +20,8 @@ the same canon, but adds two integrations the Geek Room brief asks for.
 
 ### 1. Bifrost = the model gateway for every character call
 
-`gateway/bifrost.py` calls Bifrost's OpenAI-compatible
-`POST /v1/chat/completions`. The local café beat in `director/bifrost_scene.py` generates
+`switch_world/adapters/models/bifrost_compat.py` calls Bifrost's OpenAI-compatible
+`POST /v1/chat/completions`. The local café beat in `switch_world/application/beat_runners.py` generates
 Alice's and Emily's turns through that client — not through a direct provider SDK.
 
 - **Per-character model configuration** — `world/models.json` sets a model, temperature,
@@ -32,7 +32,7 @@ Alice's and Emily's turns through that client — not through a direct provider 
 - **Governance** — the client has a local daily token guard (`data/bifrost_budget.json`)
   and sends optional `x-bf-vk` virtual-key headers. Bifrost's own governance can add
   budgets/rate limits at the gateway.
-- **Observability** — Bifrost logs every request; `gateway/bifrost.py` also writes
+- **Observability** — Bifrost logs every request; `switch_world/adapters/models/bifrost_compat.py` also writes
   `data/logs/bifrost.jsonl` (character, model, prompt/completion tokens, latency,
   success/error), and `GET /api/bifrost/usage` returns the current budget.
 - **OpenCode Go adapter** — OpenCode's v2 API is not an OpenAI endpoint, so
@@ -45,8 +45,8 @@ Alice's and Emily's turns through that client — not through a direct provider 
 - **Two-tier reasoning** — routine calls use the `low` variant. The adapter reads the
   OpenAI `reasoning_effort` field and maps it to an OpenCode variant (`low`, `high`,
   `max`; `mid` maps to `high`). `world/models.json` sets low for the cast and high for the
-  `arbiter`; `director/dm.py` and `director/whisper.py` raise only body/contact turns to
-  high, and `director/group.py` can add one bounded high arbiter call
+  `arbiter`; `switch_world/application/scene.py` and `switch_world/application/scene.py` raise only body/contact turns to
+  high, and `switch_world/application/scene.py` can add one bounded high arbiter call
   (`WORLD_ARBITER=1`). The arbiter can tighten the deterministic stance but never soften
   it, and falls back silently on timeout or malformed JSON.
 - **Agent isolation** — the adapter runs a dedicated `roleplay` agent with every tool
@@ -73,7 +73,7 @@ request path is identical.
 
 ### 2. Tavily = the real world
 
-`gateway/tavily.py` is the only web access. It never invents a result: without
+`switch_world/adapters/search/tavily.py` is the only web access. It never invents a result: without
 `TAVILY_API_KEY` it raises unless `TAVILY_OFFLINE=1`, and the offline fixture is clearly
 marked in every event.
 

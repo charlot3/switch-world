@@ -12,8 +12,8 @@ from pathlib import Path
 
 import httpx
 
-ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_CREDS = ROOT / "director" / ".switch" / "agents" / "director.json"
+ROOT = Path(__file__).resolve().parents[3]
+DEFAULT_CREDS = ROOT / ".switch" / "agents" / "director.json"
 
 
 class SwitchError(RuntimeError):

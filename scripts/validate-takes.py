@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from world_engine.takes import TAKE_DIR, validate_takes  # noqa: E402
+from switch_world.application.takes import TAKE_DIR, validate_takes  # noqa: E402
 
 
 def main(argv: list[str]) -> int:

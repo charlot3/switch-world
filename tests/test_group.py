@@ -4,9 +4,9 @@ import time
 
 import pytest
 
-from director.group import say_in_group
-from world_engine import config
-from world_engine.service import WorldService
+from switch_world.compat import say_in_group
+from switch_world import config
+from switch_world.application.facade import WorldService
 
 
 @pytest.fixture()
@@ -27,7 +27,7 @@ class FakeSwitch:
 
     def post(self, room_id, content):
         if self.fail_post:
-            from director.switch_client import SwitchError
+            from switch_world.adapters.transports.switch_client import SwitchError
 
             raise SwitchError("gateway down")
         self.posted = content
@@ -256,7 +256,7 @@ def test_turn_wait_is_capped_at_35_seconds(service, monkeypatch):
             self.now += seconds
 
     fake = FakeTime()
-    monkeypatch.setattr("director.group.time", fake)
+    monkeypatch.setattr("switch_world.compat.time", fake)
     result = say_in_group(
         service, "Hi.", characters=["alice"], switch=FakeSwitch({}), timeout=999
     )
@@ -347,7 +347,7 @@ def test_refused_reply_cannot_be_relayed_to_another_agent(service):
 
 
 def test_group_defaults_to_the_take_cast(service):
-    from world_engine.takes import load_take
+    from switch_world.application.takes import load_take
 
     load_take(service, "w3-quiet-route")
     switch = FakeSwitch({"alice": "I'm here."})
@@ -472,7 +472,7 @@ def test_reply_without_a_mention_does_not_relay(service):
 
 
 def test_strip_meta_drops_room_addressing_and_offline_lines():
-    from director.group import _strip_meta
+    from switch_world.application.group_planning import _strip_meta
 
     text = (
         "Real ones, chopped since three.\n"
@@ -498,7 +498,7 @@ def test_group_say_drops_a_meta_only_reply(service):
 
 
 def test_relay_reply_is_sanitised_like_a_planned_reply(service):
-    from director import social
+    from switch_world.application import social
 
     message = "Alice, what color is your underwear?"
     service.update_relationship("alice", "user", trust_delta=0.45, closeness_delta=0.45)
@@ -541,7 +541,7 @@ def test_relay_reply_is_sanitised_like_a_planned_reply(service):
 
 
 def test_strip_meta_drops_bare_offline_and_policy_lines():
-    from director.group import _strip_meta
+    from switch_world.application.group_planning import _strip_meta
 
     text = (
         "Real ones, chopped since three.\n"
@@ -555,7 +555,7 @@ def test_strip_meta_drops_bare_offline_and_policy_lines():
 
 
 def test_strip_meta_keeps_in_scene_instruction_lines():
-    from director.group import _strip_meta
+    from switch_world.application.group_planning import _strip_meta
 
     assert (
         _strip_meta("I followed the instructions on the box.")
@@ -564,7 +564,7 @@ def test_strip_meta_keeps_in_scene_instruction_lines():
 
 
 def test_strip_meta_drops_generic_offline_and_leaving_lines():
-    from director.group import _strip_meta
+    from switch_world.application.group_planning import _strip_meta
 
     assert _strip_meta("I'm offline for a bit.") == ""
     assert _strip_meta("I'm off-line.") == ""
@@ -575,7 +575,7 @@ def test_strip_meta_drops_generic_offline_and_leaving_lines():
 
 
 def test_strip_meta_keeps_legitimate_first_person_lines():
-    from director.group import _strip_meta
+    from switch_world.application.group_planning import _strip_meta
 
     for line in (
         "I'm not here to judge you.",
@@ -603,7 +603,7 @@ def test_group_say_drops_bare_offline_reply(service):
 
 
 def test_strip_meta_drops_tool_output_and_code_blocks():
-    from director.group import _strip_meta
+    from switch_world.application.group_planning import _strip_meta
 
     assert (
         _strip_meta("```\ncd /Users/charlot3/work\n```\nThe soup is on.")

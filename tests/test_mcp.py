@@ -4,9 +4,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from world_engine import config
-from world_engine.mcp_server import create_mcp
-from world_engine.service import WorldService
+from switch_world import config
+from switch_world.interfaces.mcp.server import create_mcp
+from switch_world.application.facade import WorldService
 
 
 @pytest.fixture()

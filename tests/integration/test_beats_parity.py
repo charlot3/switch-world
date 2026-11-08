@@ -21,7 +21,7 @@ from typing import Any
 
 import pytest
 
-import director
+from switch_world.domain import demo as director
 from switch_world.adapters.clock.system import SystemClock
 from switch_world.adapters.models.legacy import LegacyModelClient
 from switch_world.adapters.models.scripted import ScriptedModelClient
@@ -33,8 +33,8 @@ from switch_world.application.beat_strategies import (
     SwitchBeatStrategy,
 )
 from switch_world.application.beats import load_spec, run_beat
-from world_engine import config
-from world_engine.service import WorldService
+from switch_world import config
+from switch_world.application.facade import WorldService
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 LEGACY_DIR = REPO_ROOT / "tests" / "fixtures" / "legacy_beats"
@@ -44,24 +44,29 @@ def _load_legacy_beats():
     """Load the vendored pre-step runners as a private package.
 
     The four historical runners import each other relatively, so the fixture
-    directory is executed as ``director._legacy_beats`` with the shared
-    ``director`` modules (canon, clock, social, ...) aliased under it.  This is
-    the same differential baseline pattern used by ``legacy_group.py``: the old
-    side must not resolve to the wrappers under test.
+    directory is executed as a private package with the shared application
+    modules (canon, clock, social, ...) aliased under it. This is the same
+    differential baseline pattern used by ``legacy_group.py``: the old side must
+    not resolve to the wrappers under test.
     """
     if not (LEGACY_DIR / "beats.py").exists():
         pytest.skip(f"missing parity baseline: {LEGACY_DIR}")
-    package_name = "director._legacy_beats"
+    package_name = "_legacy_beats_parity"
     package = types.ModuleType(package_name)
-    package.__package__ = "director"
+    package.__package__ = package_name
     package.__path__ = []
     package.DEMO_KEY = director.DEMO_KEY
     package.DEMO_SECRET = director.DEMO_SECRET
     sys.modules[package_name] = package
-    for name in ("canon", "clock", "social", "switch_client", "tavily_beat"):
-        sys.modules[f"{package_name}.{name}"] = importlib.import_module(
-            f"director.{name}"
-        )
+    aliases = {
+        "canon": "switch_world.application.canon",
+        "clock": "switch_world.application.clock",
+        "social": "switch_world.application.social",
+        "switch_client": "switch_world.adapters.transports.switch_client",
+        "tavily_beat": "switch_world.application.tavily_beat",
+    }
+    for name, target in aliases.items():
+        sys.modules[f"{package_name}.{name}"] = importlib.import_module(target)
     for name in ("simulate", "beats", "bifrost_scene", "run_switch"):
         source = (LEGACY_DIR / f"{name}.py").read_text(encoding="utf-8")
         module = types.ModuleType(f"{package_name}.{name}")
@@ -331,7 +336,7 @@ def test_cafe_runner_parity(tmp_path, force_share):
     ``POST /api/dev/run-cafe``) observe the feed, so an extra lifecycle event is
     a visible regression.
     """
-    from director.simulate import run_cafe
+    from switch_world.application.simulate import run_cafe
 
     old_service = _service(tmp_path / "old")
     new_service = _service(tmp_path / "new")

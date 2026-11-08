@@ -8,12 +8,12 @@ from pathlib import Path
 
 import pytest
 
-from director import arbiter, social
-from director.dm import reply_to_dm
-from director.group import say_in_group
-from gateway.bifrost import BifrostClient, CharacterModel
-from world_engine import config
-from world_engine.service import WorldService
+from switch_world.application import arbiter, social
+from switch_world.compat import reply_to_dm
+from switch_world.compat import say_in_group
+from switch_world.adapters.models.bifrost_compat import BifrostClient, CharacterModel
+from switch_world import config
+from switch_world.application.facade import WorldService
 
 ROOT = Path(__file__).resolve().parents[1]
 

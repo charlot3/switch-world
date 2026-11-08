@@ -4,8 +4,8 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 from fastapi.responses import FileResponse
 
-from world_engine import config
-from world_engine.takes import take_snapshot_from_snapshot
+from switch_world import config
+from switch_world.application.takes import take_snapshot_from_snapshot
 
 from .. import schemas
 from ..deps import (
@@ -74,7 +74,7 @@ def clock_mode(
         from ..errors import NotFound
 
         raise NotFound()
-    from director.clock import align_realtime
+    from switch_world.application.clock import align_realtime
 
     service = runtime.service
     mode = str(payload_value(payload, "mode") or "").strip()
@@ -108,8 +108,8 @@ def clock_advance(
         from ..errors import NotFound
 
         raise NotFound()
-    from director.beats import run_beat
-    from director.clock import advance_to_beat, advance_to_next, done_beats, next_unplayed
+    from switch_world.application.beat_runners import run_beat
+    from switch_world.application.clock import advance_to_beat, advance_to_next, done_beats, next_unplayed
 
     from ..errors import BadGateway
 

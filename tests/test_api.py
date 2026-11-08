@@ -3,9 +3,9 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from world_engine import config
-from world_engine.api import create_app
-from world_engine.service import WorldService
+from switch_world import config
+from switch_world.interfaces.http.app import create_app
+from switch_world.application.facade import WorldService
 
 
 @pytest.fixture()
@@ -93,7 +93,7 @@ def test_reset(client):
 
 def test_dev_tavily_endpoint(client, monkeypatch):
     monkeypatch.setattr(
-        "director.tavily_beat.fetch_world_event",
+        "switch_world.application.tavily_beat.fetch_world_event",
         lambda service, query=None: {
             "query": query,
             "offline": False,
@@ -112,7 +112,7 @@ def test_dev_tavily_endpoint(client, monkeypatch):
 
 def test_dev_bifrost_endpoint(client, monkeypatch):
     monkeypatch.setattr(
-        "director.bifrost_scene.run_cafe_bifrost",
+        "switch_world.application.beat_runners.run_cafe_bifrost",
         lambda service: {
             "branch": {"id": "disclosure", "label": "The Confession"},
             "bifrost": {"requests": 2},
@@ -124,7 +124,7 @@ def test_dev_bifrost_endpoint(client, monkeypatch):
 
 
 def test_run_beat_under_cloud_mode_needs_no_switch_room(client, monkeypatch):
-    from director import beats
+    from switch_world.application import beat_runners as beats
     from switch_world.adapters.models.scripted import ScriptedModelClient
 
     # The endpoint is dev-gated; the env suite also runs with WORLD_DEV=0.
@@ -192,7 +192,7 @@ def test_phone_is_locked_until_friendship(client):
 
 
 def test_studio_summary_health_and_shape(client, monkeypatch):
-    from world_engine import studio
+    from switch_world.application import studio
 
     probed = []
 
@@ -253,7 +253,7 @@ def test_group_say_endpoint_returns_a_turn(client, monkeypatch):
                 }
             ]
 
-    monkeypatch.setattr("director.group.SwitchClient", lambda: FakeSwitch())
+    monkeypatch.setattr("switch_world.compat.SwitchClient", lambda: FakeSwitch())
     response = client.post(
         "/api/group/say", json={"message": "Alice, are we still on?", "timeout": 1}
     )
@@ -275,7 +275,7 @@ def test_group_whisper_endpoint_is_staged(client, monkeypatch):
         def usage_summary(self):
             return {}
 
-    monkeypatch.setattr("gateway.bifrost.BifrostClient", FakeBifrost)
+    monkeypatch.setattr("switch_world.adapters.models.bifrost_compat.BifrostClient", FakeBifrost)
     response = client.post(
         "/api/group/whisper",
         json={"to": "alice", "message": "meet me after closing"},

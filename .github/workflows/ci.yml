@@ -29,9 +29,9 @@ jobs:
           enable-cache: true
       - run: uv sync --frozen
       - name: Ruff (E, F)
-        run: uv run --with ruff ruff check switch_world world_engine director gateway tests
+        run: uv run --with ruff ruff check switch_world tests
       - name: Byte-compile every module
-        run: uv run python -m compileall -q switch_world world_engine director gateway
+        run: uv run python -m compileall -q switch_world
 
   test:
     name: test (py${{ matrix.python-version }})

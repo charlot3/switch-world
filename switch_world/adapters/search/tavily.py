@@ -1,6 +1,6 @@
 """Tavily search adapter: the cast's window onto the present.
 
-The logic is the same as the legacy ``gateway/tavily.py`` (news search,
+The logic is the same as the deleted v1 ``gateway/tavily.py`` (news search,
 offline fixture, citation formatting), but it lives behind a small,
 constructor-injected client so a composition root can build it and tests can
 pass a transport. No environment is read at import time.

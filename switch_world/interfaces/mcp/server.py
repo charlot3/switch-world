@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from mcp.server.mcpserver import MCPServer
 
-from world_engine.service import WorldService
+from switch_world.application.facade import WorldService
 
 from .tools import TOOL_NAMES, register_tools
 

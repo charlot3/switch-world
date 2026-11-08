@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from director.tavily_beat import fetch_world_event, latest_world_event
-from world_engine import config
-from world_engine.service import WorldService
+from switch_world.application.tavily_beat import fetch_world_event, latest_world_event
+from switch_world import config
+from switch_world.application.facade import WorldService
 
 
 class FakeTavily:

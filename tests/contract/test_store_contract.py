@@ -9,8 +9,8 @@ import pytest
 
 from switch_world.adapters.persistence import WorldStore
 from switch_world.domain import IdempotencyConflict
-from world_engine import config
-from world_engine.service import WorldService
+from switch_world import config
+from switch_world.application.facade import WorldService
 
 
 @pytest.fixture()
@@ -121,7 +121,7 @@ def test_admin_reset_restores_the_base_seed(store):
 
 
 def test_apply_scenario_is_a_transactional_admin_call(store):
-    from world_engine.scenarios import get_scenario
+    from switch_world.application.scenarios import get_scenario
 
     scenario = get_scenario("w1-gift")
     with store.transaction() as conn:
@@ -142,9 +142,9 @@ def test_apply_scenario_is_a_transactional_admin_call(store):
     assert any(event["kind"] == "scenario_load" for event in snapshot["events"])
 
 
-def test_db_shim_still_works(tmp_path):
-    """``world_engine.db`` keeps its historical names over the new schema."""
-    from world_engine import db
+def test_schema_module_init_connect_reset(tmp_path):
+    """The schema adapter keeps the historical init/connect/reset names."""
+    from switch_world.adapters.persistence import schema as db
 
     path = tmp_path / "shim.sqlite"
     db.init_db(path, config.STATE_DIR)

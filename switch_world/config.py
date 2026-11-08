@@ -18,6 +18,7 @@ a wheel, so an installed engine does not try to write inside site-packages.
 """
 from __future__ import annotations
 
+import os
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -184,3 +185,60 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         ),
         cloud_model=env.get("WORLD_CLOUD_MODEL", "deepseek-flash"),
     )
+
+
+# ---------------------------------------------------------------------------
+# Process-level compatibility names
+# ---------------------------------------------------------------------------
+#
+# ``load_settings`` stays the pure function new code should call. Callers that
+# historically read module-level values (``config.STATE_DIR``,
+# ``config.AGENT_MODE``, ...) keep working through a lazily resolved cache that
+# is rebuilt from ``os.environ`` on first access. It never reads the
+# environment at import time, so importing this module still has no side
+# effects. Assigning an attribute (as tests do with
+# ``monkeypatch.setattr(config, "AGENT_MODE", "cloud")``) shadows the lazy
+# value, and :func:`refresh` rebuilds the cache from the current environment.
+
+_PROCESS_FIELDS = {
+    "ROOT": "root",
+    "CONTENT_ROOT": "content_root",
+    "STATE_DIR": "state_dir",
+    "WEB_DIR": "web_dir",
+    "AGENTS_DIR": "agents_dir",
+    "DATA_DIR": "data_dir",
+    "DB_PATH": "db_path",
+    "EXPORT_DIR": "export_dir",
+    "HOST": "host",
+    "PORT": "port",
+    "DEV_MODE": "dev_mode",
+    "AGENT_MODE": "agent_mode",
+    "WORLD_START": "world_start",
+    "WORLD_DAY": "world_day",
+}
+
+_process_settings: Settings | None = None
+
+
+def refresh() -> Settings:
+    """Rebuild the process settings cache from the current environment."""
+    global _process_settings
+    _process_settings = load_settings(os.environ)
+    return _process_settings
+
+
+def _process() -> Settings:
+    """The lazily resolved process settings (never read at import time)."""
+    global _process_settings
+    if _process_settings is None:
+        _process_settings = load_settings(os.environ)
+    return _process_settings
+
+
+def __getattr__(name: str):
+    field = _PROCESS_FIELDS.get(name)
+    if field is not None:
+        return getattr(_process(), field)
+    if name == "token_map":
+        return _process().token_map
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

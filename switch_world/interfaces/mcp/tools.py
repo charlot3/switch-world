@@ -13,8 +13,8 @@ Authorization decisions live at the two edges where they can be enforced:
   turn event.
 
 The tool names, argument order, defaults and return shapes are the public MCP
-contract.  Keep them identical to ``world_engine/mcp_server.py`` (which is now
-a re-export shim) and to ``docs/MCP.md``.
+contract.  Keep them identical to ``docs/MCP.md`` and to the pinned tuple
+``TOOL_NAMES`` below; ``tests/interfaces/test_mcp_tools.py`` asserts all three.
 """
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ from switch_world.adapters.search import (
     TavilyError,
     TavilyNotConfigured,
 )
-from world_engine.service import WorldService
+from switch_world.application.facade import WorldService
 
 # The advertised surface.  ``tests/interfaces/test_mcp_tools.py`` asserts that
 # this tuple, the server's advertised tools and docs/MCP.md all agree.

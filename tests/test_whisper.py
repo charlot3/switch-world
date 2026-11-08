@@ -4,9 +4,9 @@ import re
 
 import pytest
 
-from director.whisper import whisper_to_character
-from world_engine import config
-from world_engine.service import WorldService
+from switch_world.compat import whisper_to_character
+from switch_world import config
+from switch_world.application.facade import WorldService
 
 
 @pytest.fixture()
@@ -203,7 +203,7 @@ def test_whisper_validates_target_and_message(service):
 
 
 def test_whisper_respects_the_take_cast(service):
-    from world_engine.takes import load_take
+    from switch_world.application.takes import load_take
 
     load_take(service, "w3-quiet-route")
     client = FakeBifrost({"alice": "Ask me."})

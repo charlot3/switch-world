@@ -8,8 +8,8 @@ from __future__ import annotations
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-PRODUCTION_PACKAGES = ("switch_world", "world_engine", "director", "gateway", "mcp")
-SERVICE = REPO_ROOT / "world_engine" / "service.py"
+PRODUCTION_PACKAGES = ("switch_world",)
+SERVICE = REPO_ROOT / "switch_world" / "application" / "facade.py"
 SCHEMA = REPO_ROOT / "switch_world" / "adapters" / "persistence" / "schema.py"
 STORE = REPO_ROOT / "switch_world" / "adapters" / "persistence" / "store.py"
 
@@ -56,7 +56,10 @@ def test_only_the_schema_module_opens_sqlite_directly():
 
 
 def test_scenarios_and_takes_contain_no_sql():
-    for relative in ("world_engine/scenarios.py", "world_engine/takes.py"):
+    for relative in (
+        "switch_world/application/scenarios.py",
+        "switch_world/application/takes.py",
+    ):
         text = (REPO_ROOT / relative).read_text(encoding="utf-8")
         assert "conn.execute" not in text, relative
         assert "SELECT " not in text, relative

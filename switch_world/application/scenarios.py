@@ -12,19 +12,17 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from . import config
-from .service import (
-    CHARACTER_ORDER,
-    VISIBILITIES,
-    WorldService,
-)
+from switch_world.application.facade import WorldService
+from switch_world.config import load_settings
+from switch_world.domain import CHARACTER_ORDER, VISIBILITIES
 
-SCENARIO_DIR = Path(config.CONTENT_ROOT) / "scenarios"
+SCENARIO_DIR = Path(load_settings(os.environ).content_root) / "scenarios"
 
 # Authored order, not alphabetical: w5-good and w5-bad are a fork and should sit
 # together in the Worlds rail.
@@ -290,32 +288,33 @@ def _load_file(path: Path) -> dict:
     return data
 
 
-def _files() -> list[Path]:
-    if not SCENARIO_DIR.is_dir():
+def _files(scenario_dir: Path | str | None = None) -> list[Path]:
+    folder = Path(scenario_dir or SCENARIO_DIR)
+    if not folder.is_dir():
         return []
     order = {scenario_id: index for index, scenario_id in enumerate(SCENARIO_ORDER)}
-    paths = [path for path in SCENARIO_DIR.glob("*.json") if path.is_file()]
+    paths = [path for path in folder.glob("*.json") if path.is_file()]
     return sorted(
         paths,
         key=lambda path: (order.get(path.stem, len(order)), path.stem),
     )
 
 
-def get_scenario(scenario_id: str) -> dict:
+def get_scenario(scenario_id: str, *, scenario_dir: Path | str | None = None) -> dict:
     """One validated scenario by id. Unknown or malformed ids raise ValueError."""
     scenario_id = (scenario_id or "").strip()
     if not _ID.match(scenario_id):
         raise ValueError("unknown scenario: " + scenario_id)
-    path = SCENARIO_DIR / f"{scenario_id}.json"
+    path = Path(scenario_dir or SCENARIO_DIR) / f"{scenario_id}.json"
     if not path.is_file():
         raise ValueError("unknown scenario: " + scenario_id)
     return _load_file(path)
 
 
-def list_scenarios() -> list[dict]:
+def list_scenarios(*, scenario_dir: Path | str | None = None) -> list[dict]:
     """Scenario cards for the Worlds rail, in authored order."""
     out: list[dict] = []
-    for path in _files():
+    for path in _files(scenario_dir):
         scenario = _load_file(path)
         out.append(
             {
@@ -330,9 +329,14 @@ def list_scenarios() -> list[dict]:
     return out
 
 
-def load_scenario(service: WorldService, scenario_id: str) -> dict:
+def load_scenario(
+    service: WorldService,
+    scenario_id: str,
+    *,
+    scenario_dir: Path | str | None = None,
+) -> dict:
     """Reset the world and apply one scenario seed. Returns the full scenario."""
-    scenario = get_scenario(scenario_id)
+    scenario = get_scenario(scenario_id, scenario_dir=scenario_dir)
     service.reset()
 
     clock = scenario.get("clock") or {}

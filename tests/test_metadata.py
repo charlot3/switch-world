@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import sqlite3
 
-from world_engine import config
-from world_engine.service import WorldService
+from switch_world import config
+from switch_world.application.facade import WorldService
 
 OLD_EVENTS = """
 CREATE TABLE events (

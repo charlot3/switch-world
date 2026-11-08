@@ -97,7 +97,7 @@ shows which branch the ledger chose.
 
 ## How the director enforces it
 
-[`director/canon.py`](../director/canon.py) is the runtime guard:
+[`switch_world/application/canon.py`](../switch_world/application/canon.py) is the runtime guard:
 
 1. **`brief(actor)`** gives a character the public facts, its own private facts, and the
    invariants. It never gives it another character's private facts.
@@ -130,7 +130,7 @@ The canon is read-only state. To change it:
 
 `social_verdict` is a director event, not a character belief: it records the topic tier,
 the character's ceiling and the chosen stance (`answer`, `tease`, `deflect`, `refuse`,
-`hard_refuse`). It never contains the user's message. Implemented in `director/social.py`
+`hard_refuse`). It never contains the user's message. Implemented in `switch_world/application/social.py`
 from `world/social.json`; see the README's "Affinity and topic boundaries".
 
 

@@ -14,7 +14,7 @@ from __future__ import annotations
 import math
 from datetime import datetime
 
-from world_engine.service import WorldService
+from switch_world.application.facade import WorldService
 
 from . import DEMO_KEY
 from .canon import branch_for, load as load_canon, validate

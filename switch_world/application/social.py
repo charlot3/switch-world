@@ -10,14 +10,15 @@ deflection/refusal lines (English and Chinese), and the relationship deltas.
 from __future__ import annotations
 
 import json
+import os
 import re
 from pathlib import Path
 
+from switch_world.config import load_settings
 from switch_world.domain import protocol as _protocol
-from world_engine import config
-from world_engine.service import WorldService
+from switch_world.application.facade import WorldService
 
-POLICY_PATH = Path(config.CONTENT_ROOT) / "social.json"
+POLICY_PATH = Path(load_settings(os.environ).content_root) / "social.json"
 CJK = re.compile(r"[一-鿿]")
 TOPIC_LABELS = ["small talk", "daily life", "private feelings", "body or appearance", "physical contact"]
 

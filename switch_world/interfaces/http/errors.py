@@ -37,7 +37,7 @@ from switch_world.domain.models import IdempotencyConflict
 from switch_world.domain.ports.artifacts import ArtifactNotFound
 from switch_world.domain.ports.model import ModelError
 from switch_world.domain.ports.transport import TransportError
-from world_engine.takes import TakeError, TakeNotChanged
+from switch_world.application.takes import TakeError, TakeNotChanged
 
 
 class APIError(Exception):

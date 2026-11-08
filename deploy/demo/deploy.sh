@@ -165,7 +165,6 @@ if command -v rsync >/dev/null 2>&1; then
     --exclude='agents/*/.mcp.json' \
     --exclude='agents/*/.switch' \
     --exclude='.switch' \
-    --exclude='director/.switch' \
     --exclude='.claude' \
     -e "ssh ${SSH_OPTS[*]}" \
     "$REPO_ROOT/" "$REMOTE_TARGET/"
@@ -190,7 +189,6 @@ else
     --exclude='./agents/*/.mcp.json' \
     --exclude='./agents/*/.switch' \
     --exclude='./.switch' \
-    --exclude='./director/.switch' \
     --exclude='./.claude' \
     . \
     | ssh "${SSH_OPTS[@]}" "$DEMO_HOST" "mkdir -p '$REMOTE_DIR' && tar -C '$REMOTE_DIR' -xzf -"

@@ -30,7 +30,7 @@ from switch_world.config import Settings
 from switch_world.domain.ports.artifacts import ArtifactStore
 from switch_world.domain.ports.model import ModelClient
 from switch_world.domain.ports.transport import CharacterTransport
-from world_engine.service import WorldService
+from switch_world.application.facade import WorldService
 
 
 @dataclass
@@ -58,7 +58,7 @@ def _switch_credentials(settings: Settings) -> dict[str, str]:
     }
     if creds["token"]:
         return creds
-    path = Path(settings.root) / "director" / ".switch" / "agents" / "director.json"
+    path = Path(settings.root) / ".switch" / "agents" / "director.json"
     if not path.exists():
         return creds
     try:

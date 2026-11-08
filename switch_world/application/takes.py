@@ -19,14 +19,21 @@ key and the dashboard always reads a coherent world.
 from __future__ import annotations
 
 import json
+import os
 import re
 from pathlib import Path
 from typing import Any
 
-from . import config
-from .scenarios import evaluate_ending, get_scenario, load_scenario
-from .service import CHARACTER_ORDER, VISIBILITIES, WorldService
+from switch_world.application.facade import WorldService
+from switch_world.application.scenarios import (
+    evaluate_ending,
+    get_scenario,
+    load_scenario,
+)
+from switch_world.config import load_settings
 from switch_world.domain import (
+    CHARACTER_ORDER,
+    VISIBILITIES,
     TAKE_CHANGED_META,
     TAKE_ID_META,
     TAKE_INDEX_META,
@@ -39,7 +46,7 @@ from switch_world.domain.protocol import (
 )
 from switch_world.domain.protocol import TAKE_ORDER as _PROTOCOL_TAKE_ORDER
 
-TAKE_DIR = Path(config.CONTENT_ROOT) / "takes"
+TAKE_DIR = Path(load_settings(os.environ).content_root) / "takes"
 
 # Keep the historical list type: callers compare it to JSON arrays.
 TAKE_ORDER = list(_PROTOCOL_TAKE_ORDER)
@@ -89,7 +96,7 @@ def _actor(value: Any, field: str) -> str:
 def _art_path(art: str) -> Path:
     if not art.startswith("/static/"):
         _fail("art must live under /static/")
-    return Path(config.WEB_DIR) / art[len("/static/"):]
+    return Path(load_settings(os.environ).web_dir) / art[len("/static/"):]
 
 
 def _art_exists(art: str) -> bool:
@@ -333,12 +340,12 @@ def _files(takes_dir: Path | None = None) -> list[Path]:
     return sorted(paths, key=lambda path: (order.get(path.stem, len(order)), path.stem))
 
 
-def get_take(take_id: str) -> dict:
+def get_take(take_id: str, *, takes_dir: Path | str | None = None) -> dict:
     """One validated take by id. Unknown or unsafe ids raise ValueError."""
     take_id = (take_id or "").strip()
     if not _ID.match(take_id):
         raise ValueError("unknown take: " + take_id)
-    path = TAKE_DIR / f"{take_id}.json"
+    path = Path(takes_dir or TAKE_DIR) / f"{take_id}.json"
     if not path.is_file():
         raise ValueError("unknown take: " + take_id)
     return _load_file(path)
@@ -354,9 +361,9 @@ def _summary(take: dict) -> dict:
     }
 
 
-def list_takes() -> list[dict]:
+def list_takes(*, takes_dir: Path | str | None = None) -> list[dict]:
     """Take cards for the shelf, in authored order."""
-    return [_summary(_load_file(path)) for path in _files()]
+    return [_summary(_load_file(path)) for path in _files(takes_dir)]
 
 
 def validate_takes(takes_dir: Path | None = None) -> list[str]:

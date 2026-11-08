@@ -3,7 +3,7 @@
 # run-bifrost — start the local Bifrost gateway with the Ollama provider.
 #
 # Bifrost is the Geek Room edition's model gateway. It listens on :8080 and exposes
-# the OpenAI-compatible /v1/chat/completions endpoint that gateway/bifrost.py calls.
+# the OpenAI-compatible /v1/chat/completions endpoint that switch_world/adapters/models/bifrost_compat.py calls.
 #
 # Usage:
 #   scripts/run-bifrost.sh [env-file]

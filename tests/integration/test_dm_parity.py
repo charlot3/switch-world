@@ -16,6 +16,7 @@ identical and the test asserts that.
 """
 from __future__ import annotations
 
+import importlib
 import sys
 import types
 from collections.abc import Callable
@@ -25,9 +26,9 @@ from typing import Any
 
 import pytest
 
-from director import dm as new_dm
-from world_engine import config
-from world_engine.service import WorldService
+from switch_world import compat as new_dm
+from switch_world import config
+from switch_world.application.facade import WorldService
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 NEW_REPLY_TO_DM = new_dm.reply_to_dm
@@ -44,10 +45,26 @@ def _load_head_dm():
         pytest.skip(f"missing parity baseline: {fixture}")
     source = fixture.read_text(encoding="utf-8")
 
-    module = types.ModuleType("director._head_dm")
-    module.__package__ = "director"
-    module.__file__ = str(REPO_ROOT / "director" / "dm.py")
+    package_name = "_legacy_dm_parity"
+    package = types.ModuleType(package_name)
+    package.__package__ = package_name
+    package.__path__ = []
+    sys.modules[package_name] = package
+    aliases = {
+        "context": "switch_world.application.context",
+        "social": "switch_world.application.social",
+        "canon": "switch_world.application.canon",
+        "tavily_beat": "switch_world.application.tavily_beat",
+        "bifrost_scene": "switch_world.application.prompts",
+    }
+    for name, target in aliases.items():
+        sys.modules[f"{package_name}.{name}"] = importlib.import_module(target)
+
+    module = types.ModuleType(f"{package_name}.dm")
+    module.__package__ = package_name
+    module.__file__ = str(fixture)
     sys.modules[module.__name__] = module
+    setattr(package, "dm", module)
     exec(compile(source, module.__file__, "exec"), module.__dict__)
     return module
 
@@ -301,7 +318,7 @@ def test_default_local_model_uses_world_data_dir_and_head_usage_shape(
     monkeypatch.setattr(config, "AGENT_MODE", "switch")
     monkeypatch.setattr(config, "DATA_DIR", tmp_path)
 
-    model = new_dm._default_model()
+    model = new_dm._default_dm_model()
 
     assert isinstance(model, BifrostModelClient)
     assert model.log_path == tmp_path / "logs" / "bifrost.jsonl"

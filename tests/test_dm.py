@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import pytest
 
-from director.dm import reply_to_dm
-from world_engine import config
-from world_engine.service import WorldService
+from switch_world.compat import reply_to_dm
+from switch_world import config
+from switch_world.application.facade import WorldService
 
 
 class FakeBifrost:

@@ -30,4 +30,4 @@ mkdir -p "$WORLD_DATA_DIR"
 cd "$ROOT"
 echo "Geek Room world engine: http://127.0.0.1:${WORLD_ENGINE_PORT}"
 echo "DB: ${WORLD_DB} · Tavily offline: ${TAVILY_OFFLINE} · Bifrost: ${BIFROST_URL}"
-exec uv run python -c 'from world_engine.__main__ import main; main()'
+exec uv run world-engine

@@ -1,15 +1,16 @@
-"""Compatibility facade over :class:`switch_world.adapters.persistence.WorldStore`.
+"""The world facade over :class:`switch_world.adapters.persistence.WorldStore`.
 
 The public surface of :class:`WorldService` is unchanged: every method keeps its
-name, signature and return shape. The body now delegates to the store's reader,
-writer or admin face. New code should call the store directly; this class exists
-for the MCP tools, the HTTP adapter, the directors and the older tests.
+name, signature and return shape. The body delegates to the store's reader,
+writer or admin face. New code should call the store directly; this class is the
+application seam the MCP tools, the HTTP adapter and the directors use.
 
 ``_conn`` remains only as a deprecated compatibility path for legacy callers that
 need a raw connection (the clock test is the one remaining user).
 """
 from __future__ import annotations
 
+import os
 import sqlite3
 from contextlib import contextmanager
 from datetime import datetime
@@ -35,7 +36,12 @@ from switch_world.domain import (
     tokens,
 )
 
-from . import config, db  # noqa: F401  (db is the compatibility shim)
+from switch_world.config import Settings, load_settings
+
+
+def _settings() -> Settings:
+    """Resolve process settings at call time (no import-time side effects)."""
+    return load_settings(os.environ)
 
 VISIBILITIES = VISIBILITIES
 SOURCE_KINDS = SOURCE_KINDS
@@ -61,14 +67,15 @@ class WorldService:
         tokens: Mapping[str, str] | None = None,
         state_dir: Path | str | None = None,
     ):
-        self.db_path = Path(db_path or config.DB_PATH)
-        self.state_dir = Path(state_dir or config.STATE_DIR)
-        self.tokens = dict(tokens or config.token_map())
+        settings = _settings()
+        self.db_path = Path(db_path or settings.db_path)
+        self.state_dir = Path(state_dir or settings.state_dir)
+        self.tokens = dict(tokens or settings.token_map())
         self.store = WorldStore(
             db_path=self.db_path,
             state_dir=self.state_dir,
-            world_start=config.WORLD_START,
-            world_day=config.WORLD_DAY,
+            world_start=settings.world_start,
+            world_day=settings.world_day,
         )
         # Resolve the clock provider through the class so tests that monkeypatch
         # ``WorldService._real_now`` keep controlling realtime clocks.
@@ -520,9 +527,10 @@ class WorldService:
         lines.append("")
         text = "\n".join(lines)
 
-        config.EXPORT_DIR.mkdir(parents=True, exist_ok=True)
+        export_dir = _settings().export_dir
+        export_dir.mkdir(parents=True, exist_ok=True)
         stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        path = config.EXPORT_DIR / f"scene-card-{stamp}.md"
+        path = export_dir / f"scene-card-{stamp}.md"
         path.write_text(text)
         return {"path": str(path), "text": text}
 

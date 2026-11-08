@@ -1,3 +1,4 @@
+"""Authored demo constants shared by the beat runners and the CLIs."""
 from __future__ import annotations
 
 DEMO_KEY = "user-leaving-city"

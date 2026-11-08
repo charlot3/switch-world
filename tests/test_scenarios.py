@@ -5,16 +5,16 @@ from datetime import datetime, timedelta
 import pytest
 from fastapi.testclient import TestClient
 
-from world_engine import config
-from world_engine.api import create_app
-from world_engine.scenarios import (
+from switch_world import config
+from switch_world.interfaces.http.app import create_app
+from switch_world.application.scenarios import (
     SCENARIO_ORDER,
     evaluate_ending,
     get_scenario,
     list_scenarios,
     load_scenario,
 )
-from world_engine.service import WorldService
+from switch_world.application.facade import WorldService
 
 
 @pytest.fixture()
@@ -77,7 +77,7 @@ def test_unknown_or_unsafe_scenario_raises(service):
 def test_scenario_validation_rejects_bad_ids(tmp_path, monkeypatch):
     import json
 
-    from world_engine import scenarios as scenario_module
+    from switch_world.application import scenarios as scenario_module
 
     folder = tmp_path / "scenarios"
     folder.mkdir()

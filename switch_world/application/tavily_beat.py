@@ -14,7 +14,8 @@ from __future__ import annotations
 
 import os
 
-from world_engine.service import WorldService, slugify
+from switch_world.application.facade import WorldService
+from switch_world.domain import slugify
 
 DEFAULT_QUERY = os.environ.get(
     "WORLD_NEWS_QUERY",
@@ -41,7 +42,7 @@ def fetch_world_event(
     max_results: int = 3,
 ) -> dict:
     if client is None:
-        from gateway.tavily import TavilyClient
+        from switch_world.adapters.search.tavily import TavilyClient
 
         client = TavilyClient.from_env()
     query = (query or DEFAULT_QUERY).strip()

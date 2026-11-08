@@ -52,7 +52,7 @@ Target runtime: **4:00, hard stop.** The official page does not state a hard max
 
 ### The agent-to-agent relay (confirmed in code)
 
-The relay exists in `director/group.py`: the first planned speaker who names another **present** character with `@name` triggers **one** follow-up prompt to that character. The relayed reply is recorded as a normal beat with `↳ reply to <name>` in the turn log, and an `@` inside that reply is **not** relayed again. It is public scene delivery, not a private room or a whisper.
+The relay exists in `switch_world/application/scene.py`: the first planned speaker who names another **present** character with `@name` triggers **one** follow-up prompt to that character. The relayed reply is recorded as a normal beat with `↳ reply to <name>` in the turn log, and an `@` inside that reply is **not** relayed again. It is public scene delivery, not a private room or a whisper.
 
 On camera it is model-triggered, not scripted. Say it only if it lands:
 
@@ -410,5 +410,5 @@ Read-only reference for this script:
 - `world/takes/w3-quiet-route.json`
 - `world/takes/w7-last-call.json`
 - `world/scenarios/w1-gift.json`
-- `director/group.py`
+- `switch_world/application/scene.py`
 - `docs/architecture.mmd`

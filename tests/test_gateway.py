@@ -4,13 +4,13 @@ import json
 
 import pytest
 
-from gateway.bifrost import (
+from switch_world.adapters.models.bifrost_compat import (
     BifrostClient,
     BudgetExceeded,
     CharacterModel,
     parse_json,
 )
-from gateway.tavily import (
+from switch_world.adapters.search.tavily import (
     TavilyClient,
     TavilyNotConfigured,
     format_context,
@@ -71,7 +71,7 @@ def test_bifrost_model_env_override(monkeypatch, tmp_path):
     )
     monkeypatch.setenv("BIFROST_MODEL_ALICE", "anthropic/claude-sonnet-4-5")
     monkeypatch.setenv("BIFROST_FALLBACKS_ALICE", "openai/gpt-4o-mini")
-    from gateway.bifrost import load_models
+    from switch_world.adapters.models.bifrost_compat import load_models
 
     loaded = load_models(models)
     assert loaded["alice"].model == "anthropic/claude-sonnet-4-5"

@@ -15,7 +15,7 @@ from typing import Any
 
 import pytest
 
-from director import social
+from switch_world.application import social
 from switch_world.adapters.transports.legacy import LegacySwitchTransport
 from switch_world.adapters.transports.local import LocalRoomTransport
 from switch_world.application.scene import whisper
@@ -24,8 +24,8 @@ from switch_world.domain.ports.transport import (
     TransportCapabilities,
     TransportError,
 )
-from world_engine import config
-from world_engine.service import WorldService
+from switch_world import config
+from switch_world.application.facade import WorldService
 
 
 @pytest.fixture()

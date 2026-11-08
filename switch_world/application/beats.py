@@ -27,10 +27,15 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any, Protocol
 
-from director.canon import branch_for, load as load_canon, record_branch, validate
-from director.social import appraise, clean_scene_line
-from director.simulate import user_tells_alice
-from world_engine.service import WorldService
+from switch_world.application.canon import (
+    branch_for,
+    load as load_canon,
+    record_branch,
+    validate,
+)
+from switch_world.application.facade import WorldService
+from switch_world.application.simulate import user_tells_alice
+from switch_world.application.social import appraise, clean_scene_line
 
 from switch_world.domain.agents import MemoryWrite, RelationshipWrite, WorldWrite
 from switch_world.domain.ids import TurnId

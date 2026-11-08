@@ -13,8 +13,8 @@ from datetime import datetime
 
 import httpx
 
-from . import config
-from .service import WorldService
+from switch_world.application.facade import WorldService
+from switch_world.config import load_settings
 
 PROBE_TIMEOUT = 0.3
 RECENT_LIMIT = 10
@@ -72,7 +72,7 @@ def _beat_slim(beat: dict | None) -> dict | None:
 
 
 def _load_rooms() -> list[dict]:
-    path = config.CONTENT_ROOT / "rooms.json"
+    path = load_settings(os.environ).content_root / "rooms.json"
     try:
         rooms = json.loads(path.read_text(encoding="utf-8")).get("rooms") or {}
     except (OSError, ValueError):
@@ -96,11 +96,15 @@ def _last_event_for(events: list[dict], character: str) -> str | None:
 
 
 def studio_summary(service: WorldService, prober=None) -> dict:
-    from director.clock import current_beat, next_beat, next_unplayed
+    from switch_world.application.clock import current_beat, next_beat, next_unplayed
 
     prober = prober or probe
 
-    canon = json.loads((config.CONTENT_ROOT / "canon.json").read_text(encoding="utf-8"))
+    canon = json.loads(
+        (load_settings(os.environ).content_root / "canon.json").read_text(
+            encoding="utf-8"
+        )
+    )
     clock = service.clock()
     now = datetime.fromisoformat(clock["now"])
     current = current_beat(canon, now)

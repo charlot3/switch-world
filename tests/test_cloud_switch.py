@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import pytest
 
-from director.cloud_switch import CloudSwitch
-from director.group import say_in_group
-from world_engine import config
-from world_engine.service import WorldService
+from switch_world.adapters.transports.cloud_switch import CloudSwitch
+from switch_world.compat import say_in_group
+from switch_world import config
+from switch_world.application.facade import WorldService
 
 
 @pytest.fixture()
@@ -57,7 +57,7 @@ def test_cloud_switch_requires_a_key(monkeypatch):
 
 
 def test_cloud_bifrost_parses_json_envelope():
-    from director.cloud_switch import CloudBifrost
+    from switch_world.adapters.models.cloud_bifrost import CloudBifrost
 
     def transport(url, payload, headers):
         assert payload["response_format"] == {"type": "json_object"}

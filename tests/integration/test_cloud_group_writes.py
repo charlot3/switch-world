@@ -10,8 +10,8 @@ from __future__ import annotations
 from switch_world.adapters.models import ScriptedModelClient
 from switch_world.adapters.transports import CloudRoomTransport
 from switch_world.application.scene import say_in_group
-from world_engine import config
-from world_engine.service import WorldService
+from switch_world import config
+from switch_world.application.facade import WorldService
 
 
 def _service(tmp_path):

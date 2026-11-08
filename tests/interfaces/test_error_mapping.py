@@ -7,8 +7,8 @@ from switch_world.adapters.artifacts.files import FileArtifactStore
 from switch_world.config import load_settings
 from switch_world.container import Container
 from switch_world.interfaces.http.app import create_app
-from world_engine import config
-from world_engine.service import WorldService
+from switch_world import config
+from switch_world.application.facade import WorldService
 
 
 def _service(tmp_path):
@@ -94,7 +94,7 @@ def test_502_upstream_failure(tmp_path, monkeypatch):
     def explode(service, force_share=None):
         raise RuntimeError("bifrost went away")
 
-    monkeypatch.setattr("director.simulate.run_cafe", explode)
+    monkeypatch.setattr("switch_world.application.simulate.run_cafe", explode)
     with TestClient(_client(tmp_path)) as client:
         response = client.post("/api/dev/run-cafe", json={})
     assert response.status_code == 502

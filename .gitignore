@@ -51,3 +51,8 @@ deploy/demo/data/
 # build outputs
 dist/
 build/
+
+# coverage (make cov)
+.coverage
+.coverage.*
+htmlcov/

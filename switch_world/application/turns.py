@@ -21,10 +21,10 @@ import time
 from collections.abc import Sequence
 from typing import Any
 
-from director import arbiter as social_arbiter
-from director import social
-from director.social import clean_scene_line
-from world_engine.service import WorldService
+from switch_world.application import arbiter as social_arbiter
+from switch_world.application import social
+from switch_world.application.facade import WorldService
+from switch_world.application.social import clean_scene_line
 
 from switch_world.domain.agents import MemoryWrite, RelationshipWrite, WorldWrite
 from switch_world.domain.ids import CharacterId, TurnId

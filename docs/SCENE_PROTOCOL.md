@@ -15,7 +15,7 @@ the backend and the dashboard can be built in parallel.
 
 ## Turn plan
 
-A user line is classified first (`director/social.py`). The plan is deterministic:
+A user line is classified first (`switch_world/application/social.py`). The plan is deterministic:
 
 - named addressee (`@alice`, "Alice, ...") → that character is primary; 0–2 others react;
   everyone else is silent.

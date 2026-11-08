@@ -26,8 +26,8 @@ from switch_world.config import Settings
 from switch_world.domain.ports.artifacts import ArtifactStore
 from switch_world.domain.ports.model import ModelClient
 from switch_world.domain.ports.transport import CharacterTransport
-from world_engine import config
-from world_engine.service import WorldService
+from switch_world import config
+from switch_world.application.facade import WorldService
 
 from .errors import BadRequest, Conflict, Forbidden, ServiceUnavailable
 
@@ -258,7 +258,7 @@ def clock_view(
     clock: dict | None = None,
     runtime: HttpRuntime | None = None,
 ) -> dict:
-    from director.clock import current_beat, next_beat
+    from switch_world.application.clock import current_beat, next_beat
 
     canon_data = load_canon(runtime)
     clock = clock or service.clock()

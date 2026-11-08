@@ -1,8 +1,9 @@
 """SQLite-backed world store.
 
-This is the only component that runs SQL. The compatibility facade
-(:class:`world_engine.service.WorldService`) and the scenario/take loaders call
-the grouped readers/writers below instead of opening their own connections.
+This is the only component that runs SQL. The application facade
+(:class:`switch_world.application.facade.WorldService`) and the scenario/take
+loaders call the grouped readers/writers below instead of opening their own
+connections.
 
 The store exposes three narrow faces over one object:
 

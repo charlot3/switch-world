@@ -25,7 +25,7 @@ from switch_world.domain.ports.transport import (
     TransportError,
 )
 
-from director.switch_client import SwitchError
+from switch_world.adapters.transports.switch_client import SwitchError
 
 from ._support import dedupe, to_inbound
 
@@ -270,14 +270,16 @@ def deferred_transport(mode: str) -> LegacySwitchTransport:
     if str(mode).strip().lower() == "cloud":
 
         def client_factory():
-            from director.cloud_switch import CloudSwitch
+            from switch_world.adapters.transports.cloud_switch import CloudSwitch
 
             return CloudSwitch()
 
     else:
 
         def client_factory():
-            from director.group import SwitchClient
+            # Imported at call time so a caller can still patch
+            # ``switch_world.compat.SwitchClient`` (the legacy test seam).
+            from switch_world.compat import SwitchClient
 
             return SwitchClient()
 

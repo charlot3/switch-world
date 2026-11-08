@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import re
 
-from world_engine.service import WorldService
+from switch_world.application.facade import WorldService
 
 from . import context as context_budget
 from . import social
@@ -138,14 +138,14 @@ def whisper_to_character(
         reply = _answer_through_switch(switch, room, to, message, timeout)
     else:
         if client is None:
-            from world_engine import config
+            from switch_world import config
 
             if config.AGENT_MODE == "cloud":
                 from .cloud_switch import CloudBifrost
 
                 client = CloudBifrost()
             else:
-                from gateway.bifrost import BifrostClient
+                from switch_world.adapters.models.bifrost_compat import BifrostClient
 
                 client = BifrostClient()
         envelope = _parse_envelope(

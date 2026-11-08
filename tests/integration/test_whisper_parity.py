@@ -23,6 +23,7 @@ Two differences are intentional and asserted rather than hidden:
 """
 from __future__ import annotations
 
+import importlib
 import re
 import sys
 import types
@@ -32,9 +33,9 @@ from typing import Any
 
 import pytest
 
-from director import whisper as new_whisper
-from world_engine import config
-from world_engine.service import WorldService
+from switch_world import compat as new_whisper
+from switch_world import config
+from switch_world.application.facade import WorldService
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TURN_ID = re.compile(r"^t-[0-9a-f]{12}$")
@@ -47,10 +48,27 @@ def _load_head_whisper():
         pytest.skip(f"missing parity baseline: {fixture}")
     source = fixture.read_text(encoding="utf-8")
 
-    module = types.ModuleType("director._head_whisper")
-    module.__package__ = "director"
-    module.__file__ = str(REPO_ROOT / "director" / "whisper.py")
+    package_name = "_legacy_whisper_parity"
+    package = types.ModuleType(package_name)
+    package.__package__ = package_name
+    package.__path__ = []
+    sys.modules[package_name] = package
+    aliases = {
+        "context": "switch_world.application.context",
+        "social": "switch_world.application.social",
+        "canon": "switch_world.application.canon",
+        "tavily_beat": "switch_world.application.tavily_beat",
+        "bifrost_scene": "switch_world.application.prompts",
+        "group": "switch_world.application.group_planning",
+    }
+    for name, target in aliases.items():
+        sys.modules[f"{package_name}.{name}"] = importlib.import_module(target)
+
+    module = types.ModuleType(f"{package_name}.whisper")
+    module.__package__ = package_name
+    module.__file__ = str(fixture)
     sys.modules[module.__name__] = module
+    setattr(package, "whisper", module)
     exec(compile(source, module.__file__, "exec"), module.__dict__)
     return module
 

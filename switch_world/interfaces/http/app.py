@@ -20,8 +20,8 @@ from fastapi.staticfiles import StaticFiles
 
 from switch_world.config import Settings
 from switch_world.interfaces.mcp.server import create_mcp
-from world_engine import config
-from world_engine.service import WorldService
+from switch_world import config
+from switch_world.application.facade import WorldService
 
 from .deps import build_runtime
 from .errors import register_error_handlers

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from director.bifrost_scene import _system, run_cafe_bifrost
-from director.canon import load as load_canon
-from world_engine import config
-from world_engine.service import WorldService
+from switch_world.application.prompts import _system
+from switch_world.application.beat_runners import run_cafe_bifrost
+from switch_world.application.canon import load as load_canon
+from switch_world import config
+from switch_world.application.facade import WorldService
 
 
 class FakeBifrost:

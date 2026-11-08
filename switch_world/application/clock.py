@@ -10,7 +10,7 @@ from __future__ import annotations
 import math
 from datetime import datetime, timedelta
 
-from world_engine.service import WorldService
+from switch_world.application.facade import WorldService
 
 
 def _hhmm(value: str) -> tuple[int, int]:

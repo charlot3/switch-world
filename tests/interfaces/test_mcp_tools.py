@@ -13,8 +13,8 @@ import pytest
 
 from switch_world.interfaces.mcp.server import create_mcp
 from switch_world.interfaces.mcp.tools import TOOL_NAMES
-from world_engine import config
-from world_engine.service import WorldService
+from switch_world import config
+from switch_world.application.facade import WorldService
 
 DOCS = Path(__file__).resolve().parents[2] / "docs" / "MCP.md"
 TOOL_PATTERN = re.compile(r"world__[a-z_]+")
@@ -67,8 +67,8 @@ def test_give_item_and_record_event_keep_their_schemas(service):
     )
 
 
-def test_world_engine_shim_reexports_the_factory():
-    from switch_world.interfaces.mcp.server import create_mcp as new_create_mcp
-    from world_engine.mcp_server import create_mcp as shim_create_mcp
-
-    assert shim_create_mcp is new_create_mcp
+def test_tool_names_are_in_stable_document_order():
+    """Argument order and registration order are part of the public contract."""
+    assert TOOL_NAMES[0] == "world__recall"
+    assert TOOL_NAMES[-1] == "world__advance_time"
+    assert len(set(TOOL_NAMES)) == 14

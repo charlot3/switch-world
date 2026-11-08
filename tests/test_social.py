@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 
-from director import social
-from director.dm import reply_to_dm
-from world_engine import config
-from world_engine.service import WorldService
+from switch_world.application import social
+from switch_world.compat import reply_to_dm
+from switch_world import config
+from switch_world.application.facade import WorldService
 
 
 def make_service(tmp_path):
@@ -90,7 +90,7 @@ def test_dm_prompt_carries_the_relationship_contract(tmp_path):
 
 
 def test_public_body_is_a_limited_contract_at_close(tmp_path):
-    from world_engine.scenarios import load_scenario
+    from switch_world.application.scenarios import load_scenario
 
     service = make_service(tmp_path)
     load_scenario(service, "w3-quiet-route")
@@ -102,7 +102,7 @@ def test_public_body_is_a_limited_contract_at_close(tmp_path):
 
 
 def test_public_body_is_still_guarded_at_two_stars(tmp_path):
-    from world_engine.scenarios import load_scenario
+    from switch_world.application.scenarios import load_scenario
 
     service = make_service(tmp_path)
     load_scenario(service, "w2-two-clocks")
@@ -153,11 +153,11 @@ def test_five_star_contact_is_allowed_and_fades(tmp_path):
 
 
 def test_four_star_limited_contact_does_not_flat_refuse(tmp_path):
-    from world_engine.scenarios import load_scenario
+    from switch_world.application.scenarios import load_scenario
 
     service = make_service(tmp_path)
     load_scenario(service, "w3-quiet-route")
-    from director.dm import reply_to_dm
+    from switch_world.compat import reply_to_dm
 
     class RefusingBifrost:
         def chat_json(self, character, messages, **kwargs):

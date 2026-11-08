@@ -73,7 +73,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
 
     # Heavy imports stay below --help.
-    from director import DEMO_KEY, DEMO_SECRET
+    from switch_world.domain.demo import DEMO_KEY, DEMO_SECRET
     from switch_world.config import load_settings
     from switch_world.container import build_container
 
@@ -88,14 +88,14 @@ def main(argv: list[str] | None = None) -> int:
             service.reset()
             print("world reset")
         if args.tell_alice:
-            from director.simulate import user_tells_alice
+            from switch_world.application.simulate import user_tells_alice
 
             belief = user_tells_alice(service, secret=secret, key=key)
             print(f"Alice now knows: {belief.get('proposition', belief)}")
         if args.status:
             _status(service)
         if args.switch_log:
-            from director.switch_log import collect, write_jsonl
+            from switch_world.application.switch_log import collect, write_jsonl
 
             try:
                 room = None if args.room == "all" else args.room
@@ -111,7 +111,7 @@ def main(argv: list[str] | None = None) -> int:
                 )
             return 0
         if args.arc:
-            from director.beats import run_arc
+            from switch_world.application.beat_runners import run_arc
 
             try:
                 result = run_arc(service)
@@ -123,7 +123,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"scene card: {result['card']['path']}")
             return 0
         if args.beat:
-            from director.beats import run_beat
+            from switch_world.application.beat_runners import run_beat
 
             try:
                 result = run_beat(
@@ -143,7 +143,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"scene card: {result['card']['path']}")
             return 0
         if args.tavily_event:
-            from director.tavily_beat import fetch_world_event
+            from switch_world.application.tavily_beat import fetch_world_event
 
             try:
                 result = fetch_world_event(service, query=args.query)
@@ -155,7 +155,7 @@ def main(argv: list[str] | None = None) -> int:
             if not args.bifrost:
                 return 0
         if args.bifrost:
-            from director.bifrost_scene import run_cafe_bifrost
+            from switch_world.application.beat_runners import run_cafe_bifrost
 
             try:
                 result = run_cafe_bifrost(service)
@@ -175,7 +175,7 @@ def main(argv: list[str] | None = None) -> int:
             if not args.switch:
                 return 0
         if args.switch:
-            from director.run_switch import run_cafe_switch
+            from switch_world.application.beat_runners import run_cafe_switch
 
             try:
                 result = run_cafe_switch(room_name=args.room, timeout=args.timeout)
@@ -207,7 +207,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.switch_log,
             ]
         ):
-            from director.simulate import run_cafe
+            from switch_world.application.simulate import run_cafe
 
             try:
                 result = run_cafe(service)

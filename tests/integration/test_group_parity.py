@@ -16,6 +16,7 @@ apart from the two intentional step-4 fixes:
 """
 from __future__ import annotations
 
+import importlib
 import re
 import sys
 import types
@@ -24,9 +25,9 @@ from pathlib import Path
 
 import pytest
 
-from director import group as new_group
-from world_engine import config
-from world_engine.service import WorldService
+from switch_world import compat as new_group
+from switch_world import config
+from switch_world.application.facade import WorldService
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TURN_ID = re.compile(r"^t-[0-9a-f]{12}(?:-relay)?$")
@@ -44,10 +45,25 @@ def _load_head_group():
         pytest.skip(f"missing parity baseline: {fixture}")
     source = fixture.read_text(encoding="utf-8")
 
-    module = types.ModuleType("director._head_group")
-    module.__package__ = "director"
-    module.__file__ = str(REPO_ROOT / "director" / "group.py")
+    package_name = "_legacy_group_parity"
+    package = types.ModuleType(package_name)
+    package.__package__ = package_name
+    package.__path__ = []
+    sys.modules[package_name] = package
+    aliases = {
+        "arbiter": "switch_world.application.arbiter",
+        "context": "switch_world.application.context",
+        "social": "switch_world.application.social",
+        "switch_client": "switch_world.adapters.transports.switch_client",
+    }
+    for name, target in aliases.items():
+        sys.modules[f"{package_name}.{name}"] = importlib.import_module(target)
+
+    module = types.ModuleType(f"{package_name}.group")
+    module.__package__ = package_name
+    module.__file__ = str(fixture)
     sys.modules[module.__name__] = module
+    setattr(package, "group", module)
     exec(compile(source, module.__file__, "exec"), module.__dict__)
     return module
 

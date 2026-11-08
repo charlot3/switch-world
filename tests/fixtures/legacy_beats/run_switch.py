@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import time
 
-from world_engine.service import WorldService
+from switch_world.application.facade import WorldService
 
 from . import DEMO_KEY
 from .beats import (

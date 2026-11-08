@@ -90,25 +90,64 @@ A small FastAPI service on `127.0.0.1:8890` with three surfaces:
 | JSON API | `/api/*` | dashboard, director |
 | Dashboard | `/` | the human, in a browser |
 
-The MCP tools are the only write path for characters:
+The MCP surface is exactly fourteen actor-scoped tools (`TOOL_NAMES` in
+`switch_world/interfaces/mcp/tools.py`, asserted against this document by
+`tests/interfaces/test_mcp_tools.py`). The same names, argument order and defaults are the
+public contract in [`MCP.md`](MCP.md).
 
-| Tool | Scope | Notes |
-| --- | --- | --- |
-| `world__recall(query, limit=8)` | character | the beliefs and relationship facts this character may see, ranked by relevance + importance + recency |
-| `world__remember(proposition, source, confidence, visibility, proposition_key?)` | character | writes a belief owned by the calling character; source is `user`, `event:<id>`, `character:<id>` or `observation`; omit `proposition_key` only for an ad-hoc fact |
-| `world__relationship(other)` | character | the calling character's view of another character |
-| `world__update_relationship(other, trust_delta, closeness_delta, tension_delta, reason)` | character | adjusts the calling character's outgoing edge, clamps to 0..1, appends an event |
-| `world__record_event(kind, summary, participants, visibility)` | director | append-only event; director-only so a character cannot write an arbitrary public line; returns the event id |
-| `world__who_knows(proposition_key)` | director | the full matrix with provenance |
-| `world__advance_time(minutes)` | director | moves the world clock and enqueues the next beat |
+| Tool | Scope |
+| --- | --- |
+| `world__recall(query, limit=8)` | character |
+| `world__search_web(query, max_results=5, topic="news")` | character |
+| `world__remember(proposition, source, confidence, visibility, proposition_key?)` | character |
+| `world__relationship(other)` | character |
+| `world__update_relationship(other, trust_delta, closeness_delta, tension_delta, reason)` | character |
+| `world__record_event(kind, summary, participants, visibility)` | director |
+| `world__who_knows(proposition_key)` | director |
+| `world__set_outfit(outfit_id, reason, source_belief_id?)` | character |
+| `world__give_item(item_id, to, note?)` | holder or director |
+| `world__allowed_looks()` | character |
+| `world__connections()` | any |
+| `world__items()` | any |
+| `world__ending_status()` | any |
+| `world__advance_time(minutes)` | director |
 
 **Token scoping.** Each character's generated config carries a different bearer token. The
-server maps token → character id and ignores any `character_id` in the arguments. A
-character can only read its own beliefs. `world__who_knows` is director-only. This is the
-mechanism that makes "Alice knows something Emily does not" true at the API layer, not just
-in the prompt.
+server maps token → character id with a constant-time compare and ignores any
+`character_id` in the arguments. A character can only read its own beliefs.
+`world__record_event` and `world__who_knows` are director-only. This is the mechanism that
+makes "Alice knows something Emily does not" true at the API layer, not just in the prompt.
 
-### 3. Director (`director/`)
+### 2a. v2 layer rule and adapter map
+
+The refactor is Ports and Adapters under one package. The dependency direction is enforced
+by `tests/architecture/test_layering.py` and `test_no_legacy_imports.py`:
+
+```
+domain/       stdlib + switch_world.domain only
+application/  domain + ports; concrete adapters only at the pinned composition seams
+adapters/     implements domain.ports; never imports application or interfaces
+interfaces/   HTTP, MCP and CLI (the outer edge)
+config.py     Settings only; container.py is the ONLY module that names an adapter
+```
+
+| Port | Local / dev | Cloud | Tests |
+| --- | --- | --- | --- |
+| `WorldStore` (`reader` / `writer` / `admin`) | `SqliteWorldStore` | `SqliteWorldStore` | SQLite on `tmp_path`; `WorldService` facade |
+| `CharacterTransport` | `SwitchTransport` / `LocalRoomTransport` | `CloudRoomTransport` | `LocalRoomTransport`, `FakeSwitch`, `respx` |
+| `ModelClient` | `BifrostModelClient` | `DeepSeekModelClient` | `ScriptedModelClient`, `FakeBifrost` |
+| `Clock` | `SystemClock` | `SystemClock` | `FakeClock` |
+| `ArtifactStore` | `FileArtifactStore(export_dir)` | `FileArtifactStore` | tmp-dir `FileArtifactStore` |
+| `ContentStore` | `FileContentStore(content_root)` | `FileContentStore` | checkout `FileContentStore` |
+
+The two write paths share one pipeline. `SwitchTransport` is out-of-band: the character
+writes through its own MCP token. `CloudRoomTransport` is in-band: the JSON envelope's
+`memory` / `relationships` writes are applied with the character as actor, so an envelope
+has exactly the authority MCP would give that character. See
+`switch_world/application/turns.py` (`TurnRecorder`) for the fixed order: user line →
+plan → delivery → one sanitise pass → writes → beats → at most one relay.
+
+### 3. Director (`switch_world/application/`)
 
 A deterministic Python beat runner, registered as the Switch agent `director`. It does not
 hold an OpenCode/Claude session; it posts messages through the Switch agent protocol and
@@ -125,7 +164,7 @@ A beat:
 4. Read the room history for Alice's reply, then address Emily with it:
    `@emily Alice says: "…" — how do you respond?`
 5. Wait for Emily's reply, then classify the ending **from the ledger** with
-   `director/canon.py`: a `character:alice` source, a confidence floor, and a content
+   `switch_world/application/canon.py`: a `character:alice` source, a confidence floor, and a content
    match against Alice's own statement. A suspicion is not a disclosure.
 6. Record the public event, the authored branch, and any canon warning.
 7. Export the **scene card** (summary, beliefs, provenance, relationship deltas).
@@ -136,7 +175,7 @@ cost, and no double-fired scenes. The LLM is used for dialogue and the disclosur
 not for deciding whether the world ticks. Author the beats; let the model act inside them.
 
 The canon is a **read-only story bible** (`world/canon.json`, loaded by
-`director/canon.py`), not a database table. It gives each character its public facts, its
+`switch_world/application/canon.py`), not a database table. It gives each character its public facts, its
 own private facts and the invariants; the director keeps the full file. That split is what
 lets the scene be free without leaking Emily's private facts into Alice's prompt.
 
@@ -250,7 +289,7 @@ Emily ──world__recall() includes the belief and the changed relationship─�
 | A character reads another's private belief | token → character mapping on the server; no `character_id` parameter |
 | A character records a suspicion as a disclosure | `branch_for` requires source `character:alice`, confidence ≥ 0.6 and a content match; a low-confidence "Alice is hiding something" stays `non-disclosure` |
 | An agent writes a relationship with a display name | the service resolves names to ids at the boundary; `scripts/normalize-relationships.py` repairs old rows |
-| The scene wanders off the worldline | authored beats + `world/canon.json` + `director/canon.py`; the director records the branch and any warning |
+| The scene wanders off the worldline | authored beats + `world/canon.json` + `switch_world/application/canon.py`; the director records the branch and any warning |
 | The world double-fires a beat | beats have ids and states; the director is single-writer; a tick is idempotent |
 | Switch is down | no rooms and no sessions; the director's posts fail; the dashboard still renders the last state |
 | LLM cost/latency blows up | 4 characters, 1 simulated day, 5 authored beats (2 optional), on-demand ticks |
@@ -269,10 +308,10 @@ Emily ──world__recall() includes the belief and the changed relationship─�
 
 Runnable now, no Switch required:
 
-- **World engine** (`world_engine/`): SQLite schema, seed loader, the seven MCP tools with
-  token scoping, relationship-name normalization, the REST/dashboard API, canon exposure,
-  and the scene-card export.
-- **Canon** (`world/canon.json`, `director/canon.py`): public/private facts, five authored
+- **World engine** (`switch_world/`): SQLite schema, seed loader, the 14 actor-scoped MCP
+  tools, relationship-name normalization, the REST/dashboard API, canon exposure, and the
+  scene-card export.
+- **Canon** (`world/canon.json`, `switch_world/application/canon.py`): public/private facts, five authored
   beats, three branches, structural validation, and the branch classifier.
 - **Dashboard** (`web/`): the galgame Story view with an authored arc strip and character
   cards, the profile sheet (立绘, intro, stats, private god-view, relationship bars), the
@@ -280,10 +319,10 @@ Runnable now, no Switch required:
   event feed, the World Tree, and the dev harness.
 - **Cast art** (`scripts/generate-cast-art.py`): one shared prompt scaffold, fixed seeds,
   bust + full-body + avatar set, `PROMPTS.md` and contact sheets.
-- **Beat demos** (`director/beats.py`): all five authored beats run locally, through
+- **Beat demos** (`switch_world/application/beat_runners.py`): all five authored beats run locally, through
   Bifrost, or through the live Switch room; the café owns the branch and aftermath reads
   it, while morning/lunch/roundup are independent partial demos.
-- **Local café beat** (`director/simulate.py`): authored dialogue that exercises the same
+- **Local café beat** (`switch_world/application/simulate.py`): authored dialogue that exercises the same
   state writes as the Switch-driven director, including the branch event.
 - **Tests** (`tests/`): `uv run pytest` covers the service, the API, the canon and the beat.
 
@@ -297,7 +336,8 @@ Next (the Switch path):
 ## Build order
 
 1. Switch up + Mattermost + one OpenCode agent replies in a room (the hard requirement).
-2. World engine with SQLite and the seven MCP tools; token scoping; dashboard v0.
+2. World engine with SQLite and the fourteen actor-scoped MCP tools; token scoping;
+   dashboard v0.
 3. Four character directories and personas; invite all four to `#world`; open DMs.
 4. Director: café beat + disclosure decision + relationship delta + scene card.
 5. Dashboard: belief matrix + provenance drawer.

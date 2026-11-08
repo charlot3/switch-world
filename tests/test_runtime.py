@@ -7,12 +7,13 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
-from director import context, social
-from director.dm import reply_to_dm
-from director.group import plan_turn, say_in_group
-from world_engine import config
-from world_engine.api import create_app
-from world_engine.service import WorldService
+from switch_world.application import context, social
+from switch_world.compat import reply_to_dm
+from switch_world.application.group_planning import plan_turn
+from switch_world.compat import say_in_group
+from switch_world import config
+from switch_world.interfaces.http.app import create_app
+from switch_world.application.facade import WorldService
 
 PRESENT = ["alice", "emily", "sophia", "mia"]
 
@@ -51,7 +52,7 @@ class FakeSwitch:
 def client(tmp_path, monkeypatch):
     service = WorldService(db_path=tmp_path / "world.sqlite", state_dir=config.STATE_DIR)
     monkeypatch.setattr(
-        "director.group.SwitchClient", lambda: FakeSwitch({"alice": "I'm here."})
+        "switch_world.compat.SwitchClient", lambda: FakeSwitch({"alice": "I'm here."})
     )
     app = create_app(service)
     with TestClient(app) as test_client:

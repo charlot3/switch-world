@@ -13,15 +13,15 @@ from typing import Any
 
 import pytest
 
-from director import bifrost_scene, social
+from switch_world.application import beat_runners as bifrost_scene, social
 from switch_world.adapters.transports.local import LocalRoomTransport
 from switch_world.application import group_planning, scene
 from switch_world.application.group_planning import _sanitise_reply
 from switch_world.application.scene import dm, say_in_group, whisper
 from switch_world.application.turns import _metadata as turns_metadata
 from switch_world.domain.ports.model import ModelFormat, ModelReply
-from world_engine import config
-from world_engine.service import WorldService
+from switch_world import config
+from switch_world.application.facade import WorldService
 
 META_KEYS = {"turn_id", "mode", "role", "expression", "target", "chorus"}
 
@@ -160,7 +160,7 @@ def test_meta_leak_is_dropped_by_every_paths_shared_filter(tmp_path):
 
     # The beat runner, the group recorder and the DM all clean through the same
     # function; the whisper observer path applies its meta half directly.
-    assert bifrost_scene.clean_scene_line(META_BODY) == ""
+    assert social.clean_scene_line(META_BODY) == ""
     assert group_planning._strip_meta(META_BODY) == ""
     assert scene._strip_meta(META_BODY) == ""
 

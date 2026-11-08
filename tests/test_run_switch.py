@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from director.run_switch import run_beat_switch, run_cafe_switch
-from director.simulate import user_tells_alice
-from world_engine import config
-from world_engine.service import WorldService
+from switch_world.application.beat_runners import run_beat_switch, run_cafe_switch
+from switch_world.application.simulate import user_tells_alice
+from switch_world import config
+from switch_world.application.facade import WorldService
 
 
 class FakeSwitch:

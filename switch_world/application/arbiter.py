@@ -15,9 +15,8 @@ from __future__ import annotations
 import os
 import time
 
-from world_engine.service import WorldService
-
-from . import social
+from switch_world.application import social
+from switch_world.application.facade import WorldService
 
 CONTACT_TOPICS = {"body", "contact"}
 ALLOWED_STANCES = {
@@ -108,7 +107,7 @@ def arbitrate(
         return {"used": False, "reason": "not_needed"}
 
     if client is None:
-        from gateway.bifrost import BifrostClient
+        from switch_world.adapters.models.bifrost_compat import BifrostClient
 
         client = BifrostClient(timeout=timeout)
 

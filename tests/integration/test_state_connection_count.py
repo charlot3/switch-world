@@ -11,9 +11,9 @@ import sqlite3
 
 from fastapi.testclient import TestClient
 
-from world_engine import config
-from world_engine.api import create_app
-from world_engine.service import WorldService
+from switch_world import config
+from switch_world.interfaces.http.app import create_app
+from switch_world.application.facade import WorldService
 
 
 def test_api_state_opens_exactly_one_connection(tmp_path, monkeypatch):

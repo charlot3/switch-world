@@ -13,14 +13,14 @@ secret first; it deliberately does not move the clock (callers that need the
 """
 from __future__ import annotations
 
-from . import DEMO_KEY, DEMO_SECRET
-from .canon import (  # noqa: F401  (historical re-exports)
+from switch_world.application.canon import (  # noqa: F401  (historical re-exports)
     branch_for,
     load as load_canon,
     record_branch,
     validate,
 )
-from world_engine.service import WorldService
+from switch_world.application.facade import WorldService
+from switch_world.domain.demo import DEMO_KEY, DEMO_SECRET
 
 
 def user_tells_alice(

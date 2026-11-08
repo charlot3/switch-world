@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
-from world_engine.studio import studio_summary
+from switch_world.application.studio import studio_summary
 
 from .. import schemas
 from ..deps import HttpRuntime, get_runtime

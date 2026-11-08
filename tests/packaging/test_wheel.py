@@ -124,6 +124,13 @@ def test_wheel_contains_packaged_resources(wheel):
     # The force-included content must not leak the checkout's top-level names.
     assert "world/canon.json" not in names
     assert "web/index.html" not in names
+    # The deleted v1 packages must not travel in the wheel either.
+    legacy = sorted(
+        name
+        for name in names
+        if name.split("/", 1)[0] in {"world_engine", "director", "gateway"}
+    )
+    assert legacy == [], legacy
 
 
 def test_installed_package_serves_app(installed, tmp_path):

@@ -48,8 +48,8 @@ def _fail(message: str) -> None:
 def main() -> None:
     from switch_world.config import load_settings
     from switch_world.container import build_container
-    from world_engine.api import create_app
-    from world_engine.scenarios import load_scenario
+    from switch_world.interfaces.http.app import create_app
+    from switch_world.application.scenarios import load_scenario
 
     settings = load_settings(os.environ)
     data_dir = settings.data_dir

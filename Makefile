@@ -1,12 +1,12 @@
 PY ?= .venv/bin/python
 
-.PHONY: check lint test web run
+.PHONY: check lint test web cov run
 
 check: lint test web
 
 lint:
-	uv run --with ruff ruff check switch_world world_engine director gateway tests
-	$(PY) -m compileall -q switch_world world_engine director gateway
+	uv run --with ruff ruff check switch_world tests
+	$(PY) -m compileall -q switch_world
 
 test:
 	$(PY) -m pytest -q
@@ -16,5 +16,8 @@ web:
 	node --test "web/js/*.test.js"
 	$(PY) scripts/gen-js-contract.py --check
 
+cov:
+	$(PY) -m pytest -q --cov=switch_world --cov-report=term-missing
+
 run:
-	$(PY) -m world_engine
+	$(PY) -m switch_world.interfaces.cli.world

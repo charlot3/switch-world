@@ -74,7 +74,7 @@ def _prepare_data_dir(settings) -> bool:
 
 def _seed_scenario(service, scenario: str) -> None:
     """Apply ``scenario`` only on a fresh database; never reset on restart."""
-    from world_engine.scenarios import load_scenario
+    from switch_world.application.scenarios import load_scenario
 
     current = service.current_scenario_id()
     if current is None:

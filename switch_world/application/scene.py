@@ -21,12 +21,12 @@ import re
 import time
 from typing import Any
 
-from director import context, social
-from director.bifrost_scene import _apply, _parse_envelope, _system
-from director.canon import load as load_canon, validate
-from director.social import clean_scene_line
-from director.tavily_beat import world_context
-from world_engine.service import WorldService
+from switch_world.application import context, social
+from switch_world.application.canon import load as load_canon, validate
+from switch_world.application.facade import WorldService
+from switch_world.application.prompts import _apply, _parse_envelope, _system
+from switch_world.application.social import clean_scene_line
+from switch_world.application.tavily_beat import world_context
 
 from switch_world.domain.ids import CharacterId, TurnId
 from switch_world.domain.ports.model import ModelClient, ModelFormat

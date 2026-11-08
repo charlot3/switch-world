@@ -9,8 +9,8 @@ from switch_world.adapters.transports.local import LocalRoomTransport
 from switch_world.config import load_settings
 from switch_world.container import Container
 from switch_world.interfaces.http.app import create_app
-from world_engine import config
-from world_engine.service import WorldService
+from switch_world import config
+from switch_world.application.facade import WorldService
 
 
 def _build(tmp_path):

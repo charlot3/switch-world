@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
-from world_engine.scenarios import evaluate_ending, list_scenarios, load_scenario
+from switch_world.application.scenarios import evaluate_ending, list_scenarios, load_scenario
 
 from .. import schemas
 from ..deps import HttpRuntime, clock_view, get_runtime, load_canon

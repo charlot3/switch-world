@@ -1,8 +1,8 @@
 """SQLite schema, seeding and reset.
 
 One file, one writer at a time. WAL so the dashboard can read while a tool writes.
-This module is the only place that knows the on-disk schema. ``world_engine.db``
-is a thin compatibility shim over it.
+This module is the only place that knows the on-disk schema; callers go through
+the ``WorldStore`` adapter, never through raw SQL.
 """
 from __future__ import annotations
 

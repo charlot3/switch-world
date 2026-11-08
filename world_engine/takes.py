@@ -33,47 +33,20 @@ from switch_world.domain import (
     TAKE_META,
     TAKE_START_META,
 )
+from switch_world.domain.protocol import (
+    CUE_OPS,
+    TAKE_CHANGE_EVENT_KINDS,
+)
+from switch_world.domain.protocol import TAKE_ORDER as _PROTOCOL_TAKE_ORDER
 
 TAKE_DIR = Path(config.CONTENT_ROOT) / "takes"
 
-# Authored order, matching the Worlds rail. w5-good and w5-bad are a fork.
-TAKE_ORDER = [
-    "w1-gift",
-    "w2-two-clocks",
-    "w3-quiet-route",
-    "w4-three-of-us",
-    "w5-good",
-    "w5-bad",
-    "w6-long-tuesday",
-    "w7-last-call",
-]
-
-CUE_OPS = (
-    "remember_preference",
-    "give_item",
-    "set_outfit",
-    "advance_time",
-    "mark_absent",
-    "ending",
-)
+# Keep the historical list type: callers compare it to JSON arrays.
+TAKE_ORDER = list(_PROTOCOL_TAKE_ORDER)
 
 # Events written by the director group turn or by a cue that mean "the player did
 # something in this scene". A bare scenario/take load is deliberately not here.
-CHANGE_EVENT_KINDS = (
-    "dialogue",
-    "action",
-    "silence",
-    "turn_plan",
-    "boundary_violation",
-    "social_verdict",
-    "item_given",
-    "outfit_change",
-    "relationship_update",
-    "take_cue",
-    "ending",
-    "beat",
-    "branch",
-)
+CHANGE_EVENT_KINDS = TAKE_CHANGE_EVENT_KINDS
 
 _ID = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 _KEY = re.compile(r"^[a-z0-9][a-z0-9-]*$")

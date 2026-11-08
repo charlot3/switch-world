@@ -1,0 +1,10 @@
+{
+  "name": "switch-world-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "No-build ES modules for the switch-world dashboard",
+  "scripts": {
+    "test": "node --test \"js/*.test.js\""
+  }
+}

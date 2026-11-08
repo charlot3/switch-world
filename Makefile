@@ -12,8 +12,9 @@ test:
 	$(PY) -m pytest -q
 
 web:
-	node --check web/app.js
-	node --check web/cast.js
+	for f in web/cast.js web/js/*.js web/js/render/*.js; do node --check "$$f"; done
+	node --test "web/js/*.test.js"
+	$(PY) scripts/gen-js-contract.py --check
 
 run:
 	$(PY) -m world_engine

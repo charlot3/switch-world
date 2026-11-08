@@ -1,251 +1,68 @@
-/* switch-world dashboard — vanilla JS, no framework, no chart library.
-   Data is rendered with textContent; only fixed skeleton markup uses templates. */
+/* Story, Worlds, Takes and ending surfaces.
 
-const $ = (sel, root = document) => root.querySelector(sel);
-const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
-const CAST = window.SWITCH_CAST;
-const ORDER = window.SWITCH_ORDER;
-const SECRET_KEY = "user-leaving-city";
-const SVG_NS = "http://www.w3.org/2000/svg";
-/* The guest deployment serves Mattermost under /mattermost on the same origin;
-   local runs still point at the local port. */
-const MATTERMOST_BASE = ["localhost", "127.0.0.1", ""].includes(location.hostname)
-  ? "http://127.0.0.1:8065"
-  : `${location.origin}/mattermost`;
-/* Only these vocabulary values may surface in the UI. Anything else is treated
-   as internal policy text and is not rendered. */
-const ACTION_MODES = new Set(["attempt", "result", "continue", "wait"]);
-const RESPONSE_MODES = new Set(["refuse", "negotiate", "limited", "surface", "sincere"]);
-/* Mirrors the take protocol's scene-change invariant. A take scene begins at a
-   take_load / take_scene event; any of these kinds after it means the scene
-   changed and Next scene may advance. */
-const TAKE_BOUNDARY_EVENT_KINDS = new Set(["take_load", "take_scene"]);
-const TAKE_CHANGE_EVENT_KINDS = new Set([
-  "dialogue", "action", "silence", "turn_plan", "boundary_violation",
-  "social_verdict", "item_given", "outfit_change", "relationship_update",
-  "take_cue", "ending", "beat", "branch",
-]);
+   Do not import main.js from here: it is the entry/wiring module. Actions in
+   this module call back into views.js for refresh/render/setView. */
 
-const state = {
-  data: null,
-  view: initialView(),
-  selected: "alice",
-  typedKey: null,
-  typingKey: null,
-  typing: null,
-  theme: initialTheme(),
-  motion: initialMotion(),
-  phone: {
-    character: null,
-    messages: [],
-    hasMore: false,
-    oldestId: null,
-    loading: false,
-    loadingFor: null,
-    sending: false,
-    loadedFor: null,
-    error: "",
-    paintSig: null,
-  },
-  group: { sending: false },
-  turn: null,
-  whisper: false,
-  whisperTarget: null,
-  groupStatus: "",
-  clockStatus: "",
-  beatId: null,
-  treeLens: "user",
-  worlds: {
-    scenarios: null,
-    current: null,
-    loading: false,
-    loadingScenario: null,
-    error: "",
-    fetchedAt: 0,
-    status: "",
-  },
-  takes: {
-    list: null,
-    current: null,
-    loading: false,
-    loadingTake: null,
-    advancing: false,
-    error: "",
-    status: "",
-    fetchedAt: 0,
-    probed: false,
-    currentFetchedAt: 0,
-    nextNote: "",
-    changed: false,
-    sceneRevision: null,
-    sceneTurn: null,
-    sceneEventKey: null,
-  },
-  safety: {
-    paused: false,
-    busy: false,
-    ready: false,
-    status: "",
-  },
-  studio: { data: null, error: "", loading: false, fetchedAt: 0 },
-};
+import { api } from "../api.js";
+import {
+  affinityFor,
+  asCastId,
+  clockScaleLabel,
+  eventMeta,
+  firstName,
+  firstNameOf,
+  formatTime,
+  heartGlyph,
+  heartStrip,
+  itemHolderLabel,
+  lastEventKey,
+  mergeTakeConfig,
+  nameList,
+  normalizeActionMode,
+  normalizeResponse,
+  normalizeText,
+  parseSummary,
+  scaleFactor,
+  sourceLabel,
+  speakerFromText,
+  stateRevision,
+  stateTurnNumber,
+  stripSpeakerPrefix,
+  takeIndexForScene,
+  takeSceneAt,
+  takeSceneChangedFromEvents,
+  takeSceneCount,
+  takeSceneIsObject,
+} from "../format.js";
+import { state } from "../state.js";
+import { CAST_ORDER as ORDER, SCENE_EVENT_KINDS, SPEECH_MODES } from "../vocab.js";
+import { $, $$, CAST, SECRET_KEY, setArtWithFallback } from "./dom.js";
+import { closeProfile, openProfile } from "./ledger.js";
+import {
+  addFriend,
+  closePhone,
+  isFriend,
+  openPhone,
+  renderPhone,
+  resetPhoneFor,
+  resetPhoneHistorySeq,
+  selectCast,
+} from "./phone.js";
+import { loadStudio } from "./studio.js";
+import { refresh, render, setView } from "../views.js";
 
-function initialTheme() {
-  const param = new URLSearchParams(location.search).get("theme");
-  if (param === "light" || param === "dark") return param;
-  try {
-    return localStorage.getItem("sw-theme") || "dark";
-  } catch {
-    return "dark";
-  }
-}
-
-function initialMotion() {
-  try {
-    return localStorage.getItem("sw-motion") !== "off";
-  } catch {
-    return true;
-  }
-}
-
-function initialView() {
-  const param = new URLSearchParams(location.search).get("view");
-  return ["story", "worlds", "tree", "ledger", "studio", "settings"].includes(param) ? param : "story";
-}
-
-function shellMode() {
-  const visual = window.visualViewport ? window.visualViewport.width : window.innerWidth;
-  const width = Math.min(window.innerWidth, visual || window.innerWidth);
-  document.documentElement.dataset.shell = width <= 760 ? "phone" : width <= 1180 ? "compact" : "wide";
-  if (width > 760) closePhone();
-}
-
-function setTheme(theme) {
-  state.theme = theme;
-  document.documentElement.dataset.theme = theme;
-  const label = theme === "dark" ? "Twilight" : "Daylight";
-  $("#theme-label").textContent = label;
-  $("#theme-toggle-2").textContent = label;
-  try {
-    localStorage.setItem("sw-theme", theme);
-  } catch {
-    /* private mode */
-  }
-}
-
-function setMotion(on) {
-  state.motion = on;
-  document.documentElement.dataset.motion = on ? "on" : "off";
-  const toggle = $("#motion-toggle");
-  if (toggle) toggle.checked = on;
-  try {
-    localStorage.setItem("sw-motion", on ? "on" : "off");
-  } catch {
-    /* private mode */
-  }
-  if (on) makePetals();
-  else $("#petals").replaceChildren();
-}
-
-function makePetals() {
-  const host = $("#petals");
-  host.replaceChildren();
-  if (!state.motion || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  for (let i = 0; i < 14; i += 1) {
-    const petal = document.createElement("span");
-    petal.className = "petal";
-    petal.style.left = `${Math.random() * 100}%`;
-    petal.style.animationDuration = `${10 + Math.random() * 14}s`;
-    petal.style.animationDelay = `${-Math.random() * 20}s`;
-    const size = 6 + Math.random() * 8;
-    petal.style.width = `${size}px`;
-    petal.style.height = `${size}px`;
-    host.appendChild(petal);
-  }
-}
-
-async function api(path, options = {}) {
-  const response = await fetch(path, {
-    headers: { "Content-Type": "application/json" },
-    ...options,
-  });
-  const text = await response.text();
-  let body = null;
-  try {
-    body = text ? JSON.parse(text) : null;
-  } catch {
-    body = text;
-  }
-  if (!response.ok) {
-    const nested = body && body.detail && typeof body.detail === "object"
-      ? { ...body, ...body.detail }
-      : body;
-    const detail = nested && (nested.detail || nested.message || nested.reason || nested.error)
-      ? (nested.detail || nested.message || nested.reason || nested.error)
-      : (text || response.statusText);
-    const error = new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
-    error.status = response.status;
-    error.body = body;
-    error.code = nested && nested.error ? String(nested.error) : "";
-    throw error;
-  }
-  return body;
-}
-
-function formatClock(iso) {
-  try {
-    return new Date(iso).toLocaleString("en-GB", {
-      timeZone: "Asia/Tokyo",
-      weekday: "short",
-      day: "numeric",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
-  } catch {
-    return iso;
-  }
-}
-
-function formatTime(iso) {
-  try {
-    return new Date(iso).toLocaleTimeString("en-GB", {
-      timeZone: "Asia/Tokyo",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
-  } catch {
-    return "";
-  }
-}
-
-function firstName(name) {
-  return (name || "").split(" ")[0];
-}
-
-function castIdForName(name) {
-  const needle = String(name || "").trim().toLowerCase();
-  return ORDER.find((id) => {
-    const c = CAST[id];
-    return c.name.toLowerCase() === needle || c.name.split(" ")[0].toLowerCase() === needle;
-  }) || null;
-}
-
-function currentBeat(data) {
+export function currentBeat(data) {
   const scene = (data && data.scene) || {};
   if (scene.current_beat) return scene.current_beat;
   const beats = (data && data.canon && data.canon.beats) || [];
   return beats[0] || null;
 }
-
 /* ---- scenarios --------------------------------------------------------- */
 
 /* GET /api/state carries `scenario` when a preset is active. The Worlds view
    also keeps the last loaded preset so the UI can render before the next poll.
    Every helper degrades to the base canon when the backend has no scenarios. */
-function currentScenario(data) {
+export function currentScenario(data) {
   const source = data === undefined ? state.data : data;
   if (source && Object.prototype.hasOwnProperty.call(source, "scenario")) {
     const value = source.scenario;
@@ -254,118 +71,29 @@ function currentScenario(data) {
   }
   return state.worlds.current || null;
 }
-
 /* ---- takes ------------------------------------------------------------- */
 
 /* A take is a linear recording route on top of a scenario. The backend may
    report it through GET /api/takes/current (the canonical shape) or inline in
    GET /api/state as take / take_scene. Both paths degrade to "no take". */
-function normalizeActionMode(value) {
-  const text = String(value || "").trim().toLowerCase();
-  return ACTION_MODES.has(text) ? text : "";
-}
 
-function normalizeResponse(value) {
-  const text = String(value || "").trim().toLowerCase();
-  return RESPONSE_MODES.has(text) ? text : "";
-}
 
-function takeSceneIsObject(value) {
-  return Boolean(value && typeof value === "object" && value.id && value.title);
-}
 
-function takeSceneCount(take) {
-  if (!take) return 0;
-  if (Array.isArray(take.scenes)) return take.scenes.length;
-  const count = Number(take.scene_count !== undefined ? take.scene_count : take.scenes_count);
-  return Number.isFinite(count) && count >= 0 ? count : 0;
-}
 
-function takeSceneAt(take, index) {
-  if (!take || !Array.isArray(take.scenes)) return null;
-  const scene = take.scenes[index];
-  return takeSceneIsObject(scene) ? scene : null;
-}
 
-function takeIndexForScene(take, scene) {
-  if (!take || !scene || !Array.isArray(take.scenes)) return null;
-  if (!scene.id) return null;
-  const found = take.scenes.findIndex((item) => item && item.id === scene.id);
-  return found >= 0 ? found : null;
-}
 
-function mergeTakeConfig(incoming, previous) {
-  if (!incoming) return previous || null;
-  if (!previous) return incoming;
-  if (Array.isArray(incoming.scenes) || !Array.isArray(previous.scenes)) return incoming;
-  const same = (incoming.id && previous.id && incoming.id === previous.id)
-    || (!incoming.id && incoming.title && incoming.title === previous.title);
-  return same ? { ...previous, ...incoming, scenes: previous.scenes } : incoming;
-}
 
-function stateRevision(source) {
-  const value = Number(source && source.revision);
-  return Number.isFinite(value) ? value : null;
-}
 
-function stateTurnNumber(source) {
-  const raw = source && source.turn;
-  if (typeof raw === "number" && Number.isFinite(raw)) return raw;
-  if (raw && typeof raw === "object") {
-    const value = Number(raw.number !== undefined ? raw.number : raw.index);
-    if (Number.isFinite(value)) return value;
-  }
-  const direct = Number(source && source.take_turn);
-  return Number.isFinite(direct) ? direct : null;
-}
 
-function lastEventKey(source) {
-  const events = (source && source.events) || [];
-  if (!Array.isArray(events) || !events.length) return null;
-  const last = events[events.length - 1] || {};
-  if (last.id !== undefined && last.id !== null) return String(last.id);
-  if (last.event_id !== undefined && last.event_id !== null) return String(last.event_id);
-  return String(events.length);
-}
 
-function eventIdNumber(event) {
-  const value = Number(event && event.id);
-  return Number.isFinite(value) ? value : null;
-}
 
 /* The backend keeps `take_scene_changed` in meta but does not expose it on
    /api/state. The same fact is derivable from the event log: a take_load or
    take_scene event opens a scene, and a turn/cue event after it changes it. */
-function takeSceneChangedFromEvents(source) {
-  const events = source && Array.isArray(source.events) ? source.events : null;
-  if (!events || !events.length) return null;
-  let boundaryIndex = -1;
-  let boundaryId = null;
-  events.forEach((event, index) => {
-    const kind = String((event && event.kind) || "");
-    if (!TAKE_BOUNDARY_EVENT_KINDS.has(kind)) return;
-    const id = eventIdNumber(event);
-    if (id === null) {
-      boundaryIndex = index;
-      boundaryId = null;
-    } else if (boundaryId === null || id >= boundaryId) {
-      boundaryId = id;
-      boundaryIndex = index;
-    }
-  });
-  if (boundaryIndex < 0) return null;
-  const after = boundaryId === null
-    ? events.slice(boundaryIndex + 1)
-    : events.filter((event) => {
-      const id = eventIdNumber(event);
-      return id !== null && id > boundaryId;
-    });
-  return after.some((event) => TAKE_CHANGE_EVENT_KINDS.has(String((event && event.kind) || "")));
-}
 
 /* Fall back to the recorded group turns when /api/state does not carry a
    numeric `turn`. Each group turn writes one stable turn_id into metadata. */
-function inferredTurnNumber(source) {
+export function inferredTurnNumber(source) {
   const direct = stateTurnNumber(source);
   if (direct !== null) return direct;
   const events = source && Array.isArray(source.events) ? source.events : [];
@@ -380,7 +108,7 @@ function inferredTurnNumber(source) {
 
 /* The latest turn plan's action mode, from state.turn when available and from
    the recorded turn_plan event otherwise. Unknown values are dropped. */
-function latestActionMode(source) {
+export function latestActionMode(source) {
   const plan = (source && source.turn && source.turn.plan)
     || (state.turn && state.turn.plan)
     || {};
@@ -400,7 +128,7 @@ function latestActionMode(source) {
   return "";
 }
 
-function setTakeCurrent(raw) {
+export function setTakeCurrent(raw) {
   if (!raw) {
     state.takes.current = null;
     return null;
@@ -425,7 +153,7 @@ function setTakeCurrent(raw) {
   return state.takes.current;
 }
 
-function takeSceneFromData(data) {
+export function takeSceneFromData(data) {
   if (!data) return null;
   const candidates = [data.take_scene, data.current_scene, data.scene];
   for (const value of candidates) {
@@ -434,7 +162,7 @@ function takeSceneFromData(data) {
   return null;
 }
 
-function takeIndexFromData(data) {
+export function takeIndexFromData(data) {
   const candidates = [
     data && data.take_index,
     data && data.scene_index,
@@ -447,7 +175,7 @@ function takeIndexFromData(data) {
   return null;
 }
 
-function currentTakeInfo(data) {
+export function currentTakeInfo(data) {
   const source = data === undefined ? state.data : data;
   const current = state.takes.current;
   let take = current ? current.take : null;
@@ -479,7 +207,7 @@ function currentTakeInfo(data) {
   return { take, scene, index, count: takeSceneCount(take), source };
 }
 
-function takeSource(data) {
+export function takeSource(data) {
   const current = state.takes.current;
   if (data && (Object.prototype.hasOwnProperty.call(data, "take")
     || Object.prototype.hasOwnProperty.call(data, "take_scene")
@@ -490,7 +218,7 @@ function takeSource(data) {
   return data || state.data || {};
 }
 
-function markSceneBaseline(source) {
+export function markSceneBaseline(source) {
   const data = source || state.data || {};
   state.takes.sceneRevision = stateRevision(data);
   state.takes.sceneTurn = stateTurnNumber(data);
@@ -498,7 +226,7 @@ function markSceneBaseline(source) {
   state.takes.changed = takeSceneChangedFromEvents(data) === true;
 }
 
-function syncTakeChange(data) {
+export function syncTakeChange(data) {
   if (!state.takes.current) return;
   const source = takeSource(data);
   const revision = stateRevision(source);
@@ -544,7 +272,7 @@ function syncTakeChange(data) {
   }
 }
 
-function syncTakeState(data) {
+export function syncTakeState(data) {
   if (!data) return;
   const hasTake = Object.prototype.hasOwnProperty.call(data, "take");
   const scene = takeSceneFromData(data);
@@ -577,7 +305,7 @@ function syncTakeState(data) {
   syncTakeChange(data);
 }
 
-function takeAdvanceState(data) {
+export function takeAdvanceState(data) {
   const info = currentTakeInfo(data);
   if (!info.take) {
     return { ok: false, reason: "Load a take below to start a route." };
@@ -604,8 +332,7 @@ function takeAdvanceState(data) {
       : "The next scene is ready.",
   };
 }
-
-function scenarioCastIds(data) {
+export function scenarioCastIds(data) {
   const scenario = currentScenario(data);
   const list = scenario && Array.isArray(scenario.cast) ? scenario.cast : null;
   if (!list || !list.length) return null;
@@ -613,7 +340,7 @@ function scenarioCastIds(data) {
   return ids.length ? ids : null;
 }
 
-function scenarioOutfits(data) {
+export function scenarioOutfits(data) {
   const direct = data && data.outfits;
   if (direct && typeof direct === "object" && Object.keys(direct).length) return direct;
   const scenario = currentScenario(data);
@@ -622,7 +349,7 @@ function scenarioOutfits(data) {
     : {};
 }
 
-function outfitFor(data, id) {
+export function outfitFor(data, id) {
   const row = scenarioOutfits(data)[id];
   const scenario = currentScenario(data);
   const spec = scenario && scenario.outfits && typeof scenario.outfits === "object"
@@ -644,7 +371,7 @@ function outfitFor(data, id) {
   };
 }
 
-function outfitArtFor(data, id) {
+export function outfitArtFor(data, id) {
   const outfit = outfitFor(data, id);
   if (!outfit) return null;
   if (outfit.art) return outfit.art;
@@ -654,7 +381,7 @@ function outfitArtFor(data, id) {
   return null;
 }
 
-function scenarioCastArt(data) {
+export function scenarioCastArt(data) {
   const direct = data && data.cast_art;
   if (direct && typeof direct === "object" && Object.keys(direct).length) return direct;
   const scenario = currentScenario(data);
@@ -663,13 +390,13 @@ function scenarioCastArt(data) {
     : {};
 }
 
-function castArtFor(data, id) {
+export function castArtFor(data, id) {
   const value = scenarioCastArt(data)[id];
   if (!value) return null;
   return typeof value === "string" ? value : (value.art || null);
 }
 
-function scenarioSceneArt(data) {
+export function scenarioSceneArt(data) {
   const scenario = currentScenario(data);
   const evening = scenario && scenario.scene_art_evening;
   let hour = null;
@@ -682,20 +409,20 @@ function scenarioSceneArt(data) {
   return typeof value === "string" ? value : (value.art || null);
 }
 
-function scenarioItem(data) {
+export function scenarioItem(data) {
   const item = (data && data.item) || ((currentScenario(data) || {}).item);
   if (!item) return null;
   if (typeof item === "string") return { id: item, label: item };
   return item;
 }
 
-function connectionList(value) {
+export function connectionList(value) {
   if (Array.isArray(value)) return value;
   if (value && typeof value === "object") return Object.values(value).filter(Boolean);
   return [];
 }
 
-function scenarioConnections(data) {
+export function scenarioConnections(data) {
   const direct = data && data.connections;
   if (Array.isArray(direct) || (direct && typeof direct === "object")) {
     return connectionList(direct);
@@ -704,7 +431,7 @@ function scenarioConnections(data) {
   return scenario ? connectionList(scenario.connections) : [];
 }
 
-function sceneCharacters(data) {
+export function sceneCharacters(data) {
   const takeInfo = currentTakeInfo(data);
   const takeScene = takeInfo.take ? takeInfo.scene : null;
   if (takeScene && Array.isArray(takeScene.cast) && takeScene.cast.length) {
@@ -718,48 +445,12 @@ function sceneCharacters(data) {
   return beat.characters.map((id) => String(id).toLowerCase()).filter((id) => CAST[id]);
 }
 
-function eventMeta(event) {
-  if (!event) return {};
-  const raw = event.metadata !== undefined && event.metadata !== null
-    ? event.metadata
-    : event.metadata_json;
-  if (!raw) return {};
-  if (typeof raw === "string") {
-    try {
-      return JSON.parse(raw) || {};
-    } catch {
-      return {};
-    }
-  }
-  return typeof raw === "object" ? raw : {};
-}
 
-function parseSummary(summary) {
-  const text = String(summary || "");
-  const match = text.match(/^([^:\n]{1,48}):\s*([\s\S]*)$/);
-  return match
-    ? { who: match[1].trim(), text: match[2].trim() }
-    : { who: "", text: text.trim() };
-}
 
-function asCastId(value) {
-  const raw = String(value || "").trim();
-  if (!raw) return null;
-  const lowered = raw.toLowerCase();
-  if (lowered === "user" || lowered === "you" || lowered === "the user") return "user";
-  if (CAST[lowered]) return lowered;
-  // Event summaries use suffixes such as "Alice (whisper): ...".
-  const cleaned = raw.replace(/\s*\([^)]*\)\s*$/, "").trim();
-  if (CAST[cleaned.toLowerCase()]) return cleaned.toLowerCase();
-  const byName = castIdForName(cleaned);
-  if (byName) return byName;
-  const firstWord = cleaned.split(/[\s:]+/)[0].toLowerCase();
-  return CAST[firstWord] ? firstWord : null;
-}
 
 /* Absent characters come from the optional state field, the studio summary, and
    the sanitised boundary_violation events (participants only, never act text). */
-function absentSet(data) {
+export function absentSet(data) {
   const result = new Set();
   const add = (value) => {
     if (!value) return;
@@ -795,35 +486,17 @@ function absentSet(data) {
   return result;
 }
 
-function latestBoundary(data) {
+export function latestBoundary(data) {
   const events = ((data && data.events) || []).filter((event) => event.kind === "boundary_violation");
   return events.length ? events[events.length - 1] : null;
 }
 
-function firstNameOf(id) {
-  const cast = CAST[id];
-  return cast ? firstName(cast.name) : String(id || "them");
-}
 
-function nameList(ids) {
-  const names = ids.filter(Boolean).map(firstNameOf);
-  if (names.length <= 1) return names.join("");
-  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
-}
-
-const SCENE_EVENT_KINDS = new Set([
-  "dialogue", "silence", "reaction", "action", "chorus",
-  "whisper", "whisper_reply", "boundary_violation",
-]);
-
-const SPEECH_MODES = new Set(["speech", "chorus", "whisper", "whisper_reply"]);
-
-const BEAT_ART = {
+export const BEAT_ART = {
   "morning-shop": "/static/assets/portraits/beat-morning-shop.jpg",
   "truck-lunch": "/static/assets/portraits/beat-truck-lunch.jpg",
 };
-
-function beatArtFor(data, cast) {
+export function beatArtFor(data, cast) {
   const beat = currentBeat(data);
   return (beat && BEAT_ART[beat.id]) || cast.scene || cast.full || cast.portrait;
 }
@@ -831,7 +504,7 @@ function beatArtFor(data, cast) {
 /* The portrait is the selected character: outfit art wins over cast art, then
    the scenario scene CG, then the authored beat CG. The backdrop is the scene
    CG so the stage still reads as the place, not only the person. */
-function sceneArtFor(data, cast) {
+export function sceneArtFor(data, cast) {
   const info = currentTakeInfo(data);
   const takeScene = info.take ? info.scene : null;
   if (takeScene && takeScene.art) return takeScene.art;
@@ -841,7 +514,7 @@ function sceneArtFor(data, cast) {
     || beatArtFor(data, cast);
 }
 
-function sceneBackdropFor(data, cast) {
+export function sceneBackdropFor(data, cast) {
   const info = currentTakeInfo(data);
   const takeScene = info.take ? info.scene : null;
   if (takeScene && (takeScene.art_backdrop || takeScene.art)) {
@@ -850,67 +523,11 @@ function sceneBackdropFor(data, cast) {
   return scenarioSceneArt(data) || sceneArtFor(data, cast);
 }
 
-/* A small fallback chain keeps a planned art path honest: if the new CG has
-   not shipped yet, the stage falls back to the existing character art. */
-function setArtWithFallback(img, candidates, alt) {
-  if (!img) return;
-  const list = [...new Set(candidates.filter((value) => typeof value === "string" && value))];
-  if (!list.length) return;
-  let index = 0;
-  img.onerror = () => {
-    index += 1;
-    if (index < list.length) {
-      img.src = list[index];
-      return;
-    }
-    img.onerror = null;
-  };
-  img.src = list[0];
-  if (alt !== undefined) img.alt = alt;
-}
 
-function isFriend(data, id) {
-  if (data && (data.friends || []).includes(id)) return true;
-  const scenario = currentScenario(data);
-  if (!scenario || !Array.isArray(scenario.friends)) return false;
-  return scenario.friends.map((friend) => asCastId(friend)).includes(id);
-}
-
-function phoneTarget() {
-  return state.phone.character || state.selected || ORDER[0];
-}
-
-function normalizeText(value) {
-  return String(value || "").replace(/\s+/g, " ").trim().toLowerCase();
-}
-
-function speakerFromText(text) {
-  const lowered = String(text || "").trim().toLowerCase();
-  if (!lowered) return null;
-  return ORDER.find((id) => {
-    const cast = CAST[id];
-    const full = cast.name.toLowerCase();
-    const first = cast.name.split(" ")[0].toLowerCase();
-    return lowered.startsWith(`${full} `) || lowered.startsWith(`${first} `)
-      || lowered.startsWith(`${full}:`) || lowered.startsWith(`${first}:`);
-  }) || null;
-}
-
-function stripSpeakerPrefix(text, id) {
-  const cast = CAST[id];
-  if (!cast) return text;
-  const value = String(text || "");
-  for (const name of [cast.name, cast.name.split(" ")[0]]) {
-    if (value.toLowerCase().startsWith(`${name.toLowerCase()} `)) {
-      return value.slice(name.length + 1).trim();
-    }
-  }
-  return value;
-}
 
 /* The scene log is built from events. Metadata is trusted when the backend sends
    it; otherwise the summary prefix ("Alice: ...") carries enough for a plain log. */
-function buildEventEntries(data) {
+export function buildEventEntries(data) {
   const entries = [];
   ((data && data.events) || []).forEach((event) => {
     const kind = String(event.kind || "");
@@ -979,7 +596,7 @@ function buildEventEntries(data) {
   return entries;
 }
 
-function beatFromResponse(raw, fallbackMode, plan) {
+export function beatFromResponse(raw, fallbackMode, plan) {
   if (!raw || typeof raw !== "object") return null;
   const who = raw.character || raw.speaker || raw.id || raw.agent || "";
   const castId = asCastId(who) || who;
@@ -1015,7 +632,7 @@ function beatFromResponse(raw, fallbackMode, plan) {
 
 /* The contract returns result.turn.lines. Keep the older replies shape as a
    fallback so the frontend keeps working while the backend is in flight. */
-function extractTurnLines(result, whisper, plan) {
+export function extractTurnLines(result, whisper, plan) {
   const raw = [];
   const push = (items, mode) => {
     if (!Array.isArray(items)) return;
@@ -1058,7 +675,7 @@ function extractTurnLines(result, whisper, plan) {
   return beats;
 }
 
-function directionText(turn) {
+export function directionText(turn) {
   if (!turn) return "";
   const plan = turn.plan || {};
   if (plan.whisper || turn.userPrivate) {
@@ -1092,75 +709,16 @@ function directionText(turn) {
   if (silent.length) pieces.push(`${nameList(silent)} stay${silent.length === 1 ? "s" : ""} quiet`);
   return pieces.length ? `${pieces.join(" · ")}.` : "The room responds.";
 }
-
-/* ---- tooltip ---------------------------------------------------------- */
-
-const tooltip = $("#tooltip");
-
-function showTip(target, lines) {
-  tooltip.replaceChildren();
-  lines.forEach((line, index) => {
-    if (index === 0 && line.value) {
-      const value = document.createElement("div");
-      value.className = "tip-value";
-      value.textContent = line.value;
-      tooltip.appendChild(value);
-      if (line.label) {
-        const label = document.createElement("div");
-        label.className = "tip-label";
-        label.textContent = line.label;
-        tooltip.appendChild(label);
-      }
-      return;
-    }
-    const row = document.createElement("div");
-    row.className = "tip-line";
-    if (line.label) {
-      const label = document.createElement("span");
-      label.className = "tip-label";
-      label.textContent = line.label + " ";
-      row.appendChild(label);
-    }
-    const sub = document.createElement("span");
-    sub.className = "tip-sub";
-    sub.textContent = line.sub || "";
-    row.appendChild(sub);
-    tooltip.appendChild(row);
-  });
-  tooltip.hidden = false;
-  const rect = target.getBoundingClientRect();
-  const width = tooltip.offsetWidth;
-  const height = tooltip.offsetHeight;
-  let left = rect.left + rect.width / 2 - width / 2;
-  let top = rect.top - height - 8;
-  if (top < 8) top = rect.bottom + 8;
-  left = Math.max(8, Math.min(left, window.innerWidth - width - 8));
-  top = Math.max(8, Math.min(top, window.innerHeight - height - 8));
-  tooltip.style.left = `${left}px`;
-  tooltip.style.top = `${top}px`;
-}
-
-function hideTip() {
-  tooltip.hidden = true;
-}
-
-function bindTip(element, lines) {
-  element.addEventListener("mouseenter", () => showTip(element, lines));
-  element.addEventListener("focus", () => showTip(element, lines));
-  element.addEventListener("mouseleave", hideTip);
-  element.addEventListener("blur", hideTip);
-}
-
 /* ---- story ------------------------------------------------------------ */
 
-function cancelTyping() {
+export function cancelTyping() {
   if (!state.typing) return;
   clearInterval(state.typing);
   state.typing = null;
   state.typingKey = null;
 }
 
-function typeLine(element, text, key) {
+export function typeLine(element, text, key) {
   if (state.typing && state.typingKey === key) return;
   if (state.typing) {
     clearInterval(state.typing);
@@ -1189,18 +747,10 @@ function typeLine(element, text, key) {
     }
   }, 16);
 }
-
 /* ---- scenario story surfaces ------------------------------------------ */
 
-function itemHolderLabel(holder) {
-  if (!holder) return "";
-  if (String(holder).toLowerCase() === "user") return "with you";
-  const id = asCastId(holder);
-  if (id && CAST[id]) return `with ${firstNameOf(id)}`;
-  return `with ${holder}`;
-}
 
-function renderScenarioItem(data) {
+export function renderScenarioItem(data) {
   const box = $("#scene-item");
   if (!box) return;
   const item = scenarioItem(data);
@@ -1227,7 +777,7 @@ function renderScenarioItem(data) {
   if (item.id) box.title = `Item · ${item.id}`;
 }
 
-function renderScenarioOpening(scenario) {
+export function renderScenarioOpening(scenario) {
   const box = $("#scenario-opening");
   if (!box) return;
   const opening = scenario && scenario.opening ? scenario.opening : null;
@@ -1246,13 +796,12 @@ function renderScenarioOpening(scenario) {
   $("#scenario-opening-title").textContent = title || scenario.title || "Opening";
   $("#scenario-opening-line").textContent = line || "";
 }
-
 /* ---- memory → outfit card --------------------------------------------- */
 
 let outfitReturnFocus = null;
 let endingReturnFocus = null;
 
-function findScenarioBelief(data, holder, key) {
+export function findScenarioBelief(data, holder, key) {
   if (!key) return null;
   const scenario = currentScenario(data);
   const beliefs = scenario && Array.isArray(scenario.beliefs) ? scenario.beliefs : [];
@@ -1268,7 +817,7 @@ function findScenarioBelief(data, holder, key) {
   return cell ? { proposition: cell.proposition, key, holder, confidence: cell.confidence, source: cell.source } : null;
 }
 
-function openOverlay(modal) {
+export function openOverlay(modal) {
   if (!modal) return;
   closePhone();
   closeProfile();
@@ -1280,7 +829,7 @@ function openOverlay(modal) {
   document.body.classList.add("modal-open");
 }
 
-function closeOverlay(modal) {
+export function closeOverlay(modal) {
   if (!modal || modal.hidden) return;
   modal.hidden = true;
   const app = $(".app");
@@ -1288,7 +837,7 @@ function closeOverlay(modal) {
   document.body.classList.remove("modal-open");
 }
 
-function openOutfit(id) {
+export function openOutfit(id) {
   const cast = CAST[id];
   const data = state.data || {};
   const outfit = outfitFor(data, id);
@@ -1360,22 +909,21 @@ function openOutfit(id) {
   $("#outfit-close").focus();
 }
 
-function closeOutfit() {
+export function closeOutfit() {
   const modal = $("#outfit-modal");
   if (!modal || modal.hidden) return;
   closeOverlay(modal);
   if (outfitReturnFocus && typeof outfitReturnFocus.focus === "function") outfitReturnFocus.focus();
   outfitReturnFocus = null;
 }
-
 /* ---- ending card ------------------------------------------------------ */
 
-const ENDING_ART = {
+export const ENDING_ART = {
   good: "/static/assets/scenes/ending-good.jpg",
   bad: "/static/assets/scenes/ending-bad.jpg",
 };
 
-function normalizeEnding(raw) {
+export function normalizeEnding(raw) {
   if (!raw) return null;
   if (typeof raw === "string") {
     return {
@@ -1397,7 +945,7 @@ function normalizeEnding(raw) {
   };
 }
 
-function endingEvidenceList(evidence) {
+export function endingEvidenceList(evidence) {
   if (Array.isArray(evidence)) return evidence;
   if (evidence && typeof evidence === "object") {
     return Object.entries(evidence).map(([key, value]) => `${key.replaceAll("_", " ")}: ${value}`);
@@ -1405,7 +953,7 @@ function endingEvidenceList(evidence) {
   return evidence ? [String(evidence)] : [];
 }
 
-function showEnding(rawEnding, evidence, options = {}) {
+export function showEnding(rawEnding, evidence, options = {}) {
   const ending = normalizeEnding(rawEnding);
   if (!ending) return;
   const modal = $("#ending-modal");
@@ -1466,7 +1014,7 @@ function showEnding(rawEnding, evidence, options = {}) {
   $("#ending-close").focus();
 }
 
-function closeEnding() {
+export function closeEnding() {
   const modal = $("#ending-modal");
   if (!modal || modal.hidden) return;
   closeOverlay(modal);
@@ -1474,12 +1022,12 @@ function closeEnding() {
   endingReturnFocus = null;
 }
 
-function scenarioEndingIsFork(scenario) {
+export function scenarioEndingIsFork(scenario) {
   const id = String((scenario && scenario.id) || "").toLowerCase();
   return /^w5-(good|bad)/.test(id);
 }
 
-async function evaluateEnding() {
+export async function evaluateEnding() {
   const buttons = [$("#scene-ending"), $("#worlds-evaluate")];
   buttons.forEach((button) => { if (button) button.disabled = true; });
   state.worlds.status = "Evaluating the ending with the world engine…";
@@ -1505,7 +1053,7 @@ async function evaluateEnding() {
   }
 }
 
-function renderStory(data) {
+export function renderStory(data) {
   data = data || {};
   const beat = currentBeat(data);
   if (state.beatId && beat && state.beatId !== beat.id) {
@@ -1616,10 +1164,9 @@ function renderStory(data) {
   renderArc(data);
   renderPhone(data);
 }
-
 /* ---- story HUD + safety ----------------------------------------------- */
 
-function renderStoryHud(data) {
+export function renderStoryHud(data) {
   data = data || {};
   const hud = $("#story-hud");
   if (!hud) return;
@@ -1685,13 +1232,13 @@ function renderStoryHud(data) {
   }
 }
 
-function renderSafetyNotice() {
+export function renderSafetyNotice() {
   const box = $("#scene-pause");
   if (!box) return;
   box.hidden = !state.safety.paused;
 }
 
-function renderSafety() {
+export function renderSafety() {
   const badge = $("#safety-badge");
   const button = $("#safety-toggle");
   const status = $("#safety-status");
@@ -1715,7 +1262,7 @@ function renderSafety() {
   renderSafetyNotice();
 }
 
-async function setSafety(paused) {
+export async function setSafety(paused) {
   if (state.safety.busy) return;
   const target = Boolean(paused);
   state.safety.busy = true;
@@ -1747,7 +1294,7 @@ async function setSafety(paused) {
   }
 }
 
-function syncSafety(data) {
+export function syncSafety(data) {
   if (!data) return;
   let value = null;
   if (data.safety && typeof data.safety === "object"
@@ -1766,16 +1313,15 @@ function syncSafety(data) {
       : "Running. New lines are allowed.";
   }
 }
-
-function isSpeechBeat(entry) {
+export function isSpeechBeat(entry) {
   return SPEECH_MODES.has(entry.mode) && !entry.chorus && !entry.silent && !entry.boundary;
 }
 
-function optimisticEntryKey(turn, position) {
+export function optimisticEntryKey(turn, position) {
   return `opt-${turn.id}-${position}`;
 }
 
-function sameOptimisticBeat(entry, turn) {
+export function sameOptimisticBeat(entry, turn) {
   if (!turn || turn.source !== "optimistic") return false;
   if (entry.turnId && entry.turnId === turn.id) return true;
   if (entry.boundary && turn.boundary) {
@@ -1790,13 +1336,13 @@ function sameOptimisticBeat(entry, turn) {
     normalizeText(line.text) === key && (!entry.castId || line.character === entry.castId));
 }
 
-function hiddenByPlayback(entry, turn) {
+export function hiddenByPlayback(entry, turn) {
   if (!turn || turn.source !== "events") return false;
   if (entry.turnId !== turn.id || entry.isUser) return false;
   return entry.beatIndex >= turn.index;
 }
 
-function transcriptSignature(rows, turn, absent) {
+export function transcriptSignature(rows, turn, absent) {
   const rowSig = rows.map((entry) => [
     entry.key, entry.mode || "", entry.private ? "p" : "", entry.boundary ? "b" : "",
     entry.silent ? "s" : "", entry.chorus ? "c" : "", entry.direction ? "d" : "",
@@ -1812,7 +1358,7 @@ function transcriptSignature(rows, turn, absent) {
   return `${rowSig}#${turnSig}#${lineSig}#${[...absent].sort().join(",")}`;
 }
 
-function currentBeatKey() {
+export function currentBeatKey() {
   const turn = state.turn;
   if (!turn || turn.done || turn.index <= 0) return null;
   const line = (turn.lines || [])[turn.index - 1];
@@ -1821,7 +1367,7 @@ function currentBeatKey() {
   return line.key || null;
 }
 
-function avatarElement(entry, absent) {
+export function avatarElement(entry, absent) {
   const span = document.createElement("span");
   span.className = "speaker-avatar";
   if (!entry.castId) {
@@ -1843,7 +1389,7 @@ function avatarElement(entry, absent) {
   return span;
 }
 
-function turnChip(label, kind, title) {
+export function turnChip(label, kind, title) {
   const chip = document.createElement("span");
   chip.className = `turn-chip ${kind || ""}`.trim();
   chip.textContent = label;
@@ -1851,7 +1397,7 @@ function turnChip(label, kind, title) {
   return chip;
 }
 
-function speakerPlate(entry, absent) {
+export function speakerPlate(entry, absent) {
   const wrap = document.createElement("div");
   wrap.className = "turn-speaker";
   wrap.appendChild(avatarElement(entry, absent));
@@ -1897,7 +1443,7 @@ function speakerPlate(entry, absent) {
   return wrap;
 }
 
-function entryRow(entry, absent, activeKey) {
+export function entryRow(entry, absent, activeKey) {
   const row = document.createElement("div");
   row.className = "turn-entry";
   row.dataset.key = entry.key;
@@ -1979,7 +1525,7 @@ function entryRow(entry, absent, activeKey) {
   return row;
 }
 
-function chorusRow(group, absent) {
+export function chorusRow(group, absent) {
   const row = document.createElement("div");
   row.className = "turn-entry is-chorus";
   row.dataset.key = group[0].key;
@@ -2018,8 +1564,7 @@ function chorusRow(group, absent) {
   row.append(names, body);
   return row;
 }
-
-function renderTranscript(data, absent) {
+export function renderTranscript(data, absent) {
   const host = $("#turn-log");
   if (!host) return;
   const turn = state.turn;
@@ -2126,7 +1671,7 @@ function renderTranscript(data, absent) {
   if (nearBottom || activeKey) host.scrollTop = host.scrollHeight;
 }
 
-function renderBacklog(data) {
+export function renderBacklog(data) {
   const rail = $("#scene-rail");
   if (!rail) return;
   const entries = buildEventEntries(data)
@@ -2159,7 +1704,7 @@ function renderBacklog(data) {
   });
 }
 
-function renderSceneCast(ids, absent) {
+export function renderSceneCast(ids, absent) {
   const row = $("#scene-cast");
   if (!row) return;
   const list = ids.length ? ids : ORDER.slice();
@@ -2219,7 +1764,7 @@ function renderSceneCast(ids, absent) {
   }
 }
 
-function renderChoices(beat, present) {
+export function renderChoices(beat, present) {
   const box = $("#scene-choices");
   if (!box) return;
   const scenario = currentScenario(state.data);
@@ -2251,7 +1796,7 @@ function renderChoices(beat, present) {
   box.hidden = choices.length === 0;
 }
 
-function renderSayBar(beatCast, present, absent) {
+export function renderSayBar(beatCast, present, absent) {
   const toggle = $("#whisper-toggle");
   if (toggle) toggle.checked = Boolean(state.whisper);
   const form = $("#scene-say-form");
@@ -2302,7 +1847,7 @@ function renderSayBar(beatCast, present, absent) {
   if (send) send.disabled = state.group.sending || state.safety.paused || !present.length;
 }
 
-function renderBoundary(data, absent) {
+export function renderBoundary(data, absent) {
   const box = $("#scene-boundary");
   const scene = $(".scene");
   if (!box) return;
@@ -2336,8 +1881,7 @@ function renderBoundary(data, absent) {
   box.append(title, text, note);
   if (scene) scene.classList.toggle("has-boundary", Boolean(id && absent.has(id)));
 }
-
-async function sendScene(text, options = {}) {
+export async function sendScene(text, options = {}) {
   text = String(text || "").trim();
   if (!text || state.group.sending) return;
   if (state.safety.paused) {
@@ -2464,8 +2008,7 @@ async function sendScene(text, options = {}) {
     if (state.data) renderStory(state.data);
   }
 }
-
-function renderHero(data) {
+export function renderHero(data) {
   const row = (data.matrix || []).find((item) => item.key === SECRET_KEY);
   const holders = row ? Object.entries(row.holders) : [];
   const names = Object.fromEntries((data.characters || []).map((c) => [c.id, firstName(c.name)]));
@@ -2501,42 +2044,10 @@ function renderHero(data) {
     host.appendChild(chip);
   });
   $$(".secret-hearts span").forEach((heart, index) => {
-    heart.textContent = index < holders.length ? "♥" : "♡";
+    heart.textContent = heartGlyph(index < holders.length);
   });
 }
-
-function affinityFor(data, id) {
-  const edge = (data.relationships || []).find((e) => e.a === id && e.b === "user");
-  if (!edge) return 0.4;
-  return Math.max(0, Math.min(1, (edge.trust + edge.closeness) / 2 - edge.tension / 2));
-}
-
-function resetPhoneFor(id) {
-  /* The phone follows the selected cast member. Without this it keeps the
-     character it was last opened for, so picking Mia still shows Alice's
-     lock card and the Add friend button acts on the wrong person. */
-  if (state.phone.character && state.phone.character !== id) {
-    state.phone.character = id;
-    state.phone.loadedFor = null;
-    state.phone.loadingFor = null;
-    state.phone.messages = [];
-    state.phone.hasMore = false;
-    state.phone.oldestId = null;
-    state.phone.error = "";
-  }
-}
-
-function selectCast(id) {
-  if (!CAST[id]) return;
-  state.selected = id;
-  resetPhoneFor(id);
-  if (state.data) {
-    renderStory(state.data);
-    renderPhone(state.data);
-  }
-}
-
-function makeCastAction(label, onClick) {
+export function makeCastAction(label, onClick) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "cast-action";
@@ -2548,7 +2059,7 @@ function makeCastAction(label, onClick) {
   return button;
 }
 
-function renderCast(data) {
+export function renderCast(data) {
   const grid = $("#cast-grid");
   const sig = ORDER.map((id) => `${id}:${Math.round(affinityFor(data, id) * 5)}:${isFriend(data, id)}:${outfitArtFor(data, id) || castArtFor(data, id) || ""}`).join("|") + `|${state.selected}`;
   if (grid.dataset.sig === sig) return;
@@ -2612,8 +2123,9 @@ function renderCast(data) {
     foot.className = "cast-foot";
     const hearts = document.createElement("span");
     hearts.className = "cast-hearts";
-    const filled = Math.round(affinityFor(data, id) * 5);
-    hearts.textContent = "♥".repeat(filled) + "♡".repeat(5 - filled);
+    const affinity = affinityFor(data, id);
+    const filled = Math.round(affinity * 5);
+    hearts.textContent = heartStrip(filled);
     hearts.setAttribute("aria-label", `${filled} of 5 affinity`);
     foot.appendChild(hearts);
 
@@ -2641,350 +2153,9 @@ function renderCast(data) {
     grid.appendChild(card);
   });
 }
-
-/* ---- phone DM --------------------------------------------------------- */
-
-function renderPhone(data) {
-  if (state.phone.sending) return;
-  const targetId = phoneTarget();
-  const cast = CAST[targetId] || CAST[ORDER[0]];
-  if (!cast) return;
-  state.phone.character = cast.id;
-  const friend = isFriend(data, cast.id);
-  const phone = $(".phone");
-  if (phone) phone.classList.toggle("is-locked", !friend);
-  const input = $("#phone-input");
-  const send = $("#phone-send");
-  if (input) {
-    input.disabled = !friend || state.phone.sending || state.safety.paused;
-    input.placeholder = state.safety.paused
-      ? "Scene paused"
-      : (friend ? `Message ${firstName(cast.name)}…` : "Add as a friend to chat");
-  }
-  if (send) send.disabled = !friend || state.phone.sending || state.safety.paused;
-  const avatar = $("#phone-avatar");
-  avatar.onerror = () => {
-    avatar.onerror = null;
-    avatar.src = `/static/assets/portraits/${cast.id}-avatar.svg`;
-  };
-  avatar.src = cast.avatar;
-  avatar.alt = `${cast.name} avatar`;
-  $("#phone-name").textContent = cast.name;
-  $("#phone-mood").textContent = cast.mood;
-  $("#phone-open").href = `${MATTERMOST_BASE}/switch/channels/world`;
-  const clock = data.clock && data.clock.now
-    ? new Date(data.clock.now).toLocaleTimeString("en-GB", {
-        timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit",
-      })
-    : "--:--";
-  $("#phone-time").textContent = clock;
-
-  if (!friend) {
-    $("#phone-mood").textContent = "not a friend yet";
-    state.phone.messages = [];
-    state.phone.hasMore = false;
-    state.phone.error = "";
-    paintPhone(cast);
-    return;
-  }
-  $("#phone-mood").textContent = cast.mood;
-
-  if (state.phone.character !== cast.id || state.phone.loadedFor !== cast.id) {
-    state.phone.messages = [];
-    state.phone.hasMore = false;
-    state.phone.oldestId = null;
-    state.phone.error = "";
-    paintPhone(cast);
-    loadPhoneHistory(cast.id);
-    return;
-  }
-  paintPhone(cast);
-}
-
-function paintPhone(cast) {
-  const thread = $("#phone-thread");
-  if (!thread) return;
-  const friend = isFriend(state.data, cast.id);
-  const sig = [
-    cast.id,
-    friend,
-    state.phone.loading,
-    state.phone.hasMore,
-    state.phone.error,
-    state.phone.messages.map((message) => message.id).join(","),
-  ].join("|");
-  if (state.phone.paintSig === sig) return;
-  state.phone.paintSig = sig;
-  const atBottom = thread.scrollHeight - thread.scrollTop - thread.clientHeight < 48;
-  const previousTop = thread.scrollTop;
-  thread.replaceChildren();
-
-  const divider = (label) => {
-    const node = document.createElement("div");
-    node.className = "phone-divider";
-    node.textContent = label;
-    thread.appendChild(node);
-  };
-  const bubbleFor = (text, role, label) => {
-    const bubble = document.createElement("div");
-    bubble.className = `phone-bubble ${role}`;
-    const who = document.createElement("span");
-    who.className = "phone-who";
-    who.textContent = label;
-    bubble.appendChild(who);
-    bubble.appendChild(document.createTextNode(text));
-    thread.appendChild(bubble);
-  };
-
-  if (!friend) {
-    const lock = document.createElement("div");
-    lock.className = "phone-lock";
-    const icon = document.createElement("div");
-    icon.className = "phone-lock-icon";
-    icon.textContent = "◇";
-    lock.appendChild(icon);
-    const title = document.createElement("strong");
-    title.textContent = `You haven't added ${firstName(cast.name)} yet.`;
-    lock.appendChild(title);
-    const note = document.createElement("p");
-    note.textContent = "Phone chat unlocks after you add her as a friend. Talk to her in the scene first.";
-    lock.appendChild(note);
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "btn primary";
-    button.textContent = `Add ${firstName(cast.name)} as a friend`;
-    button.addEventListener("click", () => addFriend(cast.id));
-    lock.appendChild(button);
-    thread.appendChild(lock);
-    return;
-  }
-
-  if (state.phone.error) {
-    const failed = document.createElement("div");
-    failed.className = "phone-bubble character";
-    const label = document.createElement("span");
-    label.className = "phone-who";
-    label.textContent = "System";
-    failed.appendChild(label);
-    failed.appendChild(document.createTextNode(state.phone.error));
-    thread.appendChild(failed);
-    return;
-  }
-  if (state.phone.loading && !state.phone.messages.length) {
-    const loading = document.createElement("div");
-    loading.className = "phone-empty";
-    loading.textContent = "Loading history…";
-    thread.appendChild(loading);
-    return;
-  }
-  if (state.phone.hasMore) {
-    const older = document.createElement("button");
-    older.type = "button";
-    older.className = "phone-older";
-    older.textContent = "Load older";
-    older.disabled = state.phone.loading;
-    older.addEventListener("click", () => {
-      loadPhoneHistory(cast.id, state.phone.oldestId, true);
-    });
-    thread.appendChild(older);
-  }
-  if (!state.phone.messages.length) {
-    bubbleFor(cast.quote, "character", firstName(cast.name));
-    thread.scrollTop = thread.scrollHeight;
-    return;
-  }
-
-  let lastKind = null;
-  state.phone.messages.forEach((message) => {
-    if (message.kind !== lastKind) {
-      divider(message.kind === "dm" ? "Private DM" : "Earlier in the scene");
-      lastKind = message.kind;
-    }
-    bubbleFor(
-      message.text,
-      message.role === "user" ? "user" : "character",
-      message.role === "user" ? "You" : firstName(cast.name),
-    );
-  });
-  thread.scrollTop = thread.scrollHeight;
-}
-
-async function addFriend(character) {
-  if (!character) return;
-  try {
-    await api(`/api/friends/${encodeURIComponent(character)}`, { method: "POST" });
-    state.phone.character = character;
-    state.phone.loadedFor = null;
-    state.phone.messages = [];
-    state.phone.error = "";
-    await refresh();
-    openPhone(character);
-  } catch (error) {
-    const status = $("#scene-status");
-    if (status) status.textContent = `Could not add ${character}: ${error.message}`;
-  }
-}
-
-function openPhone(character) {
-  const id = character || phoneTarget();
-  if (!CAST[id]) return;
-  state.phone.character = id;
-  if (!isFriend(state.data, id)) {
-    state.phone.loadedFor = null;
-    if (state.data) renderPhone(state.data);
-  } else {
-    if (state.phone.loadedFor !== id) {
-      state.phone.loadedFor = null;
-      loadPhoneHistory(id);
-    }
-    if (state.data) renderPhone(state.data);
-  }
-  if (window.matchMedia("(max-width: 1360px)").matches) {
-    $(".story-phone").classList.add("is-open");
-  } else {
-    $(".story-phone").scrollIntoView({ behavior: "smooth", block: "center" });
-  }
-  if (isFriend(state.data, id)) $("#phone-input").focus();
-}
-
-function closePhone() {
-  const phone = $(".story-phone");
-  if (phone) phone.classList.remove("is-open");
-}
-
-let phoneHistorySeq = 0;
-
-async function loadPhoneHistory(character, beforeId = null, prepend = false) {
-  if (!character || state.phone.sending) return;
-  if (state.phone.loading && state.phone.loadingFor === character) return;
-  if (state.phone.character && state.phone.character !== character) return;
-  if (!isFriend(state.data, character)) return;
-  const seq = ++phoneHistorySeq;
-  state.phone.loading = true;
-  state.phone.loadingFor = character;
-  const thread = $("#phone-thread");
-  const previousHeight = thread ? thread.scrollHeight : 0;
-  const cast = CAST[character];
-  if (cast) paintPhone(cast);
-  try {
-    const query = `/api/dm/${encodeURIComponent(character)}?limit=100${beforeId ? `&before_id=${beforeId}` : ""}`;
-    const result = await api(query);
-    if (seq !== phoneHistorySeq || state.phone.character !== character) return;
-    const messages = result.messages || [];
-    if (prepend) {
-      state.phone.messages = [...messages, ...state.phone.messages];
-    } else {
-      state.phone.messages = messages;
-    }
-    state.phone.character = character;
-    state.phone.loadedFor = character;
-    state.phone.error = "";
-    state.phone.hasMore = Boolean(result.has_more);
-    state.phone.oldestId = result.oldest_id || null;
-    if (cast) paintPhone(cast);
-    if (prepend && thread) {
-      thread.scrollTop = thread.scrollHeight - previousHeight;
-    }
-  } catch (error) {
-    if (seq !== phoneHistorySeq || state.phone.character !== character) return;
-    state.phone.error = `History unavailable: ${error.message}`;
-    state.phone.loadedFor = character;
-  } finally {
-    if (seq === phoneHistorySeq) {
-      state.phone.loading = false;
-      state.phone.loadingFor = null;
-      if (state.phone.character === character && cast) paintPhone(cast);
-      if (state.phone.character === character && prepend && thread) {
-        thread.scrollTop = thread.scrollHeight - previousHeight;
-      }
-    }
-  }
-}
-
-async function sendPhone(event) {
-  event.preventDefault();
-  const input = $("#phone-input");
-  const send = $("#phone-send");
-  const typing = $("#phone-typing");
-  const message = input.value.trim();
-  if (!message) return;
-  const character = phoneTarget();
-  if (!isFriend(state.data, character)) {
-    addFriend(character);
-    return;
-  }
-  const cast = CAST[character];
-  const thread = $("#phone-thread");
-  input.value = "";
-  input.disabled = true;
-  send.disabled = true;
-  typing.hidden = false;
-  state.phone.sending = true;
-
-  const bubble = document.createElement("div");
-  bubble.className = "phone-bubble user";
-  const who = document.createElement("span");
-  who.className = "phone-who";
-  who.textContent = "You";
-  bubble.appendChild(who);
-  bubble.appendChild(document.createTextNode(message));
-  thread.appendChild(bubble);
-  thread.scrollTop = thread.scrollHeight;
-
-  try {
-    await api("/api/dm", {
-      method: "POST",
-      body: JSON.stringify({ character, message }),
-    });
-    state.phone.sending = false;
-    if (phoneTarget() === character) await loadPhoneHistory(character);
-    await refresh();
-  } catch (error) {
-    state.phone.sending = false;
-    const paused = error.status === 423;
-    if (paused) {
-      state.safety.paused = true;
-      state.safety.ready = true;
-      state.safety.status = "Paused. New scene and DM lines are on hold until you resume.";
-      renderSafety();
-    }
-    /* The optimistic bubble never entered state.phone.messages, so remove it
-       instead of leaving it in a thread the next repaint will clear. */
-    bubble.remove();
-    if (phoneTarget() === character) {
-      if (!paused) input.value = message;
-      const failed = document.createElement("div");
-      failed.className = "phone-bubble character";
-      const label = document.createElement("span");
-      label.className = "phone-who";
-      label.textContent = "System";
-      failed.appendChild(label);
-      failed.appendChild(document.createTextNode(paused
-        ? "The scene is paused. This message is on hold — resume in Studio when you choose."
-        : `The line went quiet: ${error.message}`));
-      thread.appendChild(failed);
-      thread.scrollTop = thread.scrollHeight;
-    } else {
-      const status = $("#scene-status");
-      if (status) status.textContent = paused
-        ? "A DM is on hold because the scene is paused."
-        : `The line to ${cast ? firstName(cast.name) : "her"} went quiet: ${error.message}`;
-    }
-  } finally {
-    state.phone.sending = false;
-    typing.hidden = true;
-    const current = phoneTarget();
-    const friend = isFriend(state.data, current);
-    input.disabled = !friend || state.safety.paused;
-    send.disabled = !friend || state.safety.paused;
-    if (friend && !state.safety.paused) input.focus();
-    if (!CAST[current]) input.placeholder = "Message…";
-  }
-}
-
 /* ---- authored arc ----------------------------------------------------- */
 
-function renderArc(data) {
+export function renderArc(data) {
   const canon = data.canon || {};
   const beats = canon.beats || [];
   const branchEvent = data.branch || [...(data.events || [])].reverse().find((event) => event.kind === "branch");
@@ -3042,17 +2213,16 @@ function renderArc(data) {
     list.appendChild(item);
   });
 }
-
 /* ---- worlds ----------------------------------------------------------- */
 
-function castIdsFromScenario(scenario) {
+export function castIdsFromScenario(scenario) {
   const list = scenario && Array.isArray(scenario.cast) ? scenario.cast : [];
   return list
     .map((value) => asCastId(value && typeof value === "object" ? (value.id || value.name) : value))
     .filter((id) => id && CAST[id]);
 }
 
-function scenarioEndingMeta(ending) {
+export function scenarioEndingMeta(ending) {
   if (!ending) return null;
   const raw = typeof ending === "string"
     ? { label: ending.replace(/[-_]+/g, " "), tone: ending }
@@ -3067,7 +2237,7 @@ function scenarioEndingMeta(ending) {
   };
 }
 
-function scenarioCard(scenario) {
+export function scenarioCard(scenario) {
   const current = currentScenario(state.data);
   const isCurrent = Boolean(current && current.id === scenario.id);
   const ending = scenarioEndingMeta(scenario.ending);
@@ -3150,7 +2320,7 @@ function scenarioCard(scenario) {
   return card;
 }
 
-function renderWorlds() {
+export function renderWorlds() {
   renderTakes();
   const current = currentScenario(state.data);
   const name = $("#worlds-current-name");
@@ -3236,7 +2406,7 @@ function renderWorlds() {
   });
 }
 
-async function loadScenarios(force = false) {
+export async function loadScenarios(force = false) {
   if (state.worlds.loading) return;
   if (!force && state.worlds.scenarios && Date.now() - state.worlds.fetchedAt < 5000) {
     renderWorlds();
@@ -3259,7 +2429,7 @@ async function loadScenarios(force = false) {
 
 /* A switch is a reset + seed: clear the dashboard's phone thread, selected
    cast and turn playback before the next state poll repaints the world. */
-function clearScenarioRuntime(scenario) {
+export function clearScenarioRuntime(scenario) {
   state.turn = null;
   state.groupStatus = "";
   state.beatId = null;
@@ -3275,7 +2445,7 @@ function clearScenarioRuntime(scenario) {
   state.phone.loadedFor = null;
   state.phone.error = "";
   state.phone.paintSig = null;
-  phoneHistorySeq += 1;
+  resetPhoneHistorySeq();
   cancelTyping();
   closePhone();
   closeProfile();
@@ -3293,7 +2463,7 @@ function clearScenarioRuntime(scenario) {
   state.selected = ids[0] || ORDER[0];
 }
 
-async function loadScenario(id, options = {}) {
+export async function loadScenario(id, options = {}) {
   if (!id || state.worlds.loadingScenario) return false;
   let ok = false;
   state.worlds.loadingScenario = id;
@@ -3344,7 +2514,7 @@ async function loadScenario(id, options = {}) {
   return ok;
 }
 
-async function resetCurrentScenario() {
+export async function resetCurrentScenario() {
   if (state.worlds.loadingScenario) return;
   const scenario = currentScenario(state.data);
   const label = scenario ? (scenario.title || scenario.id) : "the base canon";
@@ -3372,10 +2542,9 @@ async function resetCurrentScenario() {
   }
   renderWorlds();
 }
-
 /* ---- takes shelf ------------------------------------------------------ */
 
-function takeScenarioId(take) {
+export function takeScenarioId(take) {
   if (!take) return "";
   if (typeof take.scenario === "string") return take.scenario;
   if (take.scenario && typeof take.scenario === "object") {
@@ -3384,7 +2553,7 @@ function takeScenarioId(take) {
   return take.scenario_id || "";
 }
 
-function takeCard(take) {
+export function takeCard(take) {
   const current = state.takes.current;
   const isCurrent = Boolean(current && current.take
     && ((current.take.id && current.take.id === take.id)
@@ -3458,7 +2627,7 @@ function takeCard(take) {
   return card;
 }
 
-function renderTakes() {
+export function renderTakes() {
   const info = currentTakeInfo(state.data);
   const current = state.takes.current;
   const take = info.take;
@@ -3562,7 +2731,7 @@ function renderTakes() {
   });
 }
 
-async function loadTakes(force = false) {
+export async function loadTakes(force = false) {
   if (state.takes.loading) return;
   if (!force && state.takes.list && Date.now() - state.takes.fetchedAt < 5000) {
     renderTakes();
@@ -3584,7 +2753,7 @@ async function loadTakes(force = false) {
   }
 }
 
-async function loadTakeCurrent(force = false) {
+export async function loadTakeCurrent(force = false) {
   if (!force && state.takes.probed
     && Date.now() - state.takes.currentFetchedAt < 5000) return;
   try {
@@ -3611,7 +2780,7 @@ async function loadTakeCurrent(force = false) {
   }
 }
 
-async function loadTake(id) {
+export async function loadTake(id) {
   if (!id || state.takes.loadingTake) return;
   if (state.safety.paused) {
     state.takes.status = "The scene is paused. Resume in Studio before loading a take.";
@@ -3653,7 +2822,7 @@ async function loadTake(id) {
   }
 }
 
-async function advanceTake() {
+export async function advanceTake() {
   if (state.takes.advancing) return;
   const gate = takeAdvanceState(state.data);
   if (!gate.ok) {
@@ -3726,1211 +2895,10 @@ async function advanceTake() {
     renderTakes();
   }
 }
-
-/* ---- world tree ------------------------------------------------------- */
-
-function svgEl(name, attrs = {}) {
-  const node = document.createElementNS(SVG_NS, name);
-  Object.entries(attrs).forEach(([key, value]) => {
-    if (value != null) node.setAttribute(key, String(value));
-  });
-  return node;
-}
-
-function addText(parent, x, y, text, cls) {
-  const node = svgEl("text", { x, y, class: cls });
-  node.textContent = text;
-  parent.appendChild(node);
-  return node;
-}
-
-function edgeClass(trust) {
-  if (trust >= 0.7) return "is-high";
-  if (trust >= 0.4) return "is-mid";
-  return "is-low";
-}
-
-function connectionLabelFor(affinity, tension) {
-  if (tension > 0.55) return "rival";
-  if (affinity >= 0.7) return "close";
-  if (affinity >= 0.42) return "steady";
-  if (affinity >= 0.24) return "strained";
-  return "distant";
-}
-
-function normalizeConnection(raw) {
-  if (!raw) return null;
-  const a = asCastId(raw.a || raw.from || raw.source || raw.character_a);
-  const b = asCastId(raw.b || raw.to || raw.target || raw.character_b);
-  const affinityValue = raw.affinity !== undefined
-    ? raw.affinity
-    : (raw.closeness !== undefined ? raw.closeness : raw.trust);
-  const affinity = Number(affinityValue);
-  const tension = Number(raw.tension);
-  return {
-    a,
-    b,
-    affinity: Number.isFinite(affinity) ? Math.max(0, Math.min(1, affinity)) : 0,
-    tension: Number.isFinite(tension) ? Math.max(0, Math.min(1, tension)) : 0,
-    label: String(raw.label || "").toLowerCase() || connectionLabelFor(affinity, tension),
-    shared_secret_count: Number(raw.shared_secret_count || raw.secrets || 0),
-  };
-}
-
-function renderCastConnectionsLayer(layer, positions, connections) {
-  const seen = new Set();
-  let drawn = 0;
-  (Array.isArray(connections) ? connections : []).forEach((raw) => {
-    const conn = normalizeConnection(raw);
-    if (!conn || !conn.a || !conn.b || conn.a === conn.b) return;
-    if (!CAST[conn.a] || !CAST[conn.b]) return;
-    const key = [conn.a, conn.b].sort().join("|");
-    if (seen.has(key)) return;
-    seen.add(key);
-    const from = positions[conn.a];
-    const to = positions[conn.b];
-    if (!from || !to) return;
-    const midX = (from.x + to.x) / 2;
-    const midY = (from.y + to.y) / 2;
-    const lift = Math.abs(from.x - to.x) > 220 ? 70 : 112;
-    const path = svgEl("path", {
-      d: `M ${from.x} ${from.y} Q ${midX} ${midY - lift} ${to.x} ${to.y}`,
-      class: `tree-edge ${edgeClass(conn.affinity)}`,
-      "stroke-width": 2 + conn.affinity * 6,
-      "stroke-dasharray": conn.tension > 0.35 ? "6 7" : null,
-      tabindex: "0",
-      role: "img",
-      "aria-label": `${firstNameOf(conn.a)} and ${firstNameOf(conn.b)}: ${conn.label}, affinity ${conn.affinity.toFixed(2)}, tension ${conn.tension.toFixed(2)}`,
-    });
-    bindTip(path, [
-      { value: conn.affinity.toFixed(2), label: "affinity" },
-      { label: "edge", sub: `${firstNameOf(conn.a)} ↔ ${firstNameOf(conn.b)}` },
-      { label: "label", sub: conn.label },
-      { label: "tension", sub: conn.tension.toFixed(2) },
-      { label: "shared secrets", sub: String(conn.shared_secret_count || 0) },
-    ]);
-    layer.appendChild(path);
-    addText(layer, midX, midY - lift * 0.45, conn.label, "tree-sub");
-    drawn += 1;
-  });
-  if (!drawn) addText(layer, 500, 300, "No cast connections reported yet", "tree-sub");
-}
-
-function renderTree(data) {
-  const lens = state.treeLens === "cast" ? "cast" : "user";
-  const connections = scenarioConnections(data);
-  const svg = $("#world-tree");
-  svg.replaceChildren();
-  const defs = svgEl("defs");
-  svg.appendChild(defs);
-
-  const user = { x: 500, y: 540 };
-  const positions = {
-    alice: { x: 160, y: 320 },
-    emily: { x: 390, y: 225 },
-    sophia: { x: 610, y: 225 },
-    mia: { x: 840, y: 320 },
-  };
-  const secret = { x: 500, y: 86 };
-
-  ORDER.forEach((id) => {
-    const clip = svgEl("clipPath", { id: `clip-${id}` });
-    const circle = svgEl("circle", { cx: positions[id].x, cy: positions[id].y, r: 52 });
-    clip.appendChild(circle);
-    defs.appendChild(clip);
-  });
-  const glow = svgEl("filter", { id: "node-glow", x: "-50%", y: "-50%", width: "200%", height: "200%" });
-  const blur = svgEl("feGaussianBlur", { stdDeviation: "10" });
-  glow.appendChild(blur);
-  defs.appendChild(glow);
-
-  const row = (data.matrix || []).find((item) => item.key === SECRET_KEY);
-  const holders = row ? row.holders : {};
-
-  const edges = svgEl("g");
-  svg.appendChild(edges);
-  if (lens === "cast") {
-    renderCastConnectionsLayer(edges, positions, connections);
-  } else {
-    ORDER.forEach((id) => {
-      const pos = positions[id];
-      const edge = (data.relationships || []).find((e) => e.a === id && e.b === "user") || {
-        trust: 0.4, closeness: 0.4, tension: 0,
-      };
-      const trust = Number(edge.trust);
-      const closeness = Number(edge.closeness);
-      const tension = Number(edge.tension);
-      const path = svgEl("path", {
-        d: `M ${user.x} ${user.y} C ${user.x} ${user.y - 120}, ${pos.x} ${pos.y + 170}, ${pos.x} ${pos.y + 54}`,
-        class: `tree-edge ${edgeClass(trust)}`,
-        "stroke-width": 2 + closeness * 6,
-        "stroke-dasharray": tension > 0.35 ? "6 7" : null,
-        tabindex: "0",
-        role: "img",
-        "aria-label": `${firstName(CAST[id].name)} to you: trust ${trust.toFixed(2)}, closeness ${closeness.toFixed(2)}, tension ${tension.toFixed(2)}`,
-      });
-      bindTip(path, [
-        { value: trust.toFixed(2), label: "trust" },
-        { label: "edge", sub: `${firstName(CAST[id].name)} → you` },
-        { label: "closeness", sub: closeness.toFixed(2) },
-        { label: "tension", sub: tension.toFixed(2) },
-      ]);
-      edges.appendChild(path);
-    });
-
-    Object.entries(holders).forEach(([id, cell]) => {
-      const pos = positions[id];
-      if (!pos) return;
-      const path = svgEl("path", {
-        d: `M ${secret.x} ${secret.y + 35} C ${secret.x} ${secret.y + 130}, ${pos.x} ${pos.y - 160}, ${pos.x} ${pos.y - 54}`,
-        class: "tree-edge is-secret",
-        "stroke-width": 2,
-        tabindex: "0",
-        role: "img",
-        "aria-label": `the secret reaches ${firstName(CAST[id].name)} with confidence ${Number(cell.confidence).toFixed(2)}`,
-      });
-      bindTip(path, [
-        { value: Number(cell.confidence).toFixed(2), label: "confidence" },
-        { label: "secret →", sub: firstName(CAST[id].name) },
-        { label: "source", sub: sourceLabel(cell) },
-      ]);
-      edges.appendChild(path);
-      addText(edges, (secret.x + pos.x) / 2, (secret.y + pos.y) / 2 - 6, Number(cell.confidence).toFixed(2), "tree-sub");
-    });
-  }
-
-  const nodes = svgEl("g");
-  svg.appendChild(nodes);
-
-  if (lens === "user") {
-    const userGroup = svgEl("g", { class: "tree-node" });
-    const userGlow = svgEl("circle", { cx: user.x, cy: user.y, r: 54, fill: "var(--rose)", opacity: "0.12", filter: "url(#node-glow)" });
-    userGroup.appendChild(userGlow);
-    userGroup.appendChild(svgEl("circle", { cx: user.x, cy: user.y, r: 40, fill: "var(--surface-2)", stroke: "var(--rose)", "stroke-width": "2" }));
-    const you = addText(userGroup, user.x, user.y + 6, "you", "tree-user-label");
-    you.setAttribute("fill", "var(--ink)");
-    addText(userGroup, user.x, user.y + 64, "the fifth person", "tree-sub");
-    nodes.appendChild(userGroup);
-  }
-
-  ORDER.forEach((id) => {
-    const cast = CAST[id];
-    const pos = positions[id];
-    const group = svgEl("g", {
-      class: `tree-node${state.selected === id ? " is-selected" : ""}`,
-      tabindex: "0",
-      role: "button",
-      "aria-label": `${cast.name}, ${cast.role}. Open details.`,
-    });
-    const halo = svgEl("circle", { cx: pos.x, cy: pos.y, r: 66, fill: cast.color, opacity: "0.14", filter: "url(#node-glow)" });
-    group.appendChild(halo);
-    group.appendChild(svgEl("circle", { cx: pos.x, cy: pos.y, r: 52, class: "node-ring" }));
-    const nodeImage = svgEl("image", {
-      href: cast.avatar,
-      x: pos.x - 52,
-      y: pos.y - 52,
-      width: 104,
-      height: 104,
-      "clip-path": `url(#clip-${id})`,
-      preserveAspectRatio: "xMidYMid slice",
-      class: "node-image",
-    });
-    let avatarRetried = false;
-    nodeImage.addEventListener("error", () => {
-      if (!avatarRetried) {
-        avatarRetried = true;
-        nodeImage.setAttribute("href", `${cast.avatar}?retry=1`);
-        return;
-      }
-      nodeImage.setAttribute("href", `/static/assets/portraits/${id}-avatar.svg`);
-    });
-    group.appendChild(nodeImage);
-    addText(group, pos.x, pos.y + 76, firstName(cast.name), "tree-label");
-    addText(group, pos.x, pos.y + 91, cast.role, "tree-sub");
-    group.addEventListener("click", () => {
-      state.selected = id;
-      resetPhoneFor(id);
-      renderTree(state.data);
-    });
-    group.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        state.selected = id;
-        resetPhoneFor(id);
-        renderTree(state.data);
-      }
-    });
-    bindTip(group, [
-      { value: cast.role, label: "" },
-      { label: "mood", sub: cast.mood },
-      { label: "tagline", sub: cast.tagline },
-      { label: "DM", sub: cast.dm.replace("http://", "") },
-    ]);
-    nodes.appendChild(group);
-  });
-
-  if (lens === "user") {
-    const secretGroup = svgEl("g", { class: "tree-node" });
-    secretGroup.appendChild(svgEl("rect", { x: secret.x - 92, y: secret.y - 34, width: 184, height: 68, rx: 18, fill: "var(--surface-2)", stroke: "var(--lav)", "stroke-width": "1.5", opacity: "0.96" }));
-    addText(secretGroup, secret.x, secret.y - 8, "THE SECRET", "tree-secret-label");
-    addText(secretGroup, secret.x, secret.y + 22, `${Object.keys(holders).length} / 4 know`, "tree-secret-count");
-    nodes.appendChild(secretGroup);
-  }
-
-  const keyHigh = $("#tree-key-high");
-  const keyMid = $("#tree-key-mid");
-  const keyLow = $("#tree-key-low");
-  const keySecret = $("#tree-key-secret");
-  if (keyHigh) keyHigh.textContent = lens === "cast" ? "close" : "high trust";
-  if (keyMid) keyMid.textContent = lens === "cast" ? "steady" : "medium";
-  if (keyLow) keyLow.textContent = lens === "cast" ? "strained / distant" : "low / tense";
-  if (keySecret) keySecret.hidden = lens === "cast";
-
-  renderTreePanel(data);
-  renderTreeTable(data);
-}
-
-function renderConnectionsPanel(panel, data, cast) {
-  const title = document.createElement("p");
-  title.className = "eyebrow connection-title";
-  title.textContent = "cast connections";
-  panel.appendChild(title);
-  const connections = scenarioConnections(data)
-    .map(normalizeConnection)
-    .filter((conn) => conn && (conn.a === cast.id || conn.b === cast.id));
-  if (!connections.length) {
-    const empty = document.createElement("p");
-    empty.className = "tiny";
-    empty.textContent = "No cast connections reported. Load a scenario or connect the backend.";
-    panel.appendChild(empty);
-    return;
-  }
-  connections.forEach((conn) => {
-    const otherId = conn.a === cast.id ? conn.b : conn.a;
-    const other = CAST[otherId];
-    const card = document.createElement("div");
-    card.className = "connection-card";
-    const head = document.createElement("div");
-    head.className = "connection-head";
-    const name = document.createElement("strong");
-    name.textContent = other ? other.name : otherId;
-    head.appendChild(name);
-    const label = document.createElement("span");
-    label.className = `connection-label is-${conn.label}`;
-    label.textContent = conn.label;
-    head.appendChild(label);
-    card.appendChild(head);
-    const bars = document.createElement("div");
-    bars.className = "rel-bars";
-    bars.appendChild(relBar("affinity", conn.affinity));
-    bars.appendChild(relBar("tension", conn.tension));
-    card.appendChild(bars);
-    if (conn.shared_secret_count) {
-      const secrets = document.createElement("span");
-      secrets.className = "connection-secrets";
-      secrets.textContent = `${conn.shared_secret_count} shared secret${conn.shared_secret_count === 1 ? "" : "s"}`;
-      card.appendChild(secrets);
-    }
-    panel.appendChild(card);
-  });
-}
-
-function renderTreePanel(data) {
-  const panel = $("#tree-panel");
-  panel.replaceChildren();
-  const cast = CAST[state.selected];
-  const header = document.createElement("div");
-  const name = document.createElement("h3");
-  name.textContent = cast.name;
-  header.appendChild(name);
-  const jp = document.createElement("span");
-  jp.className = "jp";
-  jp.textContent = cast.route;
-  header.appendChild(jp);
-  const sub = document.createElement("p");
-  sub.className = "panel-sub";
-  sub.textContent = `${cast.role} · ${cast.mood}`;
-  header.appendChild(sub);
-  panel.appendChild(header);
-
-  const tagline = document.createElement("p");
-  tagline.className = "tiny";
-  tagline.textContent = cast.tagline;
-  panel.appendChild(tagline);
-
-  if (state.treeLens === "cast") {
-    renderConnectionsPanel(panel, data, cast);
-  } else {
-    const beliefs = (data.matrix || [])
-      .map((row) => ({ row, cell: row.holders[state.selected] }))
-      .filter((item) => item.cell)
-      .slice(0, 6);
-    if (beliefs.length) {
-      beliefs.forEach(({ row, cell }) => {
-        const item = document.createElement("div");
-        item.className = "tree-belief";
-        const title = document.createElement("b");
-        title.textContent = row.label;
-        item.appendChild(title);
-        const meta = document.createElement("span");
-        meta.className = "meta";
-        meta.textContent = `${Number(cell.confidence).toFixed(2)} · ${sourceLabel(cell)} · ${cell.visibility}`;
-        item.appendChild(meta);
-        panel.appendChild(item);
-      });
-    } else {
-      const empty = document.createElement("p");
-      empty.className = "tiny";
-      empty.textContent = "No beliefs recorded for this character yet.";
-      panel.appendChild(empty);
-    }
-
-    const rels = document.createElement("div");
-    rels.className = "rel-mini";
-    const others = ORDER.filter((id) => id !== state.selected).concat("user");
-    others.forEach((other) => {
-      const edge = (data.relationships || []).find((e) => e.a === state.selected && e.b === other) || {
-        trust: 0.5, closeness: 0.5, tension: 0,
-      };
-      const row = document.createElement("div");
-      row.className = "rel-bar";
-      const label = document.createElement("span");
-      label.className = "rel-label";
-      label.textContent = other === "user" ? "you" : firstName(CAST[other].name);
-      row.appendChild(label);
-      const track = document.createElement("div");
-      track.className = "track";
-      const fill = document.createElement("div");
-      fill.className = "fill trust";
-      fill.style.width = `${Math.max(0, Math.min(100, Number(edge.trust) * 100))}%`;
-      track.appendChild(fill);
-      row.appendChild(track);
-      const value = document.createElement("span");
-      value.className = "rel-value";
-      value.textContent = Number(edge.trust).toFixed(2);
-      row.appendChild(value);
-      rels.appendChild(row);
-    });
-    panel.appendChild(rels);
-  }
-
-  const dm = document.createElement("a");
-  dm.className = "btn ghost small";
-  dm.href = cast.dm;
-  dm.target = "_blank";
-  dm.rel = "noopener";
-  dm.textContent = "DM this character ↗";
-  dm.style.marginTop = "12px";
-  panel.appendChild(dm);
-}
-
-function renderTreeTable(data) {
-  const host = $("#tree-table");
-  host.replaceChildren();
-  const table = document.createElement("table");
-  table.className = "rel-table";
-  const thead = document.createElement("thead");
-  const headRow = document.createElement("tr");
-  const castLens = state.treeLens === "cast";
-  const headings = castLens
-    ? ["from", "to", "label", "affinity", "tension", "secrets"]
-    : ["from", "to", "trust", "closeness", "tension", "secrets"];
-  headings.forEach((label) => {
-    const th = document.createElement("th");
-    th.textContent = label;
-    headRow.appendChild(th);
-  });
-  thead.appendChild(headRow);
-  table.appendChild(thead);
-  const tbody = document.createElement("tbody");
-  if (castLens) {
-    scenarioConnections(data).map(normalizeConnection).filter(Boolean).forEach((conn) => {
-      const tr = document.createElement("tr");
-      [conn.a, conn.b, conn.label, conn.affinity.toFixed(2), conn.tension.toFixed(2), String(conn.shared_secret_count || 0)].forEach((value, index) => {
-        const cell = document.createElement(index === 0 ? "th" : "td");
-        if (index === 0) cell.scope = "row";
-        cell.textContent = value;
-        tr.appendChild(cell);
-      });
-      tbody.appendChild(tr);
-    });
-  } else {
-    (data.relationships || []).forEach((edge) => {
-      const tr = document.createElement("tr");
-      [edge.a, edge.b, Number(edge.trust).toFixed(2), Number(edge.closeness).toFixed(2), Number(edge.tension).toFixed(2), String(edge.shared_secret_count || 0)].forEach((value, index) => {
-        const cell = document.createElement(index === 0 ? "th" : "td");
-        if (index === 0) cell.scope = "row";
-        cell.textContent = value;
-        tr.appendChild(cell);
-      });
-      tbody.appendChild(tr);
-    });
-  }
-  table.appendChild(tbody);
-  host.appendChild(table);
-}
-
-/* ---- secret ledger ---------------------------------------------------- */
-
-function sourceLabel(cell) {
-  if (!cell) return "";
-  if (cell.source_kind === "character") return cell.source_id;
-  if (cell.source_kind === "user") return "user";
-  if (cell.source_kind === "event") return "event";
-  return "obs";
-}
-
-function seqStep(confidence) {
-  const n = Math.round(Number(confidence) * 5);
-  return Math.max(0, Math.min(5, n));
-}
-
-function renderLedger(data) {
-  renderMatrix(data);
-  renderRelationships(data);
-  renderFeed(data);
-}
-
-function renderMatrix(data) {
-  const head = $("#matrix-head");
-  const body = $("#matrix-body");
-  head.replaceChildren();
-  body.replaceChildren();
-  const characters = data.characters || [];
-  const first = document.createElement("th");
-  first.scope = "col";
-  first.textContent = "Proposition";
-  head.appendChild(first);
-  const names = Object.fromEntries(characters.map((c) => [c.id, firstName(c.name)]));
-  characters.forEach((character) => {
-    const th = document.createElement("th");
-    th.scope = "col";
-    th.className = "character";
-    th.textContent = names[character.id] || character.id;
-    head.appendChild(th);
-  });
-
-  (data.matrix || []).forEach((row) => {
-    const tr = document.createElement("tr");
-    const label = document.createElement("td");
-    label.className = "row-label";
-    label.textContent = row.label;
-    tr.appendChild(label);
-    characters.forEach((character) => {
-      const cell = row.holders[character.id];
-      const td = document.createElement("td");
-      if (!cell) {
-        td.className = "cell empty";
-        td.textContent = "—";
-        td.setAttribute("aria-label", `${names[character.id] || character.id}: no belief`);
-        tr.appendChild(td);
-        return;
-      }
-      const conf = Number(cell.confidence);
-      td.className = `cell seq-${seqStep(conf)}`;
-      td.tabIndex = 0;
-      const value = document.createElement("span");
-      value.className = "conf";
-      value.textContent = conf.toFixed(2);
-      td.appendChild(value);
-      const src = document.createElement("span");
-      src.className = "src";
-      src.textContent = sourceLabel(cell);
-      td.appendChild(src);
-      const holder = names[character.id] || character.id;
-      td.setAttribute("aria-label", `${holder}: ${conf.toFixed(2)} confidence, source ${sourceLabel(cell)}, ${cell.visibility}`);
-      bindTip(td, [
-        { value: `${Math.round(conf * 100)}%`, label: "confidence" },
-        { label: "holder", sub: holder },
-        { label: "proposition", sub: cell.proposition },
-        { label: "source", sub: cell.source },
-        { label: "visibility", sub: cell.visibility },
-        { label: "learned", sub: formatClock(cell.learned_at) },
-      ]);
-      tr.appendChild(td);
-    });
-    body.appendChild(tr);
-  });
-}
-
-function renderRelationships(data) {
-  const selected = $("#rel-view").value;
-  const names = Object.fromEntries((data.characters || []).map((c) => [c.id, firstName(c.name)]));
-  const others = (data.characters || []).map((c) => c.id).filter((id) => id !== selected).concat("user");
-  const list = $("#relationships");
-  list.replaceChildren();
-  const edges = new Map((data.relationships || []).filter((edge) => edge.a === selected).map((edge) => [edge.b, edge]));
-  others.forEach((other) => {
-    const edge = edges.get(other) || { a: selected, b: other, trust: 0.5, closeness: 0.5, tension: 0, shared_secret_count: 0 };
-    const row = document.createElement("div");
-    row.className = "rel-row";
-    const name = document.createElement("div");
-    name.className = "rel-name";
-    name.textContent = `${names[selected] || selected} → ${other === "user" ? "You" : names[other] || other}`;
-    row.appendChild(name);
-    const bars = document.createElement("div");
-    bars.className = "rel-bars";
-    [["trust", Number(edge.trust)], ["closeness", Number(edge.closeness)], ["tension", Number(edge.tension)]].forEach(([label, value]) => {
-      const line = document.createElement("div");
-      line.className = "rel-bar";
-      line.tabIndex = 0;
-      line.setAttribute("aria-label", `${label} ${value.toFixed(2)}`);
-      const text = document.createElement("span");
-      text.className = "rel-label";
-      text.textContent = label;
-      line.appendChild(text);
-      const track = document.createElement("div");
-      track.className = "track";
-      const fill = document.createElement("div");
-      fill.className = `fill ${label}`;
-      fill.style.width = `${Math.max(0, Math.min(100, value * 100))}%`;
-      track.appendChild(fill);
-      line.appendChild(track);
-      const number = document.createElement("span");
-      number.className = "rel-value";
-      number.textContent = value.toFixed(2);
-      line.appendChild(number);
-      bindTip(line, [
-        { value: value.toFixed(2), label },
-        { label: "edge", sub: `${names[selected] || selected} → ${other === "user" ? "you" : names[other] || other}` },
-        { label: "shared secrets", sub: String(edge.shared_secret_count || 0) },
-      ]);
-      bars.appendChild(line);
-    });
-    row.appendChild(bars);
-    list.appendChild(row);
-  });
-
-  const tbody = $("#rel-table tbody");
-  tbody.replaceChildren();
-  others.forEach((other) => {
-    const edge = edges.get(other) || { trust: 0.5, closeness: 0.5, tension: 0, shared_secret_count: 0 };
-    const tr = document.createElement("tr");
-    [other === "user" ? "You" : names[other] || other, Number(edge.trust).toFixed(2), Number(edge.closeness).toFixed(2), Number(edge.tension).toFixed(2), String(edge.shared_secret_count || 0)].forEach((value, index) => {
-      const cell = document.createElement(index === 0 ? "th" : "td");
-      if (index === 0) cell.scope = "row";
-      cell.textContent = value;
-      tr.appendChild(cell);
-    });
-    tbody.appendChild(tr);
-  });
-}
-
-function renderFeed(data) {
-  const feed = $("#feed");
-  feed.replaceChildren();
-  const events = data.events || [];
-  $("#feed-count").textContent = `${events.length} event${events.length === 1 ? "" : "s"}`;
-  if (!events.length) {
-    const empty = document.createElement("li");
-    empty.className = "feed-empty";
-    empty.textContent = "No events yet.";
-    feed.appendChild(empty);
-    return;
-  }
-  events.forEach((event) => {
-    const li = document.createElement("li");
-    const time = document.createElement("span");
-    time.className = "feed-time";
-    time.textContent = formatTime(event.created_at);
-    li.appendChild(time);
-    const kind = document.createElement("span");
-    kind.className = "feed-kind";
-    kind.textContent = String(event.kind || "event").replaceAll("_", " ");
-    li.appendChild(kind);
-    const text = document.createElement("span");
-    text.className = "feed-text";
-    text.textContent = event.summary;
-    li.appendChild(text);
-    feed.appendChild(li);
-  });
-}
-
-/* ---- canon ------------------------------------------------------------ */
-
-function renderCanon(data) {
-  const canon = data.canon || {};
-  $("#canon-act").textContent = canon.act || "Act I — The Secret";
-  $("#canon-secret").textContent = (canon.secret && canon.secret.default_text) || "—";
-
-  const facts = $("#canon-facts");
-  facts.replaceChildren();
-  (canon.public_facts || []).forEach((fact) => {
-    const item = document.createElement("li");
-    item.textContent = fact;
-    facts.appendChild(item);
-  });
-
-  const invariants = $("#canon-invariants");
-  invariants.replaceChildren();
-  (canon.invariants || []).forEach((rule) => {
-    const item = document.createElement("li");
-    item.textContent = rule;
-    invariants.appendChild(item);
-  });
-
-  const branches = $("#canon-branches");
-  branches.replaceChildren();
-  (canon.branches || []).forEach((branch) => {
-    const card = document.createElement("article");
-    card.className = "canon-branch";
-    const title = document.createElement("b");
-    title.textContent = branch.label;
-    card.appendChild(title);
-    const id = document.createElement("span");
-    id.textContent = branch.id;
-    card.appendChild(id);
-    const outcome = document.createElement("p");
-    outcome.textContent = branch.outcome;
-    card.appendChild(outcome);
-    card.title = branch.condition || "";
-    branches.appendChild(card);
-  });
-}
-
-/* ---- character sheet -------------------------------------------------- */
-
-let profileReturnFocus = null;
-
-function relBar(key, value) {
-  const bar = document.createElement("div");
-  bar.className = "rel-bar";
-  const label = document.createElement("span");
-  label.className = "rel-label";
-  label.textContent = key;
-  const track = document.createElement("div");
-  track.className = "track";
-  const fill = document.createElement("div");
-  fill.className = `fill ${key}`;
-  fill.style.width = `${Math.max(0, Math.min(1, Number(value) || 0)) * 100}%`;
-  track.appendChild(fill);
-  const amount = document.createElement("span");
-  amount.className = "rel-value";
-  amount.textContent = Number(value || 0).toFixed(2);
-  bar.append(label, track, amount);
-  return bar;
-}
-
-function castIdFor(value) {
-  const raw = String(value || "").trim();
-  const lowered = raw.toLowerCase();
-  if (lowered === "user" || lowered === "you" || lowered === "the user") return "user";
-  if (CAST[lowered]) return lowered;
-  const byName = ORDER.find((id) => {
-    const name = CAST[id].name.toLowerCase();
-    return name === lowered || name.split(" ")[0] === lowered;
-  });
-  return byName || lowered;
-}
-
-function renderProfileRelationships(data, id) {
-  const host = $("#profile-rel");
-  host.replaceChildren();
-  const order = ["user", ...ORDER.filter((other) => other !== id)];
-  const seen = new Set();
-  const edges = (data.relationships || [])
-    .filter((edge) => edge.a === id)
-    .map((edge) => ({ ...edge, b: castIdFor(edge.b) }))
-    .filter((edge) => {
-      if (seen.has(edge.b)) return false;
-      seen.add(edge.b);
-      return true;
-    })
-    .sort((a, b) => order.indexOf(a.b) - order.indexOf(b.b));
-  if (!edges.length) return;
-  const title = document.createElement("div");
-  title.className = "profile-rel-title";
-  title.textContent = "outgoing relationships";
-  host.appendChild(title);
-  const list = document.createElement("div");
-  list.className = "rel-list";
-  edges.forEach((edge) => {
-    const row = document.createElement("div");
-    row.className = "rel-row";
-    const name = document.createElement("div");
-    name.className = "rel-name";
-    name.textContent = edge.b === "user" ? "You" : ((CAST[edge.b] && CAST[edge.b].name) || edge.b);
-    row.appendChild(name);
-    const bars = document.createElement("div");
-    bars.className = "rel-bars";
-    ["trust", "closeness", "tension"].forEach((key) => bars.appendChild(relBar(key, edge[key])));
-    row.appendChild(bars);
-    list.appendChild(row);
-  });
-  host.appendChild(list);
-}
-
-function openProfile(id) {
-  const cast = CAST[id];
-  if (!cast) return;
-  const modal = $("#profile-modal");
-  profileReturnFocus = document.activeElement;
-  modal.style.setProperty("--scene-color", cast.color);
-  $("#profile-route").textContent = cast.route || "";
-  $("#profile-name").textContent = cast.name;
-  $("#profile-jp").textContent = "";
-  $("#profile-role").textContent = `${cast.role} · ${cast.mood}`;
-  $("#profile-intro").textContent = cast.intro;
-
-  const stats = $("#profile-stats");
-  stats.replaceChildren();
-  const profile = cast.profile || {};
-  [["age", profile.age], ["height", profile.height], ["birthday", profile.birthday],
-   ["specialty", profile.specialty]].forEach(([label, value]) => {
-    if (value == null) return;
-    const row = document.createElement("div");
-    const term = document.createElement("dt");
-    term.textContent = label;
-    const detail = document.createElement("dd");
-    detail.textContent = String(value);
-    row.append(term, detail);
-    stats.appendChild(row);
-  });
-
-  $("#profile-likes").textContent = profile.likes || "—";
-  $("#profile-dislikes").textContent = profile.dislikes || "—";
-  $("#profile-secret").textContent = cast.secret || "—";
-  $("#profile-quote").textContent = cast.quote;
-  $("#profile-dm").href = cast.dm;
-
-  const img = $("#profile-art-img");
-  let fallback = 0;
-  img.onerror = () => {
-    if (fallback === 0) {
-      fallback = 1;
-      img.src = cast.portrait;
-      return;
-    }
-    img.onerror = null;
-    img.src = `/static/assets/portraits/${cast.id}.svg`;
-  };
-  const bg = $("#profile-art-bg");
-  const art = outfitArtFor(state.data, id) || castArtFor(state.data, id)
-    || cast.scene || cast.full || cast.portrait;
-  if (bg) {
-    bg.onerror = () => {
-      bg.onerror = null;
-      bg.src = cast.portrait;
-    };
-    bg.src = art;
-  }
-  img.style.transform = "none";
-  img.src = art;
-  img.alt = `${cast.name} character art`;
-
-  renderProfileRelationships(state.data || {}, id);
-  modal.hidden = false;
-  const app = $(".app");
-  if (app) app.inert = true;
-  document.body.classList.add("modal-open");
-  $("#profile-close").focus();
-}
-
-function closeProfile() {
-  const modal = $("#profile-modal");
-  if (!modal || modal.hidden) return;
-  modal.hidden = true;
-  const app = $(".app");
-  if (app) app.inert = false;
-  document.body.classList.remove("modal-open");
-  if (profileReturnFocus && typeof profileReturnFocus.focus === "function") {
-    profileReturnFocus.focus();
-  }
-  profileReturnFocus = null;
-}
-
-/* ---- settings --------------------------------------------------------- */
-
-function renderSettings(data) {
-  const current = data || state.data || {};
-  renderCanon(current);
-  const scene = current.scene || {};
-  const mode = (current.clock && current.clock.mode) || "mock";
-  const clockNow = $("#clock-now");
-  if (clockNow) clockNow.textContent = formatClock(current.clock.now);
-  const clockMode = $("#clock-mode");
-  if (clockMode) {
-    clockMode.textContent = mode === "realtime"
-      ? `real time · ${scaleFactor(current.clock.scale)}`
-      : "mock time";
-    clockMode.className = mode === "realtime" ? "is-real" : "";
-  }
-  const clockNext = $("#clock-next");
-  if (clockNext) {
-    clockNext.textContent = scene.next_beat
-      ? `${scene.next_beat.time} · ${scene.next_beat.title}`
-      : "—";
-  }
-  const clockStatus = $("#clock-status");
-  if (clockStatus) {
-    clockStatus.textContent = state.clockStatus || (mode === "realtime"
-      ? "Real time · the story follows the wall clock until you jump."
-      : "Mock time · the story waits for you.");
-  }
-  const beatSelect = $("#beat-select");
-  if (beatSelect) {
-    const previous = beatSelect.value;
-    const beats = (current.canon && current.canon.beats) || [];
-    const sig = beats.map((beat) => `${beat.id}:${beat.title}:${beat.time}:${beat.required}`).join("|");
-    if (beatSelect.dataset.sig !== sig) {
-    beatSelect.dataset.sig = sig;
-    beatSelect.replaceChildren();
-    beats.forEach((beat) => {
-      const option = document.createElement("option");
-      option.value = beat.id;
-      option.textContent = `${beat.title} · ${beat.time}${beat.required ? " · required" : ""}`;
-      beatSelect.appendChild(option);
-    });
-    }
-    const ids = beats.map((beat) => beat.id);
-    beatSelect.value = ids.includes(previous) ? previous : (ids.includes("cafe") ? "cafe" : (ids[0] || ""));
-  }
-  const events = current.events || [];
-  const branchEvent = [...events].reverse().find((event) => event.kind === "branch");
-  const worldEvent = [...events].reverse().find((event) => event.kind === "world_event");
-  const bifrostStatus = $("#bifrost-status");
-  if (bifrostStatus && branchEvent) {
-    bifrostStatus.textContent = `Last branch: ${branchEvent.summary}`;
-  }
-  const tavilyStatus = $("#tavily-status");
-  if (tavilyStatus && worldEvent) {
-    tavilyStatus.textContent = worldEvent.summary;
-  }
-  const list = $("#provider-list");
-  list.replaceChildren();
-  (window.SWITCH_PROVIDERS || []).forEach((provider) => {
-    const row = document.createElement("div");
-    row.className = "provider-row";
-    const left = document.createElement("div");
-    const name = document.createElement("div");
-    name.className = "name";
-    name.textContent = provider.label;
-    left.appendChild(name);
-    const note = document.createElement("div");
-    note.className = "note";
-    note.textContent = provider.note;
-    left.appendChild(note);
-    row.appendChild(left);
-    const status = document.createElement("span");
-    status.className = `provider-status ${provider.status}`;
-    status.textContent = provider.status;
-    row.appendChild(status);
-    list.appendChild(row);
-  });
-}
-
-/* ---- shell ------------------------------------------------------------ */
-
-/* ---- studio ----------------------------------------------------------- */
-
-const STUDIO_HEALTH = ["world", "switch", "mattermost", "gateway", "bifrost"];
-const STUDIO_REFRESH_MS = 5000;
-const STUDIO_RETRY_MS = 15000;
-
-function maybeLoadStudio() {
-  const retry = state.studio.error ? STUDIO_RETRY_MS : STUDIO_REFRESH_MS;
-  if (!state.studio.fetchedAt || Date.now() - state.studio.fetchedAt >= retry) loadStudio();
-  else renderStudio();
-}
-
-async function loadStudio(force = false) {
-  if (state.studio.loading) return;
-  const now = Date.now();
-  const retry = state.studio.error ? STUDIO_RETRY_MS : STUDIO_REFRESH_MS;
-  if (!force && state.studio.fetchedAt && now - state.studio.fetchedAt < retry) {
-    renderStudio();
-    return;
-  }
-  state.studio.loading = true;
-  renderStudio();
-  try {
-    const data = await api("/api/studio/summary");
-    state.studio.data = data;
-    state.studio.error = "";
-    state.studio.fetchedAt = Date.now();
-  } catch (error) {
-    state.studio.error = error.message || "not connected";
-    state.studio.fetchedAt = Date.now();
-  } finally {
-    state.studio.loading = false;
-    renderStudio();
-  }
-}
-
-function renderStudioHealth(health) {
-  const host = $("#studio-health");
-  if (!host) return;
-  host.replaceChildren();
-  if (!health) {
-    const chip = document.createElement("span");
-    chip.className = "health-chip is-unknown";
-    chip.textContent = "health unavailable";
-    host.appendChild(chip);
-    return;
-  }
-  const keys = [...new Set([...STUDIO_HEALTH, ...Object.keys(health)])];
-  keys.forEach((key) => {
-    const on = Boolean(health[key]);
-    const chip = document.createElement("span");
-    chip.className = `health-chip ${on ? "is-on" : "is-off"}`;
-    const dot = document.createElement("i");
-    dot.setAttribute("aria-hidden", "true");
-    chip.appendChild(dot);
-    const label = document.createElement("span");
-    label.textContent = key.replaceAll("_", " ");
-    chip.appendChild(label);
-    const stateLabel = document.createElement("em");
-    stateLabel.textContent = on ? "up" : "down";
-    chip.appendChild(stateLabel);
-    host.appendChild(chip);
-  });
-}
-
-function studioBeatCard(label, beat, className) {
-  const item = document.createElement("div");
-  item.className = `studio-beat-card ${className}`;
-  const eyebrow = document.createElement("span");
-  eyebrow.className = "eyebrow";
-  eyebrow.textContent = label;
-  item.appendChild(eyebrow);
-  const title = document.createElement("strong");
-  title.textContent = beat ? (beat.title || beat.id || "—") : "—";
-  item.appendChild(title);
-  const meta = document.createElement("span");
-  meta.className = "studio-beat-meta";
-  meta.textContent = beat
-    ? [beat.time, beat.id].filter(Boolean).join(" · ")
-    : "not reported";
-  item.appendChild(meta);
-  return item;
-}
-
-function renderStudioBeats(data) {
-  const host = $("#studio-beats");
-  if (!host) return;
-  host.replaceChildren();
-  const clock = (data && data.clock) || (state.data && state.data.clock) || {};
-  const scene = (state.data && state.data.scene) || {};
-  const current = (data && data.current_beat) || scene.current_beat || null;
-  const next = (data && data.next_beat) || scene.next_beat || null;
-  const mode = $("#studio-clock-mode");
-  if (mode) {
-    mode.textContent = `${clock.mode || "mock"} · ${scaleFactor(clock.scale)} · ${clock.now ? formatTime(clock.now) : "—"}`;
-  }
-  host.append(
-    studioBeatCard("current beat", current, "is-current"),
-    studioBeatCard("next beat", next, "is-next"),
-  );
-  if (data && data.arc_complete) {
-    const done = document.createElement("div");
-    done.className = "studio-beat-card is-done";
-    const eyebrow = document.createElement("span");
-    eyebrow.className = "eyebrow";
-    eyebrow.textContent = "arc";
-    const title = document.createElement("strong");
-    title.textContent = "complete";
-    done.append(eyebrow, title);
-    host.appendChild(done);
-  }
-}
-
-function renderStudioAgents(data) {
-  const host = $("#studio-agents");
-  if (!host) return;
-  host.replaceChildren();
-  const absent = absentSet(state.data || {});
-  let agents = data && Array.isArray(data.agents) ? data.agents : null;
-  if (!agents) {
-    agents = ORDER.map((id) => ({
-      id,
-      name: CAST[id].name,
-      role: CAST[id].role,
-      friend: isFriend(state.data, id),
-      absent: absent.has(id),
-      last_event: "",
-    }));
-  }
-  if (!agents.length) {
-    const empty = document.createElement("p");
-    empty.className = "tiny";
-    empty.textContent = "No agents reported.";
-    host.appendChild(empty);
-    return;
-  }
-  agents.forEach((agent) => {
-    const id = asCastId(agent.id || agent.character || agent.name);
-    const cast = id && CAST[id] ? CAST[id] : null;
-    const row = document.createElement("button");
-    row.type = "button";
-    row.className = "studio-agent";
-    if (cast) {
-      const img = document.createElement("img");
-      img.src = cast.avatar;
-      img.alt = "";
-      img.onerror = () => {
-        img.onerror = null;
-        img.src = `/static/assets/portraits/${cast.id}-avatar.svg`;
-      };
-      row.appendChild(img);
-    }
-    const copy = document.createElement("div");
-    copy.className = "studio-agent-copy";
-    const name = document.createElement("strong");
-    name.textContent = agent.name || (cast && cast.name) || agent.id || "agent";
-    copy.appendChild(name);
-    const role = document.createElement("span");
-    role.textContent = agent.role || (cast && cast.role) || "character";
-    copy.appendChild(role);
-    const last = document.createElement("em");
-    last.textContent = agent.last_event || "no recent event";
-    copy.appendChild(last);
-    row.appendChild(copy);
-
-    const flags = document.createElement("div");
-    flags.className = "studio-flags";
-    const friend = agent.friend !== undefined ? Boolean(agent.friend) : isFriend(state.data, id);
-    const gone = agent.absent !== undefined ? Boolean(agent.absent) : absent.has(id);
-    const friendFlag = document.createElement("span");
-    friendFlag.className = `agent-flag ${friend ? "is-friend" : "is-muted"}`;
-    friendFlag.textContent = friend ? "friend" : "locked";
-    flags.appendChild(friendFlag);
-    const absentFlag = document.createElement("span");
-    absentFlag.className = `agent-flag ${gone ? "is-absent" : "is-muted"}`;
-    absentFlag.textContent = gone ? "absent" : "present";
-    flags.appendChild(absentFlag);
-    row.appendChild(flags);
-
-    if (cast) row.addEventListener("click", () => openProfile(cast.id));
-    host.appendChild(row);
-  });
-}
-
-function renderStudioRooms(data) {
-  const host = $("#studio-rooms");
-  if (!host) return;
-  host.replaceChildren();
-  const rooms = data && Array.isArray(data.rooms) ? data.rooms : [];
-  if (!rooms.length) {
-    const empty = document.createElement("p");
-    empty.className = "tiny";
-    empty.textContent = data ? "No rooms reported." : "Not connected — rooms will appear here.";
-    host.appendChild(empty);
-    return;
-  }
-  rooms.forEach((room) => {
-    const row = document.createElement("div");
-    row.className = "studio-room";
-    const name = document.createElement("strong");
-    name.textContent = room.name || room.room || "room";
-    row.appendChild(name);
-    const code = document.createElement("code");
-    code.textContent = room.room_id || room.id || "—";
-    row.appendChild(code);
-    host.appendChild(row);
-  });
-}
-
-function renderStudioRecent(data) {
-  const host = $("#studio-recent");
-  if (!host) return;
-  host.replaceChildren();
-  const recent = data && Array.isArray(data.recent) ? data.recent : [];
-  if (!recent.length) {
-    const empty = document.createElement("li");
-    empty.className = "studio-feed-empty";
-    empty.textContent = data ? "No recent activity." : "Not connected — recent events will appear here.";
-    host.appendChild(empty);
-    return;
-  }
-  recent.slice(0, 24).forEach((item) => {
-    const li = document.createElement("li");
-    const kind = document.createElement("span");
-    kind.className = "studio-feed-kind";
-    kind.textContent = String(item.kind || "event").replaceAll("_", " ");
-    li.appendChild(kind);
-    const text = document.createElement("span");
-    text.textContent = item.summary || item.text || "";
-    li.appendChild(text);
-    host.appendChild(li);
-  });
-}
-
-function renderStudio() {
-  const data = state.studio.data;
-  const conn = $("#studio-conn");
-  if (conn) {
-    conn.textContent = state.studio.loading ? "connecting…" : (data ? "connected" : "not connected");
-    conn.className = `studio-conn${data ? " is-on" : " is-off"}${state.studio.loading ? " is-loading" : ""}`;
-  }
-  const status = $("#studio-status");
-  if (status) {
-    if (state.studio.loading) {
-      status.hidden = false;
-      status.textContent = "Trying the studio summary…";
-    } else if (!data) {
-      status.hidden = false;
-      status.textContent = `Studio summary not connected${state.studio.error ? ` (${state.studio.error})` : ""}. The scene keeps working; retry when the backend ships GET /api/studio/summary.`;
-    } else if (state.studio.error) {
-      status.hidden = false;
-      status.textContent = `Showing the last summary — reconnecting (${state.studio.error}).`;
-    } else {
-      status.hidden = true;
-      status.textContent = "";
-    }
-  }
-  renderStudioHealth(data && data.health ? data.health : null);
-  renderStudioBeats(data);
-  renderStudioAgents(data);
-  renderStudioRooms(data);
-  renderStudioRecent(data);
-  renderSafety();
-}
-
-async function studioAdvance() {
-  const button = $("#studio-advance");
-  const note = $("#studio-advance-status");
-  if (!button || button.disabled) return;
-  button.disabled = true;
-  if (note) note.textContent = "Advancing and playing the next beat…";
-  try {
-    const result = await api("/api/clock/advance", {
-      method: "POST",
-      body: JSON.stringify({ run: true }),
-    });
-    if (note) {
-      note.textContent = result.arc_complete
-        ? "Arc complete — every authored beat has run."
-        : `Played ${(result.view && result.view.current_beat && result.view.current_beat.title)
-          || (result.beat && result.beat.title) || "the next beat"}.`;
-    }
-    state.turn = null;
-    await refresh();
-    await loadStudio(true);
-  } catch (error) {
-    if (note) note.textContent = `Advance failed: ${error.message}`;
-  } finally {
-    button.disabled = false;
-  }
-}
-
-function scaleFactor(value) {
-  const scale = Number(value);
-  if (!Number.isFinite(scale) || scale === 1) return "x1";
-  const text = Number.isInteger(scale)
-    ? String(scale)
-    : String(Math.round(scale * 100) / 100);
-  return `x${text}`;
-}
-
 /* The clock badge is explicit about the time machine: a non-1 scale is real
    time running faster, so it reads REAL x60; everything else reads MOCK. */
-function clockScaleLabel(clock) {
-  const scale = clock ? Number(clock.scale) : 1;
-  if (Number.isFinite(scale) && scale !== 1) return `REAL ${scaleFactor(scale)}`;
-  return "MOCK";
-}
 
-function renderClockScale(data) {
+export function renderClockScale(data) {
   const clock = (data && data.clock) || {};
   const label = clockScaleLabel(clock);
   const badge = $("#clock-scale");
@@ -4943,320 +2911,7 @@ function renderClockScale(data) {
   }
   return label;
 }
-
-const VIEW_META = {
-  story: { eyebrow: "Tonight at the café", title: "Story" },
-  worlds: { eyebrow: "One reset, one seed", title: "Worlds" },
-  tree: { eyebrow: "The shape of the secret", title: "World Tree" },
-  ledger: { eyebrow: "The god view", title: "Secret Ledger" },
-  studio: { eyebrow: "The control room", title: "Studio" },
-  settings: { eyebrow: "The stage", title: "Settings" },
-};
-
-function setView(view) {
-  closeProfile();
-  closePhone();
-  state.view = view;
-  $$(".rail-link").forEach((button) => {
-    button.classList.toggle("is-active", button.dataset.view === view);
-  });
-  $$(".view").forEach((section) => {
-    section.classList.toggle("is-active", section.id === `view-${view}`);
-  });
-  const meta = VIEW_META[view] || VIEW_META.story;
-  $("#view-eyebrow").textContent = meta.eyebrow;
-  $("#view-title").textContent = meta.title;
-  if (state.view === "worlds") {
-    loadScenarios();
-    loadTakes();
-    loadTakeCurrent();
-  }
-  if (state.data) render(state.data);
-  if (view === "story" && state.data) loadPhoneHistory(phoneTarget());
-  if (view === "studio") loadStudio(true);
-  window.scrollTo({ top: 0, behavior: "smooth" });
-}
-
-function setTreeLens(lens) {
-  state.treeLens = lens === "cast" ? "cast" : "user";
-  $$("[data-tree-lens]").forEach((button) => {
-    const active = button.dataset.treeLens === state.treeLens;
-    button.classList.toggle("is-active", active);
-    button.setAttribute("aria-pressed", active ? "true" : "false");
-  });
-  if (state.data) renderTree(state.data);
-}
-
-function render(data) {
-  const scale = renderClockScale(data);
-  $("#rail-clock").textContent = formatClock(data.clock.now) + ` · ${scale}`;
-  renderSafety();
-  if (state.view === "story") renderStory(data);
-  if (state.view === "worlds") renderWorlds();
-  else renderTakes();
-  if (state.view === "tree") renderTree(data);
-  if (state.view === "ledger") renderLedger(data);
-  if (state.view === "studio") maybeLoadStudio();
-  if (state.view === "settings") renderSettings(data);
-}
-
-let initialProfileOpened = false;
-
-let refreshInFlight = null;
-let refreshQueued = null;
-
-function refresh() {
-  if (refreshInFlight) {
-    /* Don't drop the request: callers that await refresh() after a write
-       (addFriend) need a fetch that starts after the current one finishes. */
-    if (!refreshQueued) {
-      refreshQueued = refreshInFlight
-        .catch(() => {})
-        .then(() => { refreshQueued = null; return refresh(); });
-    }
-    return refreshQueued;
-  }
-  refreshInFlight = (async () => {
-    const main = $("#main");
-    main.classList.add("refreshing");
-    try {
-      const data = await api("/api/state");
-      state.data = data;
-      if (data && Object.prototype.hasOwnProperty.call(data, "scenario")) {
-        state.worlds.current = data.scenario || null;
-      }
-      syncSafety(data);
-      syncTakeState(data);
-      render(data);
-      if (!state.takes.probed) loadTakeCurrent();
-      if (!initialProfileOpened) {
-        initialProfileOpened = true;
-        const profile = new URLSearchParams(location.search).get("profile");
-        if (profile && CAST[profile]) openProfile(profile);
-      }
-      showError(null);
-    } catch (error) {
-      showError(`Cannot reach the world engine: ${error.message}`);
-    } finally {
-      main.classList.remove("refreshing");
-      refreshInFlight = null;
-    }
-  })();
-  return refreshInFlight;
-}
-
-function showError(message) {
-  const box = $("#error");
-  if (!message) {
-    box.hidden = true;
-    box.textContent = "";
-    return;
-  }
-  box.hidden = false;
-  box.textContent = message;
-}
-
-/* ---- actions ---------------------------------------------------------- */
-
-async function tellAlice() {
-  const secret = $("#secret").value.trim();
-  if (!secret) {
-    $("#status").textContent = "Write a secret first.";
-    return;
-  }
-  try {
-    await api("/api/dev/tell-alice", { method: "POST", body: JSON.stringify({ secret, key: SECRET_KEY }) });
-    $("#status").textContent = "Alice recorded the secret. Check the ledger.";
-    state.turn = null;
-    await refresh();
-  } catch (error) {
-    $("#status").textContent = `Tell Alice failed: ${error.message}`;
-  }
-}
-
-async function runBifrost() {
-  const button = $("#run-bifrost");
-  const status = $("#bifrost-status");
-  const beat = $("#beat-select")?.value || "cafe";
-  button.disabled = true;
-  const old = button.textContent;
-  button.textContent = "Running Bifrost…";
-  status.textContent = `Bifrost is generating ${beat}...`;
-  try {
-    const result = await api("/api/dev/run-beat", {
-      method: "POST",
-      body: JSON.stringify({ beat, transport: "bifrost" }),
-    });
-    const used = Object.values((result.bifrost && result.bifrost.characters) || {})
-      .reduce((sum, item) => sum + Number(item.used_tokens || 0), 0);
-    const branch = result.branch ? ` · ${result.branch.label} (${result.branch.id})` : "";
-    status.textContent = `Bifrost beat: ${result.beat.title}${branch} · ${used} tokens logged · log: data/logs/bifrost.jsonl`;
-    state.turn = null;
-    await refresh();
-    await loadSceneCard();
-  } catch (error) {
-    status.textContent = `Bifrost beat failed: ${error.message}`;
-  } finally {
-    button.disabled = false;
-    button.textContent = old;
-  }
-}
-
-async function fetchTavily() {
-  const button = $("#fetch-tavily");
-  const status = $("#tavily-status");
-  const query = $("#tavily-query").value.trim();
-  button.disabled = true;
-  const old = button.textContent;
-  button.textContent = "Searching…";
-  try {
-    const result = await api("/api/dev/tavily-event", {
-      method: "POST",
-      body: JSON.stringify({ query }),
-    });
-    const marker = result.offline ? " (offline fixture)" : "";
-    status.textContent = `${result.title}${marker} · ${result.holders.length} characters now share this event · key ${result.key}`;
-    await refresh();
-  } catch (error) {
-    status.textContent = `Tavily event failed: ${error.message}`;
-  } finally {
-    button.disabled = false;
-    button.textContent = old;
-  }
-}
-
-async function setClockMode(mode) {
-  const status = $("#clock-status");
-  state.clockStatus = mode === "realtime" ? "Aligning the story to the wall clock…" : "Freezing the story clock…";
-  if (status) status.textContent = state.clockStatus;
-  try {
-    const result = await api("/api/clock/mode", {
-      method: "POST",
-      body: JSON.stringify({ mode }),
-    });
-    state.clockStatus = mode === "realtime"
-      ? `Real time from ${formatClock(result.clock.now)}. The next beat arrives when the clock does.`
-      : "Mock time · the story waits for you.";
-    if (status) status.textContent = state.clockStatus;
-    await refresh();
-  } catch (error) {
-    state.clockStatus = `Clock mode failed: ${error.message}`;
-    if (status) status.textContent = state.clockStatus;
-  }
-}
-
-async function advanceClock(run) {
-  const status = $("#clock-status");
-  const buttons = [$("#clock-advance"), $("#clock-play")];
-  buttons.forEach((button) => { if (button) button.disabled = true; });
-  state.clockStatus = run ? "Jumping to the next beat and playing it…" : "Jumping to the next beat…";
-  if (status) status.textContent = state.clockStatus;
-  try {
-    const result = await api("/api/clock/advance", {
-      method: "POST",
-      body: JSON.stringify({ run: Boolean(run) }),
-    });
-    if (result.arc_complete) {
-      state.clockStatus = "Arc complete — all five beats have run. Use Advance to move the clock on.";
-    } else {
-      const played = result.played ? " · beat played" : "";
-      state.clockStatus = `Now ${result.view.current_beat.title} at ${formatClock(result.clock.now)}${played}.`;
-    }
-    if (status) status.textContent = state.clockStatus;
-    state.turn = null;
-    await refresh();
-    if (run) await loadSceneCard();
-  } catch (error) {
-    state.clockStatus = `Clock advance failed: ${error.message}`;
-    if (status) status.textContent = state.clockStatus;
-  } finally {
-    buttons.forEach((button) => { if (button) button.disabled = false; });
-  }
-}
-
-async function runLocalBeat() {
-  const beat = $("#beat-select")?.value || "cafe";
-  try {
-    const result = await api("/api/dev/run-beat", {
-      method: "POST",
-      body: JSON.stringify({ beat, transport: "local" }),
-    });
-    const branch = result.branch ? ` · ${result.branch.label} (${result.branch.id})` : "";
-    $("#status").textContent = `Local beat: ${result.beat.title}${branch}.`;
-    state.turn = null;
-    await refresh();
-    await loadSceneCard();
-  } catch (error) {
-    $("#status").textContent = `Local beat failed: ${error.message}`;
-  }
-}
-
-async function runArc() {
-  const button = $("#run-arc");
-  button.disabled = true;
-  const old = button.textContent;
-  button.textContent = "Running arc…";
-  try {
-    const result = await api("/api/dev/run-arc", { method: "POST", body: "{}" });
-    $("#status").textContent = `Local arc complete: five beats · ${result.branch.label} (${result.branch.id}).`;
-    state.turn = null;
-    await refresh();
-    await loadSceneCard();
-  } catch (error) {
-    $("#status").textContent = `Local arc failed: ${error.message}`;
-  } finally {
-    button.disabled = false;
-    button.textContent = old;
-  }
-}
-
-async function resetWorld() {
-  if (!window.confirm("Reset the world state, phone DMs, and current scene card? Switch/Mattermost room history stays.")) return;
-  try {
-    await api("/api/dev/reset", { method: "POST", body: "{}" });
-    $("#status").textContent = "Demo world reset. Switch/Mattermost history is unchanged.";
-    $("#card-preview").hidden = true;
-    $("#card-preview").textContent = "";
-    $("#card-path").textContent = "No card loaded yet.";
-    state.turn = null;
-    state.studio.data = null;
-    state.studio.error = "";
-    state.studio.fetchedAt = 0;
-    await refresh();
-  } catch (error) {
-    $("#status").textContent = `Reset failed: ${error.message}`;
-  }
-}
-
-async function loadSceneCard() {
-  try {
-    const card = await api("/api/scene-card");
-    $("#card-path").textContent = card.path;
-    const preview = $("#card-preview");
-    preview.textContent = card.text;
-    preview.hidden = false;
-  } catch (error) {
-    $("#status").textContent = `Scene card failed: ${error.message}`;
-  }
-}
-
-async function copyLiveCommand() {
-  const command = "uv run director --switch";
-  try {
-    await navigator.clipboard.writeText(command);
-    $("#status").textContent = `Copied: ${command}. Run it in the switch-world terminal.`;
-  } catch {
-    $("#status").textContent = `Run in the terminal: ${command}`;
-  }
-  const button = $("#copy-command");
-  if (button) {
-    const old = button.textContent;
-    button.textContent = "Copied ✓";
-    setTimeout(() => { button.textContent = old; }, 1800);
-  }
-}
-
-function nextBeat() {
+export function nextBeat() {
   const turn = state.turn;
   if (!turn) {
     startLatestTurnPlayback();
@@ -5306,7 +2961,7 @@ function nextBeat() {
 
 /* On a fresh page, or after a completed turn, Next replays the latest turn
    recorded with turn metadata from the start. */
-function startLatestTurnPlayback() {
+export function startLatestTurnPlayback() {
   const data = state.data || {};
   const entries = buildEventEntries(data).filter((entry) => entry.turnId && !entry.isUser);
   if (!entries.length) {
@@ -5331,173 +2986,4 @@ function startLatestTurnPlayback() {
   };
   state.groupStatus = "Replaying the latest turn.";
   renderStory(data);
-}
-
-/* ---- wiring ----------------------------------------------------------- */
-
-setTheme(state.theme);
-setMotion(state.motion);
-shellMode();
-window.addEventListener("resize", shellMode);
-if (window.visualViewport) window.visualViewport.addEventListener("resize", shellMode);
-setView(state.view);
-setTreeLens(state.treeLens);
-
-$$(".rail-link").forEach((button) => {
-  button.addEventListener("click", () => setView(button.dataset.view));
-});
-$$("[data-tree-lens]").forEach((button) => {
-  button.addEventListener("click", () => setTreeLens(button.dataset.treeLens));
-});
-$("#theme-toggle").addEventListener("click", () => setTheme(state.theme === "dark" ? "light" : "dark"));
-$("#theme-toggle-2").addEventListener("click", () => setTheme(state.theme === "dark" ? "light" : "dark"));
-$("#motion-toggle").addEventListener("change", (event) => setMotion(event.target.checked));
-$("#rel-view").addEventListener("change", () => {
-  if (state.data) renderRelationships(state.data);
-});
-/* Some embedded/browser previews block target=_blank popups; navigate the top page
-   directly so Open #world always responds to the click. */
-$$('a[href*="127.0.0.1:8065/switch/channels/world"]').forEach((link) => {
-  link.href = `${MATTERMOST_BASE}/switch/channels/world`;
-  link.addEventListener("click", (event) => {
-    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
-    event.preventDefault();
-    try {
-      if (window.top && window.top !== window.self) {
-        window.top.location.href = link.href;
-        return;
-      }
-    } catch {
-      /* cross-origin top; fall back to this window */
-    }
-    window.location.assign(link.href);
-  });
-});
-/* Same problem for the remaining new-tab links: if the browser refuses the popup,
-   navigate the top page instead of failing silently. */
-$$('a[target="_blank"]').forEach((link) => {
-  link.addEventListener("click", (event) => {
-    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
-    event.preventDefault();
-    const opened = window.open(link.href, "_blank");
-    if (opened) {
-      try { opened.opener = null; } catch { /* ignore */ }
-      return;
-    }
-    try {
-      if (window.top && window.top !== window.self) {
-        window.top.location.href = link.href;
-        return;
-      }
-    } catch {
-      /* cross-origin top; fall back to this window */
-    }
-    window.location.assign(link.href);
-  });
-});
-
-$("#arc-canon").addEventListener("click", () => setView("settings"));
-$("#profile-close").addEventListener("click", closeProfile);
-$("#profile-close-2").addEventListener("click", closeProfile);
-$("#profile-modal").addEventListener("click", (event) => {
-  if (event.target.matches("[data-close-profile]")) closeProfile();
-});
-$("#ending-close").addEventListener("click", closeEnding);
-$("#ending-close-2").addEventListener("click", closeEnding);
-$("#ending-story").addEventListener("click", closeEnding);
-$("#ending-worlds").addEventListener("click", () => {
-  closeEnding();
-  setView("worlds");
-});
-$("#ending-modal").addEventListener("click", (event) => {
-  if (event.target.matches("[data-close-ending]")) closeEnding();
-});
-$("#outfit-close").addEventListener("click", closeOutfit);
-$("#outfit-close-2").addEventListener("click", closeOutfit);
-$("#outfit-modal").addEventListener("click", (event) => {
-  if (event.target.matches("[data-close-outfit]")) closeOutfit();
-});
-document.addEventListener("keydown", (event) => {
-  if (event.key !== "Escape") return;
-  const ending = $("#ending-modal");
-  if (ending && !ending.hidden) {
-    closeEnding();
-    return;
-  }
-  const outfit = $("#outfit-modal");
-  if (outfit && !outfit.hidden) {
-    closeOutfit();
-    return;
-  }
-  if ($(".story-phone")?.classList.contains("is-open")) {
-    closePhone();
-    return;
-  }
-  closeProfile();
-});
-$("#scene-next").addEventListener("click", nextBeat);
-$("#scene-say-form").addEventListener("submit", (event) => {
-  event.preventDefault();
-  const input = $("#scene-say-input");
-  const text = input.value.trim();
-  if (!text) return;
-  input.value = "";
-  sendScene(text, {
-    whisper: Boolean($("#whisper-toggle") && $("#whisper-toggle").checked),
-    to: $("#whisper-target") ? $("#whisper-target").value : null,
-  });
-});
-$("#whisper-toggle").addEventListener("change", (event) => {
-  state.whisper = event.target.checked;
-  if (state.data) renderStory(state.data);
-});
-$("#whisper-target").addEventListener("change", (event) => {
-  state.whisperTarget = event.target.value || null;
-  if (state.data) renderStory(state.data);
-});
-$("#studio-refresh").addEventListener("click", () => loadStudio(true));
-$("#studio-advance").addEventListener("click", studioAdvance);
-$("#safety-toggle").addEventListener("click", () => setSafety(!state.safety.paused));
-$("#worlds-refresh").addEventListener("click", () => loadScenarios(true));
-$("#worlds-reset").addEventListener("click", resetCurrentScenario);
-$("#worlds-evaluate").addEventListener("click", evaluateEnding);
-$("#takes-refresh").addEventListener("click", () => loadTakes(true));
-$("#takes-next").addEventListener("click", advanceTake);
-$("#scene-ending").addEventListener("click", evaluateEnding);
-$("#scene-dm").addEventListener("click", () => {
-  const target = phoneTarget();
-  const cast = CAST[target];
-  if (cast && !isFriend(state.data, cast.id)) {
-    addFriend(cast.id);
-    return;
-  }
-  openPhone(target);
-});
-$("#clock-mock").addEventListener("click", () => setClockMode("mock"));
-$("#clock-real").addEventListener("click", () => setClockMode("realtime"));
-$("#clock-advance").addEventListener("click", () => advanceClock(false));
-$("#clock-play").addEventListener("click", () => advanceClock(true));
-$("#tell-alice").addEventListener("click", tellAlice);
-$("#run-cafe").addEventListener("click", runLocalBeat);
-$("#run-arc").addEventListener("click", runArc);
-$("#run-bifrost").addEventListener("click", runBifrost);
-$("#phone-form").addEventListener("submit", sendPhone);
-$("#phone-close").addEventListener("click", closePhone);
-$("#fetch-tavily").addEventListener("click", fetchTavily);
-$("#reset").addEventListener("click", resetWorld);
-$("#load-card").addEventListener("click", loadSceneCard);
-$("#copy-command").addEventListener("click", copyLiveCommand);
-
-window.addEventListener("scroll", hideTip, { passive: true });
-window.addEventListener("resize", hideTip);
-
-if (state.data == null) {
-  refresh();
-  setInterval(() => {
-    if (!document.hidden) refresh();
-  }, 2500);
-  document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) refresh();
-  });
-  window.addEventListener("focus", refresh);
 }

@@ -1106,6 +1106,27 @@ cp .env.example .env
 uv run world-engine        # MCP at http://127.0.0.1:8890/mcp, dashboard at /
 ```
 
+The dashboard is a **no-build ES module** app. `web/index.html` loads the classic
+`web/cast.js` first, then `web/js/main.js` with `type="module"`. `main.js` is wiring and
+bootstrap only: it binds the rail, scene, phone, Studio, settings and dev-harness
+controls, then starts the poll. View dispatch and `refresh()` live in `views.js`; each
+surface is its own module under `web/js/render/` (`stage.js` for Story/Worlds/Takes/
+endings, `phone.js` for the DM channel, `ledger.js` for the World Tree and Secret
+Ledger, `studio.js` for Studio/Settings/dev actions), with shared DOM and SVG helpers
+in `render/dom.js`. The mutable store (`state.js`), the single fetch layer (`api.js`),
+pure formatting and data helpers (`format.js`), and the generated vocabulary
+(`vocab.js`) stay at `web/js/`. `vocab.js` is emitted from
+`switch_world/domain/protocol.py` by `scripts/gen-js-contract.py`; CI runs the
+generator with `--check`, so the cast order, event kinds, take boundaries and
+action/response modes cannot drift from the backend.
+
+```sh
+make web                                      # node --check + unit tests + drift check
+node --test "web/js/*.test.js"                # pure module tests only
+python scripts/gen-js-contract.py             # regenerate vocab.js
+python scripts/gen-js-contract.py --check     # what CI runs
+```
+
 ### 6. Register and invite the director
 
 **Live local path:** register `director` in Console (provider **Claude Code**, directory
@@ -1201,7 +1222,7 @@ the scene card above: the user and the cast co-produce a scene and its provenanc
 | `gateway/` | Bifrost client, Tavily client, offline fixture |
 | `world/state/` | seed characters, relationship graph and beliefs |
 | `world/rooms.json` | surface ↔ character ↔ channel/DM mapping |
-| `switch_world/domain/` | pure vocabulary: cast ids, visibilities, proposition labels and value helpers; no I/O |
+| `switch_world/domain/` | pure vocabulary: cast ids, visibilities, proposition labels and value helpers, plus `protocol.py` (cast/event/take/action vocabulary the dashboard codegen reads); no I/O |
 | `switch_world/adapters/persistence/` | the only SQLite adapter: schema, migrations, seed, and `WorldStore` reader/writer/admin faces |
 | `switch_world/adapters/transports/` | Switch, cloud-room, local and legacy-bridge transports over the `CharacterTransport` port |
 | `switch_world/application/` | use cases: `scene.say_in_group`, `scene.dm`, `scene.whisper`, the `TurnRecorder` pipeline (plan → deliver → sanitise → writes → beats → relay), and the one authored-beat pipeline `beats.run_beat` with its injected `beat_strategies` |
@@ -1209,7 +1230,7 @@ the scene card above: the user and the cast co-produce a scene and its provenanc
 | `switch_world/interfaces/cli/` | the `world-engine` and `director` console entry points; argparse `--help` builds nothing |
 | `switch_world/resources/` | wheel-only: `world/`, `web/` and `agents/*/IDENTITY.md` force-included by hatch |
 | `world_engine/` | compatibility facade over the store, the `mcp_server` re-export shim, canon API, scene card and Studio summary |
-| `web/` | the vanilla dashboard (Story/arc/profile, World Tree, ledger, settings) |
+| `web/` | the vanilla dashboard (Story/arc/profile, World Tree, ledger, settings); entry `web/js/main.js` is wiring only, with `views.js` dispatch, per-surface modules in `web/js/render/`, and `state.js` / `api.js` / `format.js` / generated `vocab.js` |
 | `web/assets/portraits/` | bust, full-body 立绘, avatar crops, contact sheets, `PROMPTS.md` |
 | `web/assets/scenes/` | demo scene plates (first meeting, day café, solo date, trio, endings) |
 | `web/assets/portraits/outfits/` | date outfit full/bust and the memory-chain outfit plate |

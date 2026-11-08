@@ -13,6 +13,7 @@ import json
 import re
 from pathlib import Path
 
+from switch_world.domain import protocol as _protocol
 from world_engine import config
 from world_engine.service import WorldService
 
@@ -140,8 +141,8 @@ def clean_scene_line(text: str | None) -> str:
 # Action mode separates what the player *does as themselves* from what they *attempt
 # on an NPC*. An attempt is never auto-success; it always earns a response from the
 # spectrum below. `continue` and `wait` are deliberate non-moves.
-ACTION_MODES = ("result", "attempt", "continue", "wait")
-RESPONSES = ("refuse", "negotiate", "limited", "surface", "sincere")
+ACTION_MODES = _protocol.ACTION_MODES
+RESPONSES = _protocol.RESPONSE_MODES
 
 CONTINUE_MARKERS = (
     "continue", "go on", "keep going", "carry on", "next", "接着", "继续", "往下",

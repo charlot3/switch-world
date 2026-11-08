@@ -65,8 +65,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: node --check web/app.js
-      - run: node --check web/cast.js
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: for f in web/cast.js web/js/*.js; do node --check "$f"; done
+      - run: node --test "web/js/*.test.js"
+      - run: python scripts/gen-js-contract.py --check
 
   package:
     name: wheel install smoke

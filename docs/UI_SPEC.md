@@ -8,7 +8,7 @@ the rail with the main pane clipped off-screen.
 
 ## Shell modes
 
-`shellMode()` in `web/app.js` sets `html[data-shell]` from
+`shellMode()` in `web/js/main.js` sets `html[data-shell]` from
 `min(innerWidth, visualViewport.width)`. This is deliberately **not** a media query: an
 iframe or a WebView can report a 980px layout viewport while the visible pane is 500px.
 

@@ -6,9 +6,8 @@ pipeline result back to the return shape the HTTP routes, the CLI and the
 existing tests expect. The lifecycle itself lives in
 :mod:`switch_world.application.beats`; this module only dispatches.
 
-``director.beats``, ``director.bifrost_scene``, ``director.run_switch`` and
-``director.simulate`` are compatibility shims over these functions until the
-caller migration lands.
+The v1 ``director`` modules were thin wrappers over some of these functions;
+they were deleted in step 10. The public names and return shapes are unchanged.
 """
 from __future__ import annotations
 
@@ -338,8 +337,7 @@ def run_cafe_bifrost(
     """Run the café beat with both character turns generated through Bifrost.
 
     The caller owns the clock: like the historical function, this does not move
-    the world to 18:30. ``director.beats`` and ``run_beat_bifrost`` do that
-    before calling in.
+    the world to 18:30. ``run_beat_bifrost`` does that before calling in.
     """
     service = service or WorldService()
     if client is None:

@@ -226,14 +226,13 @@ The world engine is the only process that opens SQLite.
 ```
 characters(id, name, role, goals, voice, status)
 friends(character, since)              -- phone gate
-clock(id=1, now, day, mode, anchor_real)  -- mock or 1x realtime
+clock(id=1, now, day, mode, anchor_real, scale)  -- mock, realtime or scaled realtime
 beliefs(id, holder, proposition, proposition_key, source_kind, source_id,
         confidence, learned_at, visibility, superseded_by)
 relationships(a, b, trust, closeness, tension, last_interaction, shared_secret_count)
 events(id, kind, summary, participants_json, visibility, created_at,
        room_id, message_id, supersedes)
 beats(id, day, ord, kind, participants_json, room_id, state, started_at, finished_at)
-clock(now, day)
 ```
 
 Rules:

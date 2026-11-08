@@ -21,8 +21,9 @@ agents/
   opencode.json.example   shared template
 ```
 
-The director is **not** under `agents/`; it lives at the repo-root `director/` and has no
-OpenCode/Claude session.
+The director is **not** under `agents/`; it lives in
+`switch_world/interfaces/cli/director.py` (with the pipeline in `switch_world/application/`)
+and has no OpenCode/Claude session.
 
 ## Register
 

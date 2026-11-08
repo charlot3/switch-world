@@ -1,7 +1,7 @@
-"""Compatibility transport over a legacy ``director.switch_client.SwitchClient``.
+"""Compatibility transport over the deleted v1 ``director.switch_client.SwitchClient``.
 
 The v2 application talks to :class:`CharacterTransport`. Older callers (and the
-compatibility shim in ``director/group.py``) still pass a Switch-shaped object
+compatibility shim in ``switch_world.compat``) still pass a Switch-shaped object
 with ``find_room`` / ``post`` / ``history``. This adapter narrows that surface
 without letting the application depend on the legacy class, and normalizes the
 wire event id through the same helper as :class:`SwitchTransport` so an event
@@ -264,8 +264,8 @@ def deferred_transport(mode: str) -> LegacySwitchTransport:
     """Build the historical transport for a caller with no composition root.
 
     The client is resolved on first use, so a monkeypatched
-    ``director.group.SwitchClient`` still drives older tests.  This is the one
-    compatibility bridge; production code injects a real transport.
+    ``switch_world.compat.SwitchClient`` still drives older tests.  This is the
+    one compatibility bridge; production code injects a real transport.
     """
     if str(mode).strip().lower() == "cloud":
 

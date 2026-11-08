@@ -100,7 +100,7 @@ Notes:
 - The dashboard reads and writes the **local** SQLite world, so a guest line
   really advances the recorded scene. Keep `WORLD_DEV` gating in mind: the
   Caddy rule above blocks `/api/dev/*` from the public surface.
-- `web/app.js` rewrites the "Open #world" links to
+- `web/js/main.js` rewrites the "Open #world" links to
   `<origin>/mattermost/switch/channels/world` on non-local hosts, so the
   public page links into the bridged Mattermost instead of `localhost:8065`.
 - The tunnel is the availability boundary: if the SSH session drops, the site

@@ -9,7 +9,8 @@ moves, and the scene card is exported. The dialogue is authored.
 :mod:`switch_world.application.beats` with the local strategy.  It keeps the
 historical signature, return shape and the requirement that the caller seed the
 secret first; it deliberately does not move the clock (callers that need the
-18:30 jump use ``director.clock.advance_to_beat`` or ``director.beats``).
+18:30 jump use :func:`switch_world.application.beat_runners.advance_to` or
+:func:`switch_world.application.beat_runners.run_beat`).
 """
 from __future__ import annotations
 

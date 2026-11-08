@@ -2,7 +2,7 @@
 
 The composition root injects adapters explicitly. These factories keep the
 historical lazy selection (``WORLD_AGENT_MODE=cloud`` -> DeepSeek, otherwise
-Bifrost) for the compatibility shims while the last callers migrate.
+Bifrost) for the compatibility shims in ``switch_world.compat``.
 """
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ def _agent_mode() -> str:
 
 
 def default_dm_model():
-    """The model the historical DM shim built from the process settings."""
+    """The model ``switch_world.compat.reply_to_dm`` builds from process settings."""
     data_dir = Path(config.DATA_DIR)
     if _agent_mode() == "cloud":
         return DeepSeekModelClient(
@@ -41,7 +41,7 @@ def default_dm_model():
 
 
 def default_whisper_model() -> LegacyModelClient:
-    """The model the historical whisper shim built from the process settings."""
+    """The model ``switch_world.compat.whisper_to_character`` builds from settings."""
     if _agent_mode() == "cloud":
         return LegacyModelClient(CloudBifrost())
     from switch_world.adapters.models.bifrost_compat import BifrostClient

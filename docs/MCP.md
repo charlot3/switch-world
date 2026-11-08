@@ -17,6 +17,10 @@ confused. "Alice knows something Emily does not" is enforced at the API layer.
 
 ## Resources
 
+The v2.0.0-rc server registers no MCP resources; its surface is the fourteen tools below.
+These four `world://` URIs are the planned read-only view, kept here so the scope does not
+drift; the same data is available through the tools and the HTTP projections.
+
 | URI | Visibility | Contents |
 | --- | --- | --- |
 | `world://characters/<id>` | public | name, role, goals, voice |
@@ -106,17 +110,20 @@ GET  /api/bifrost/usage             per-character model usage
 GET  /api/scenarios                 loadable worlds
 POST /api/scenarios/<id>/load       load a scenario
 GET  /api/takes                     recording routes
-POST /api/takes/cue                 advance a take
+POST /api/takes/cue                 apply the current scene's cues
 GET  /api/studio/summary            studio projection
 GET  /health                        liveness
 ```
 
 `/api/dev/*` routes (tell-alice, run-cafe, run-beat, run-arc, tavily-event, run-bifrost,
-reset, scene-card export) exist only when `WORLD_DEV` is on. Every route except the
-scenario/take loaders, the scene writes and the dev routes is read-only; `POST /api/dm`,
-`POST /api/group/say` and `POST /api/group/whisper` are character-actor paths, and the
-loader/dev routes require the director token. `GET /api/state` reads the whole projection
-on one SQLite connection, and `GET /api/scene-card` writes nothing.
+reset, scene-card export) and the scenario/take loaders and clock controls exist only when
+`WORLD_DEV` is on. The mutating routes are the scene and take writes, the friend/phone
+routes, the clock writes, the safety pause/resume routes, the ending evaluator and the dev
+routes; the rest are read-only. The HTTP surface is the public/demo projection, so it does
+not use the character bearer tokens: the phone is gated by the friend list and the
+operator routes by `WORLD_DEV`. The MCP tools above are the authenticated character path.
+`GET /api/state` reads the whole projection on one SQLite connection, and
+`GET /api/scene-card` writes nothing.
 
 The dashboard polls these endpoints. It never opens SQLite; the world engine is the only
 writer and the only process that opens the database file.
@@ -129,22 +136,23 @@ SQLite, one file at `data/world.sqlite` (gitignored). Tables:
 characters(id, name, role, goals, voice, status)
 beliefs(id, holder, proposition, proposition_key, source_kind, source_id,
         confidence, learned_at, visibility, superseded_by)
-relationships(a, b, trust, closeness, tension, last_interaction, shared_secret_count)
+relationships(a, b, trust, closeness, tension, shared_secret_count, last_interaction)
 events(id, kind, summary, participants_json, visibility, created_at,
-       room_id, message_id, supersedes)
-beats(id, day, ord, kind, participants_json, room_id, state, started_at, finished_at)
-clock(id=1, now, day, mode, anchor_real)
+       room_id, message_id, metadata_json, supersedes)
+beats(id, day, ord, kind, participants_json, room_id, state, started_at, finished_at,
+      payload_json)
+clock(id=1, now, day, mode, anchor_real, scale)
 friends(character, since)
-outfits(character, outfit_id, reason, source_belief_id, updated_at)
-items(id, name, holder, note)
+outfits(character, outfit_id, label, art, reason, source_belief_id, changed_at)
+items(id, label, holder, owner, status, created_at)
 meta(key, value)                 -- scenarios, takes and seeded flags
-idempotency(scope, request_id, digest, response_json)
+idempotency(scope, request_id, digest, response_json, created_at)
 ```
 
-Migrations are a numbered list applied at startup; the schema version is stored in
-`PRAGMA user_version`. The seed loader maps `world/state/relationships.json` `from`/`to` to
-`a`/`b`, defaults `shared_secret_count=0` and `superseded_by=null`, and validates that every
-belief has a source.
+Migrations are additive column checks applied at startup; the schema version is stored as
+`meta.schema_version` (currently 4). The seed loader maps `world/state/relationships.json`
+`from`/`to` to `a`/`b` and defaults `shared_secret_count=0` and `superseded_by=null`; the
+scenario loader (`application/scenarios.py`) rejects a belief without a source.
 
 ## Implementation notes
 
@@ -154,8 +162,9 @@ belief has a source.
   loaded from the environment at startup.
 - Every write is one transaction. Beliefs are append-only; a correction writes a new row
   with `superseded_by` set on the old one.
-- `/api/*` is read-only except the scene writes, the scenario/take loaders (director
-  token) and `/api/dev/*` (dev mode only).
+- The HTTP `/api/*` projection is read-only except the scene/take writes, the friend/phone
+  routes, the clock and safety controls, the ending evaluator and the dev-gated loaders and
+  operator routes.
 - The SQLite adapter in `switch_world/adapters/persistence/` is the only module with SQL;
   MCP tools and HTTP routes call the `WorldStore` port through `WorldService`.
 - Log every tool call with caller, tool, and a short argument hash — enough to debug the

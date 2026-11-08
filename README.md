@@ -69,9 +69,10 @@ prompt-injected or confused. See [`docs/MCP.md`](docs/MCP.md) for the per-tool r
 | 13 | `world__ending_status` | any | — | the active scenario's ending card |
 | 14 | `world__advance_time` | director | `minutes: int` | the new world clock |
 
-The same server exposes four read resources: `world://characters/<id>` (public),
-`world://beliefs/<holder>` (holder + director), `world://relationships/<from>/<to>`
-(`from` + director) and `world://events` (public).
+The fourteen tools are the MCP surface advertised by v2.0.0-rc. The four `world://`
+read-resource URIs sketched in early drafts (`characters`, `beliefs`, `relationships`,
+`events`) are not registered on the server yet; clients read the same data through these
+tools and the read-only HTTP projections.
 
 ### Adapter map
 
@@ -105,7 +106,7 @@ make web       # node --check on web/cast.js and web/js/*.js; node --test; contr
 make cov       # pytest --cov=switch_world --cov-report=term-missing
 ```
 
-Coverage is measured separately with pytest-cov; v2 is at **85%** (6060 / 7114
+Coverage is measured separately with pytest-cov; v2 is at **85%** (6065 / 7119
 statements). CI runs the same lint, the 3.11/3.12/3.13 test matrix, the dashboard syntax
 job and the wheel-install smoke.
 
@@ -175,7 +176,7 @@ delivery, not by one prompt pretending to be four people.
 | See the four-minute shot list and test pass | [`docs/DEMO_TODAY.md`](docs/DEMO_TODAY.md) |
 | Open the recording tab board and timer | [`demo-links.html`](demo-links.html) |
 | Understand the six layers | [`docs/architecture.png`](docs/architecture.png) and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
-| See the MCP contract | [MCP model](#mcp-model) |
+| See the MCP contract | [MCP in depth](#mcp-in-depth) |
 | Reproduce the local stack | [Quickstart](#quickstart) |
 
 ## Two editions

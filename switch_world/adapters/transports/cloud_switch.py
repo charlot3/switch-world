@@ -1,8 +1,9 @@
 """Cloud (DeepSeek) room adapter with the historical Switch-shaped surface.
 
-This is the room half of the legacy ``director/cloud_switch.py``: a Drop-in
-object for ``director.group.say_in_group`` backed by DeepSeek. It is kept for
-the compatibility shims while callers migrate to
+This is the room half of the deleted v1 ``director/cloud_switch.py``: a drop-in
+object for ``switch_world.application.scene.say_in_group`` (through
+``switch_world.compat``) backed by DeepSeek. It is kept for the compatibility
+shims while callers migrate to
 :class:`switch_world.adapters.transports.CloudRoomTransport`.
 """
 from __future__ import annotations
@@ -39,7 +40,7 @@ def _identity(character: str, limit: int = 3200) -> str:
     return path.read_text(encoding="utf-8")[:limit]
 
 class CloudSwitch:
-    """Drop-in room for `director.group.say_in_group` backed by DeepSeek."""
+    """Drop-in room for ``switch_world.application.scene.say_in_group`` backed by DeepSeek."""
 
     def __init__(
         self,

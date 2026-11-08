@@ -156,5 +156,5 @@ table; reset clears it). Group sends filter absent characters.
 - English UI; no visible CJK strings.
 - Keep the existing phone DM, time machine, group endpoint and tests working.
 - Backend: add tests under `tests/`; run `uv run pytest -q`.
-- Frontend: vanilla HTML/CSS/JS, no new dependency; `node --check web/app.js`.
+- Frontend: vanilla HTML/CSS/JS, no new dependency; `node --check web/js/*.js`.
 - Do not edit README/docs in the implementation branches; the integrator updates docs.

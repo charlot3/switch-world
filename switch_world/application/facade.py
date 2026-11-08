@@ -10,6 +10,7 @@ need a raw connection (the clock test is the one remaining user).
 """
 from __future__ import annotations
 
+import hmac
 import os
 import sqlite3
 from contextlib import contextmanager
@@ -95,8 +96,14 @@ class WorldService:
             yield conn
 
     def actor_for_token(self, token: str) -> str:
-        actor = self.tokens.get(token)
-        if not actor:
+        # Compare against every entry without short-circuiting so the lookup
+        # time does not reveal which token (or which prefix) was presented.
+        candidate = token.encode("utf-8")
+        actor = None
+        for known, owner in self.tokens.items():
+            if hmac.compare_digest(known.encode("utf-8"), candidate):
+                actor = owner
+        if actor is None:
             raise PermissionError("unknown world token")
         return actor
 

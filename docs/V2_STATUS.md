@@ -20,11 +20,11 @@ deployed). `main` and `geekroom` are unchanged and the public demo still runs th
 | 9 | Modular dashboard: `web/js/{main,api,state,format,vocab}.js`, `web/js/render/*`, `node --test`, generated `cast.js`/`vocab.js`; no build step | node --check + node --test + contract drift |
 | 10a | Port the last real logic out of the v1 packages into `switch_world` (`facade`, `scenarios`, `takes`, `studio`, `social`, `canon`, `clock`, `prompts`, `beat_runners`, `simulate`, `tavily_beat`, `switch_log`, cloud/Switch/Bifrost adapters) | 402 tests + `make check` |
 | 10b | Migrate every caller to `switch_world`; delete `world_engine/`, `director/`, `gateway/`, the local `mcp/` and `web/app.js`; point console scripts and the wheel at `switch_world`; add architecture guards | 414 tests + `make check` + wheel smoke |
-| 10c | Docs are MCP-first and match the tree; in-process CLI tests; tag `v2.0.0-rc` | **422 tests, 85% coverage**, full gate below |
+| 10c | Docs are MCP-first and match the tree; in-process CLI tests; tag `v2.0.0-rc` | **423 tests, 85% coverage**, full gate below |
 
 ## Coverage
 
-`pytest --cov=switch_world --cov-report=term` reports **85%** (6060 / 7114 statements).
+`pytest --cov=switch_world --cov-report=term` reports **85%** (6065 / 7119 statements).
 
 The largest remaining gaps are long-tail branches, not missing surfaces:
 

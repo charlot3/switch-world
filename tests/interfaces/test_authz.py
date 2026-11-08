@@ -30,6 +30,17 @@ def _ctx(token: str):
     return SimpleNamespace(headers={"Authorization": f"Bearer {token}"})
 
 
+# ---- token edge ------------------------------------------------------------
+
+
+def test_token_resolution_is_exact_and_handles_non_ascii(service):
+    assert service.actor_for_token("dev-alice") == "alice"
+    assert service.actor_from_headers(_ctx("dev-emily").headers) == "emily"
+    for bad in ("dev-alice ", "dev-alic", "alice", "dev-alicé"):
+        with pytest.raises(PermissionError):
+            service.actor_for_token(bad)
+
+
 # ---- give_item -------------------------------------------------------------
 
 

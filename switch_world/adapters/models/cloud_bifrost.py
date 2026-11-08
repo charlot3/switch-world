@@ -4,8 +4,8 @@ The guest deployment on Oracle has no Switch Console, so there is nothing to hos
 the four live agent sessions. Historically this module contained both the room
 bookkeeping and the DeepSeek HTTP client. The client half now lives in
 :class:`switch_world.adapters.models.deepseek.DeepSeekModelClient`; the room half
-stays here as a small Switch-shaped compatibility shim so
-``director.group.say_in_group`` and the DM/whisper shims keep working.
+stays here as a small Switch-shaped compatibility shim so the
+``switch_world.compat`` shims keep working.
 
 It implements only what ``say_in_group`` uses from ``SwitchClient``:
 

@@ -8,6 +8,222 @@
         "title": "BifrostUsageResponse",
         "type": "object"
       },
+      "BriefingLatestResponse": {
+        "additionalProperties": true,
+        "description": "The latest ``briefing`` event and its markdown page (read-only).",
+        "properties": {
+          "briefing": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Briefing"
+          },
+          "event": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event"
+          },
+          "meeting": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meeting"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "offline": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Offline"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
+          },
+          "sources": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sources"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject"
+          }
+        },
+        "title": "BriefingLatestResponse",
+        "type": "object"
+      },
+      "BriefingRequest": {
+        "properties": {
+          "meeting": {
+            "default": "",
+            "title": "Meeting",
+            "type": "string"
+          },
+          "queries": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Queries"
+          },
+          "subject": {
+            "default": "",
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "title": "BriefingRequest",
+        "type": "object"
+      },
+      "BriefingResponse": {
+        "additionalProperties": true,
+        "description": "A prepared one-page briefing, its artifact path and recorded evidence.",
+        "properties": {
+          "briefing": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Briefing"
+          },
+          "events": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Events"
+          },
+          "meeting": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meeting"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
+          },
+          "replies": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replies"
+          },
+          "sources": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sources"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject"
+          }
+        },
+        "title": "BriefingResponse",
+        "type": "object"
+      },
       "CanonResponse": {
         "additionalProperties": true,
         "description": "The authored story bible; its keys are data, not a stable schema.",
@@ -1518,6 +1734,50 @@
         ]
       }
     },
+    "/api/briefing/latest": {
+      "get": {
+        "description": "The newest briefing event plus the markdown page it points at.",
+        "operationId": "latest_briefing_api_briefing_latest_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BriefingLatestResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Latest Briefing",
+        "tags": [
+          "briefing"
+        ]
+      }
+    },
+    "/api/briefing/latest.md": {
+      "get": {
+        "description": "The same page as a plain markdown download.",
+        "operationId": "latest_briefing_markdown_api_briefing_latest_md_get",
+        "responses": {
+          "200": {
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Latest Briefing Markdown",
+        "tags": [
+          "briefing"
+        ]
+      }
+    },
     "/api/canon": {
       "get": {
         "operationId": "canon_api_canon_get",
@@ -1653,6 +1913,55 @@
         "summary": "Clock Mode",
         "tags": [
           "world"
+        ]
+      }
+    },
+    "/api/dev/briefing": {
+      "post": {
+        "description": "Research a subject and write a one-page pre-meeting briefing.",
+        "operationId": "prepare_briefing_endpoint_api_dev_briefing_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/BriefingRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BriefingResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Prepare Briefing Endpoint",
+        "tags": [
+          "dev"
         ]
       }
     },

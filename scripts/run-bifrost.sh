@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# run-bifrost — start the local Bifrost gateway with the Ollama provider.
+# run-bifrost — start the local Bifrost gateway with the OpenCode Go provider.
 #
 # Bifrost is the Geek Room edition's model gateway. It listens on :8080 and exposes
 # the OpenAI-compatible /v1/chat/completions endpoint that switch_world/adapters/models/bifrost_compat.py calls.
@@ -8,7 +8,8 @@
 # Usage:
 #   scripts/run-bifrost.sh [env-file]
 #
-# The default provider is the local Ollama model in world/models.json. Set
+# The default provider is the OpenCode Go adapter (`openai/deepseek-v4.1-flash`)
+# in world/models.json, served by scripts/opencode-gateway.py. Set
 # BIFROST_MODEL_<CHARACTER> / BIFROST_FALLBACKS_<CHARACTER> to point individual
 # characters at different provider models; add those providers to config.json.
 

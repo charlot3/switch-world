@@ -106,6 +106,7 @@ POST /api/dm                        a phone turn
 GET  /api/friends                   friend gate
 POST /api/friends/<character>       add a friend
 GET  /api/switch-log                transport history as NDJSON
+GET  /api/briefing/latest           latest pre-meeting briefing (read-only)
 GET  /api/bifrost/usage             per-character model usage
 GET  /api/scenarios                 loadable worlds
 POST /api/scenarios/<id>/load       load a scenario
@@ -116,7 +117,7 @@ GET  /health                        liveness
 ```
 
 `/api/dev/*` routes (tell-alice, run-cafe, run-beat, run-arc, tavily-event, run-bifrost,
-reset, scene-card export) and the scenario/take loaders and clock controls exist only when
+briefing, reset, scene-card export) and the scenario/take loaders and clock controls exist only when
 `WORLD_DEV` is on. The mutating routes are the scene and take writes, the friend/phone
 routes, the clock writes, the safety pause/resume routes, the ending evaluator and the dev
 routes; the rest are read-only. The HTTP surface is the public/demo projection, so it does

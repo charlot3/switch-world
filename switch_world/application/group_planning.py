@@ -16,6 +16,7 @@ from typing import Mapping
 from switch_world.application import arbiter as social_arbiter
 from switch_world.application import context, social
 from switch_world.application.facade import WorldService
+from switch_world.application.prompts import GROUP_SCHEMA
 from switch_world.application.social import PLACEHOLDERS, _strip_meta
 
 DEFAULT_CHARACTERS = ("alice", "emily", "sophia", "mia")
@@ -125,19 +126,34 @@ def _agent_mentions(text: str, present: list[str], sender: str) -> list[str]:
 
 
 def _relay_prompt(
-    service: WorldService, sender: str, target: str, text: str
+    service: WorldService,
+    sender: str,
+    target: str,
+    text: str,
+    *,
+    envelope: bool = False,
 ) -> str:
     """One agent-to-agent aside inside the scene, never a private room."""
     relationship = social.relationship_block(service, target)
-    return (
+    if envelope:
+        memory_rule = (
+            "If this tells you something you did not know, record it in the "
+            f'envelope\'s memory field with source "character:{sender}".'
+        )
+    else:
+        memory_rule = (
+            "If this tells you something you did not know, record it with "
+            f'world__remember(..., source="character:{sender}") before replying.'
+        )
+    prompt = (
         f"@{target} {sender.title()} says to you: \"{text}\"\n\n"
         "Answer them directly, one or two short sentences, in your own voice.\n"
         "This is an aside inside the scene; do not address the room.\n"
         "Do not mention another @name in this reply.\n"
-        "If this tells you something you did not know, record it with "
-        f"world__remember(..., source=\"character:{sender}\") before replying.\n\n"
+        f"{memory_rule}\n\n"
         f"{relationship}"
     )
+    return prompt + (f"\n\n{GROUP_SCHEMA}" if envelope else "")
 
 
 def _affinity(service: WorldService | None, character: str) -> float:
@@ -380,6 +396,8 @@ def _prompt_for(
     role: str,
     arbiter_note: dict | None = None,
     present: list[str] | None = None,
+    *,
+    envelope: bool = False,
 ) -> str:
     social_block = "\n\n".join(
         [
@@ -424,7 +442,8 @@ def _prompt_for(
         history_label="",
         scene_label="Recent scene (public)",
     )
-    return f"@{character} {projected['text']}"
+    prompt = f"@{character} {projected['text']}"
+    return prompt + (f"\n\n{GROUP_SCHEMA}" if envelope else "")
 
 
 def _metadata(

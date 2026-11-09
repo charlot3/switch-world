@@ -50,7 +50,12 @@ OLD_ROUTES = {
     ("POST", "/api/dev/reset"),
 }
 
-NEW_ROUTES = {("POST", "/api/dev/scene-card/export")}
+NEW_ROUTES = {
+    ("POST", "/api/dev/scene-card/export"),
+    ("POST", "/api/dev/briefing"),
+    ("GET", "/api/briefing/latest"),
+    ("GET", "/api/briefing/latest.md"),
+}
 
 
 def _app(tmp_path):

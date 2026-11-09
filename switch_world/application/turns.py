@@ -70,6 +70,20 @@ class TurnRecorder:
         self.transport = transport
         self.room_name = room_name
         self._time = time_source or time
+        self._envelope = self._wants_envelope()
+
+    def _wants_envelope(self) -> bool:
+        """True when the transport's model path is asked to answer in JSON.
+
+        The group prompt carries the envelope contract only for a JSON model
+        transport (cloud/Bifrost). A Switch or local room speaks plain text, so
+        asking it for JSON would put the envelope in the transcript instead of
+        the character's line.
+        """
+        capabilities = getattr(self.transport, "capabilities", None)
+        if not callable(capabilities):
+            return False
+        return getattr(capabilities(), "response_format", "text") == "json"
 
     # ---- entry points -----------------------------------------------------
     def record_turn(
@@ -131,6 +145,7 @@ class TurnRecorder:
                         arbiter_note if character == plan.get("primary") else None
                     ),
                     present=present,
+                    envelope=self._envelope,
                 ),
             )
             for character in speakers
@@ -562,7 +577,11 @@ class TurnRecorder:
                     Prompt(
                         speaker=CharacterId(target),
                         text=_relay_prompt(
-                            self.service, relay["from"], target, relay_text
+                            self.service,
+                            relay["from"],
+                            target,
+                            relay_text,
+                            envelope=self._envelope,
                         ),
                     )
                 ],

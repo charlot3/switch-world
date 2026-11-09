@@ -49,4 +49,28 @@ def default_whisper_model() -> LegacyModelClient:
     return LegacyModelClient(BifrostClient())
 
 
-__all__ = ["default_dm_model", "default_whisper_model"]
+def cloud_room_transport(model):
+    """An in-band room for a model-backed discussion with no transport injected.
+
+    ``prepare_briefing`` accepts either a transport or a model. When the caller
+    supplies only a model, this wraps it in the same in-band transport the cloud
+    and Bifrost composition roots use, so the use case never names the adapter.
+    """
+    from switch_world.adapters.transports import CloudRoomTransport
+
+    return CloudRoomTransport(model)
+
+
+def default_artifact_store(export_dir=None):
+    """The filesystem artifact store under the process export directory."""
+    from switch_world.adapters.artifacts.files import FileArtifactStore
+
+    return FileArtifactStore(Path(export_dir) if export_dir else Path(config.EXPORT_DIR))
+
+
+__all__ = [
+    "cloud_room_transport",
+    "default_artifact_store",
+    "default_dm_model",
+    "default_whisper_model",
+]

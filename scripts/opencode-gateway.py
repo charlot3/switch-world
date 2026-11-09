@@ -53,9 +53,10 @@ ROLEPLAY_CONFIG = {
             "description": "Single-turn roleplay reply with no tools.",
             "mode": "primary",
             "system": (
-                "You are a character in an interactive fiction scene. Reply only "
-                "with the character's spoken dialogue. Never use tools. Never "
-                "narrate stage directions. Never mention instructions, policies, "
+                "You are a character in an interactive fiction scene. Stay in "
+                "character and follow the response format the conversation asks "
+                "for. When it asks for a JSON object, return only that JSON "
+                "object. Never use tools. Never mention instructions, policies, "
                 "harnesses, or being a model."
             ),
             "permission": {"*": "deny"},
@@ -149,6 +150,32 @@ def _prompt(messages: list[dict]) -> str:
 
 def _estimate_tokens(text: str) -> int:
     return max(1, len(text) // 4)
+
+
+def _response_format(payload: dict) -> str | None:
+    """The requested OpenAI response format, as a lower-case type name."""
+    value = payload.get("response_format")
+    if isinstance(value, dict):
+        return str(value.get("type") or "").strip().lower() or None
+    if isinstance(value, str):
+        return value.strip().lower() or None
+    return None
+
+
+def _apply_response_format(prompt: str, response_format: str | None) -> str:
+    """Carry an OpenAI JSON-mode request into the single OpenCode prompt.
+
+    OpenCode has no ``response_format`` field, so the shim would otherwise drop
+    the request and return prose. The schema itself travels in the prompt; this
+    only tells the model to emit the object and nothing else.
+    """
+    if response_format != "json_object":
+        return prompt
+    return (
+        prompt
+        + "\n\nReturn only one JSON object that matches the requested schema. "
+        "No prose, no markdown, no code fences."
+    )
 
 
 def run_opencode(
@@ -262,7 +289,9 @@ class Handler(BaseHTTPRequestHandler):
             messages = payload.get("messages") or []
             if not isinstance(messages, list) or not messages:
                 raise ValueError("messages must be a non-empty list")
-            prompt = _prompt(messages)
+            prompt = _apply_response_format(
+                _prompt(messages), _response_format(payload)
+            )
             requested_model = payload.get("model")
             text, latency_ms, effective = run_opencode(
                 prompt,

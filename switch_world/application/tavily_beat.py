@@ -23,6 +23,18 @@ DEFAULT_QUERY = os.environ.get(
 )
 
 
+def default_search_client():
+    """Build the process-configured Tavily client.
+
+    The composition seam for a use case whose caller did not inject a search
+    client. ``TavilyClient`` reads ``TAVILY_API_KEY`` / ``TAVILY_OFFLINE`` when
+    it is constructed, never at import time.
+    """
+    from switch_world.adapters.search.tavily import TavilyClient
+
+    return TavilyClient.from_env()
+
+
 def latest_world_event(service: WorldService) -> dict | None:
     return service.latest_event("world_event")
 

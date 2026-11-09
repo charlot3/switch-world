@@ -112,7 +112,7 @@ make web       # node --check on web/cast.js and web/js/*.js; node --test; contr
 make cov       # pytest --cov=switch_world --cov-report=term-missing
 ```
 
-Coverage is measured separately with pytest-cov; v2 is at **85%** (6076 / 7126
+Coverage is measured separately with pytest-cov; v2 is at **85%** (6400 / 7514
 statements). CI runs the same lint, the 3.11/3.12/3.13 test matrix, the dashboard syntax
 job and the wheel-install smoke.
 
@@ -130,7 +130,7 @@ step-by-step record and the deliberate exclusions are in
 | MCP | 14 actor-scoped tools, shared by cloud and Switch paths |
 | Pipelines | one turn pipeline for group / DM / whisper; one authored-beat pipeline |
 | Persistence | SQLite behind `WorldStore`; `snapshot()` feeds `/api/state` in one connection |
-| HTTP | 39 typed routes in eight routers, one error mapper, OpenAPI golden |
+| HTTP | 42 typed routes in nine routers, one error mapper, OpenAPI golden |
 | Packaging | wheel ships `world/`, `web/` and `IDENTITY.md`; `world-engine` and `director` console scripts |
 | Dashboard | modular ES modules under `web/js/`; `node --test` + generated cast contract |
 | Architecture guards | no storage imports outside the persistence adapter, no legacy imports, layer rules in CI |
@@ -192,11 +192,14 @@ This repo carries the same social world to two hackathons:
 | Edition | Branch | Additions |
 | --- | --- | --- |
 | **Flip the Switch** | `main` / tag `flip-2026-11-06-warmth` | Switch rooms and agents; the secret ledger; canon; whisper; scene card |
-| **Geek Room — Four Hearts** | `geekroom` (this branch) | **Bifrost** model gateway + **Tavily** real-world layer, on the same world engine and canon |
+| **Geek Room — Four Hearts** | `geekroom` / `v2-architecture` | **Tavily Research Agent** pre-meeting briefing + **Bifrost** model gateway, on the same world engine and canon |
 
 The Flip tag is the submission snapshot; `main` keeps evolving. The Geek Room edition is
-submitted as **Four Hearts** and is additive: Switch remains supported, but its
-Bifrost/Tavily demo can run without it. Setup, demo and submission notes are in
+submitted as **Four Hearts** under the official problem statement **Tavily Research Agent**
+(the **Pre-Meeting Briefing Agent**): a company or person plus a meeting time, researched
+over the last 30 days, written as one page with source-backed findings, discussion points
+and open questions. It is additive: Switch remains supported, but the briefing/Bifrost
+demo can run without it. Setup, demo and submission notes are in
 [`docs/GEEKROOM.md`](docs/GEEKROOM.md) and [`deploy/geekroom/README.md`](deploy/geekroom/README.md);
 the deck outline is [`docs/PITCH.md`](docs/PITCH.md).
 
@@ -761,9 +764,16 @@ directly, so the canon is one file, not a second source of truth.
 
 ## Four Hearts — Geek Room layer
 
-**Four Hearts** is a social world with a memory you can audit. The Geek Room edition is
-submitted under that name and adds two integrations around the same world engine. The
-container can run the whole demo with `WORLD_AGENT_MODE=bifrost` (see `deploy/geekroom/`).
+**Four Hearts** is a social research room that prepares a pre-meeting briefing. It is
+submitted to the Geek Room Global AI Hackathon under the official problem statement
+**Tavily Research Agent**, whose description is the **Pre-Meeting Briefing Agent**:
+give it a company or person plus a meeting time, research the last 30 days, and produce a
+one-page briefing with source-backed findings, discussion points and open questions.
+
+Four characters — Alice, Emily, Sophia and Mia — read the same Tavily results, argue about
+what matters in character, and leave one page whose every finding points back to a source
+and a provenance record. The container can run the whole demo with
+`WORLD_AGENT_MODE=bifrost` (see `deploy/geekroom/`).
 
 ### Geek Room run profile
 
@@ -774,12 +784,60 @@ export TAVILY_OFFLINE=1          # packaged demo: labelled offline fixture
 # Live Tavily: set the key and unset the offline switch
 # export TAVILY_API_KEY=tvly-...
 # unset TAVILY_OFFLINE
+# The engine script uses /tmp/geekroom; the director commands must use the
+# same DB and data directory or the dashboard will not show their events.
+export WORLD_DB=/tmp/geekroom/world.sqlite
+export WORLD_DATA_DIR=/tmp/geekroom
 ```
 
 `BIFROST_API_KEY` is optional for a local gateway. `BIFROST_MODEL_<NAME>` and
 `world/models.json` set the per-character models. The packaged demo records the labelled
 fixture, never a fabricated live result; a real `TAVILY_API_KEY` with `TAVILY_OFFLINE`
-unset is the only live switch.
+unset is the only live switch. `WORLD_DEV` defaults to `1`, so the `/api/dev/*` write
+routes are available locally.
+
+### Exact local demo — offline fixture + Bifrost
+
+```sh
+# 0. From the repository root, with the run profile above exported.
+# 1. Gateway: OpenCode adapter on :8090, Bifrost on :8080.
+scripts/run-bifrost.sh
+
+# 2. A Geek Room world instance on :8891 with its own DB (the Flip demo on :8890
+#    is untouched). The script defaults TAVILY_OFFLINE=1 and BIFROST_URL.
+scripts/run-geekroom-engine.sh
+
+# 3. Subject + meeting -> Tavily -> room -> one page. The room discussion goes
+#    through the Bifrost profile.
+uv run director --briefing --subject Anthropic --meeting "2026-11-18T10:00:00+09:00"
+#    writes /tmp/geekroom/exports/briefing-anthropic.md and records
+#    world_event(s) + a briefing event in /tmp/geekroom/world.sqlite
+
+# 4. Read it back through HTTP (optional).
+curl -X POST localhost:8891/api/dev/briefing \
+  -H 'content-type: application/json' \
+  -d '{"subject":"Anthropic","meeting":"2026-11-18T10:00:00+09:00"}'
+curl localhost:8891/api/briefing/latest
+
+# 5. Dashboard.
+open http://127.0.0.1:8891/?view=story
+```
+
+The page is the deliverable: Snapshot, Recent developments (last 30 days), Discussion
+points, Open questions, Sources and Provenance. The offline run is labelled at the top of
+the page and every fixture source is prefixed `Offline fixture:`; it is never presented as
+a live result.
+
+**Live-key drop-in:** the commands do not change, only the environment:
+
+```sh
+export TAVILY_API_KEY=tvly-...
+unset TAVILY_OFFLINE
+uv run director --briefing --subject Anthropic --meeting "2026-11-18T10:00:00+09:00"
+```
+
+The same adapter performs live searches, the same `world_event`/belief/provenance path
+runs, and the page drops the offline note.
 
 ### Bifrost — the model gateway
 
@@ -857,8 +915,49 @@ A real two-request run is recorded in
 uv run director --tavily-event --query "AI agents and creative tools this week"
 ```
 
-See [`docs/GEEKROOM.md`](docs/GEEKROOM.md) for the two-edition demo, the
-Bifrost/OpenCode adapter, the Geek Room submission checklist, and the pitch-deck outline.
+### The briefing — Tavily Research Agent
+
+This is the Geek Room submission. `switch_world/application/briefing.py` implements the
+official brief: given a company or person and a meeting time it runs 2–3 news-shaped
+searches over the last 30 days through the same adapter `world__search_web` uses, records
+one public `world_event` and one `shared` belief per distinct result (identical results are
+never recorded twice), and asks the room to discuss the findings through the normal
+group-turn pipeline. It then writes `briefing-<slug>.md` through the `ArtifactStore` and
+records a `briefing` event whose metadata names the subject, meeting, source list and
+replies. The page has Snapshot, Recent developments, Discussion points, Open questions,
+Sources and Provenance, and an offline fixture is labelled in the page itself.
+
+```sh
+# CLI: research + the composition root's room discussion
+uv run director --briefing --subject Anthropic --meeting "2026-11-18T10:00:00+09:00"
+
+# Dev-gated write, then the read-only projection
+curl -X POST localhost:8891/api/dev/briefing \
+  -H 'content-type: application/json' \
+  -d '{"subject":"Anthropic","meeting":"2026-11-18T10:00:00+09:00"}'
+curl localhost:8891/api/briefing/latest
+```
+
+[`docs/briefing-example.md`](docs/briefing-example.md) is the offline-fixture page
+generated for the deck. The CLI uses the composition root's transport and model, so in
+`WORLD_AGENT_MODE=local` the discussion is the scripted local room; in `cloud` or
+`bifrost` the same call reaches the model-backed room.
+
+### Geek Room submission
+
+| Item | Value |
+| --- | --- |
+| Problem statement | **Tavily Research Agent** |
+| Description | **Pre-Meeting Briefing Agent** — company/person + meeting time, last 30 days, one page with source-backed findings, discussion points, open questions |
+| Portal | HackCulture → **Manage** → **Submissions** → **Problem Statements & Prototype Submission** |
+| Deadline | **2026-11-15 18:29 UTC** = **2026-11-16 03:29 JST** |
+| Tavily integration checkbox | **Pre-Meeting Briefing Agent** |
+| Requirements | Public GitHub repo + README; PPT required; demo video optional; one final project; team 1–4 |
+
+The required deck is [`docs/switch-world-geekroom-pitch.pptx`](docs/switch-world-geekroom-pitch.pptx);
+regenerate it with `uv run python scripts/make-pitch-deck.py`. See
+[`docs/GEEKROOM.md`](docs/GEEKROOM.md) for the two-edition demo, the Bifrost/OpenCode
+adapter, the submission checklist, and the pitch-deck outline.
 
 ## Cast
 
@@ -1028,13 +1127,16 @@ provider call to `DeepSeekModelClient`.
 
 `switch_world/interfaces/http/app.py` now only builds the app, mounts `/mcp`,
 `/static` and the routers, and registers the error map. The 39 v1 paths and
-methods are unchanged and live in eight route modules:
+methods are unchanged; the three v2 additions are the scene-card export, the
+dev briefing write and the read-only latest-briefing projection. They live in
+nine route modules:
 
 | module | surface |
 |---|---|
 | `routes/world.py` | `/`, state, canon, matrix, clock, friends, safety, who-knows |
 | `routes/scene.py` | scene card, DM history/phone, group say, whisper |
 | `routes/director.py` | Switch log export, Bifrost usage |
+| `routes/briefing.py` | `GET /api/briefing/latest` (read-only) |
 | `routes/scenarios.py` | scenario list/current/load, ending evaluation |
 | `routes/takes.py` | take list/current/load/next/cue |
 | `routes/studio.py` | Studio summary |
@@ -1056,8 +1158,10 @@ Two data paths changed on purpose. `GET /api/switch-log` now reads
 client's private `_op("list_rooms")`; an absent transport is a 503 with the
 reason. `GET /api/scene-card` renders from one `store.reader.snapshot()` and
 writes nothing — `POST /api/dev/scene-card/export` is the only route that
-writes, through the injected `ArtifactStore`. `tests/interfaces/` pins the 39
-routes, the OpenAPI snapshot, the status-code map and the no-write invariant.
+writes, through the injected `ArtifactStore`. `POST /api/dev/briefing` is the only
+briefing write; `GET /api/briefing/latest` never creates or rewrites a file.
+`tests/interfaces/` pins the 39 v1 routes plus the three v2 additions, the
+OpenAPI snapshot, the status-code map and the no-write invariant.
 
 ### Persistence boundary
 

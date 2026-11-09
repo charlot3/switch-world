@@ -1,99 +1,96 @@
 # Geek Room pitch deck — outline
 
-A 10-slide deck for **Innovative Solution for AI Agents & Intelligent Systems**.
-The Flip the Switch submission does not need this deck; it is the Geek Room extra.
+A deck for the official problem statement **Tavily Research Agent** (the **Pre-Meeting
+Briefing Agent**). The Flip the Switch submission does not need this deck; it is the Geek
+Room extra. The PPTX is `docs/switch-world-geekroom-pitch.pptx`; regenerate it with
+`uv run python scripts/make-pitch-deck.py`.
 
 ## 1. Title
 
-**Four Hearts — a social world with a memory you can audit**
+**Four Hearts — a social research room that prepares a pre-meeting briefing**
 
-One human showrunner, four AI characters, a provenance-tracked secret ledger, and a
-single scene card that survives the chat.
+One subject, one meeting time, four characters, and a one-page artifact with sources.
 
 ## 2. The problem
 
-Multi-agent roleplay loses the two things that make it useful:
+Pre-meeting research is manual and easy to fake:
 
-- **canon** — a character invents a fact, a relationship moves with no record, and the
-  story can no longer be continued;
-- **provenance** — nobody can say who learned what, from whom, or how confident they were.
-
-A writers' room, a tabletop GM or a social-simulation researcher needs both.
+- someone skims the last 30 days of news the night before, or walks in unprepared;
+- a generic agent answers from stale weights and invents sources — a confident wrong fact
+  is worse than no brief;
+- the brief is narrow: a company or person plus a meeting time, researched over the last 30
+  days, in one page;
+- that page needs source-backed findings, discussion points and open questions, not
+  another chat log.
 
 ## 3. The product
 
-A small social world:
+Four characters research, then argue it out:
 
-- four characters with different models, voices, private facts and relationships;
-- a **secret ledger** where every belief has a source, confidence and visibility;
-- an **authored canon** (five beats, three branches, invariants) so freedom does not
-  destroy the worldline;
-- a **scene card** exported at the end: who knew what, from whom, and what moved.
+- give Four Hearts a subject and a meeting time;
+- Alice, Emily, Sophia and Mia read the same Tavily findings in character;
+- the room argues — Alice anchors, Emily challenges, Sophia frames, Mia pokes;
+- every claim carries a source; every reply and silence is recorded;
+- output: one page with findings, discussion points, open questions, sources and
+  provenance.
 
-## 4. Demo (screenshot)
+## 4. The demo
 
-Use `docs/geekroom-dashboard.png` and `docs/geekroom-ledger.png`.
+Subject + meeting → Tavily → room → one page.
 
-The human says one thing to Alice. Alice decides whether to tell Emily. The dashboard
-shows Alice at 1.00 (user), Emily at 0.00, the branch the ledger chose, and the real-world
-event every character just saw.
+- `uv run director --briefing --subject Anthropic --meeting "2026-11-18T10:00:00+09:00"`;
+- 2–3 news-shaped Tavily queries cover the last 30 days; each distinct result becomes a
+  public `world_event` and a shared belief (`source event:<id>`);
+- the four characters discuss the findings through the same group-turn pipeline; silent
+  characters are recorded;
+- `briefing.py` writes `briefing-<slug>.md` and records a `briefing` event pointing at it;
+- the offline fixture is labelled; a live key takes the same path.
+
+Screenshots: `docs/geekroom-dashboard.png` and `docs/geekroom-ledger.png`.
+Example page: `docs/briefing-example.md`.
 
 ## 5. Architecture
 
 ```
-human ── Switch / dashboard ── world engine (MCP) ── beliefs · relationships · events
-                                     │
-                          Bifrost ───┴─── Tavily
-                     (all model calls)   (real-world input)
+room / dashboard ── world engine (MCP) ── beliefs · relationships · events
+                         │
+              Bifrost ───┴─── Tavily
+        (model control plane)  (only web access)
 ```
 
-Switch is the transport in the Flip edition and optional in the Geek Room edition. The
-world engine and the canon are the same in both.
+- Bifrost is the model control plane for the **Four Hearts profile**: routing, fallbacks,
+  per-character token budgets and request logs;
+- Tavily is the only web access; the same adapter serves the briefing and
+  `world__search_web`;
+- the ledger records who learned what, from where; the scene card exports the same
+  provenance;
+- Switch remains the Flip transport; the briefing demo runs without it.
 
-## 6. Bifrost: the model control plane
+## 6. Proof
 
-- every Alice/Emily model call goes through `POST /v1/chat/completions`;
-- per-character model, fallbacks, temperature and token budget in `world/models.json`;
-- request log: character, model, tokens, latency, success/error;
-- local guard `data/bifrost_budget.json` + gateway UI + `GET /api/bifrost/usage`;
-- evidence: `data/logs/bifrost.jsonl`, Bifrost dashboard at `:8080`.
+- 435 passing tests and 85% coverage; the briefing has an end-to-end test on the offline
+  fixture;
+- `docs/briefing-example.md` is a labelled offline-fixture page: findings, room discussion,
+  open questions and provenance;
+- Bifrost profile: OpenCode Go DeepSeek V4.1 Flash through the gateway, with
+  `data/logs/bifrost.jsonl`;
+- live Tavily is a drop-in: set `TAVILY_API_KEY` and unset `TAVILY_OFFLINE`; the fixture is
+  never presented as live.
 
-The packaged Four Hearts profile uses DeepSeek V4.1 Flash through Bifrost; swapping one
-character to another provider is a config change, not a rewrite.
+## 7. Roadmap
 
-## 7. Tavily: the real-world input
+- record the demo with a live Tavily key; keep the labelled fixture as the fallback;
+- provider-per-character routing through Bifrost (config, not a rewrite);
+- briefing templates per meeting type, and a diff against the last brief;
+- ship the one-page artifact and its provenance, not a chat log.
 
-- the scheduler turns one search into a public `world_event`;
-- every character records the same event with source `event:<id>` — shared-event memory;
-- `world__search_web` gives characters live retrieval in DMs;
-- the World Feed and matrix show the input, the source URL and the confidence;
-- without a key the offline fixture is clearly marked, never passed off as live.
+## Submission facts
 
-## 8. Two editions, one codebase
-
-| Flip the Switch | Geek Room |
+| Item | Value |
 | --- | --- |
-| Switch is the transport | Bifrost + Tavily are the additions |
-| four Switch agents | local Bifrost character runner |
-| scene card + canon | same scene card + governance evidence |
-| deadline 2026-11-08 | deadline 2026-11-15 |
-
-The branch/tag split keeps the Flip demo frozen while the Geek Room layer evolves.
-
-## 9. Proof
-
-- 426 passing tests and 85% coverage for the world engine, canon, Bifrost client,
-  Tavily client and scene;
-- a real Bifrost → DeepSeek V4.1 Flash café scene with token logs;
-- a labelled offline Tavily fixture event in the matrix and feed; a live key is a drop-in;
-- screenshots and a reproducible `docs/GEEKROOM.md` runbook;
-- honest scope: no 3D/voice/in-loop image generation; four character profiles share one
-  packaged model by default.
-
-## 10. Why it matters / next
-
-Writers, tabletop GMs and social-simulation researchers get a **continuity-safe scene
-beat** and a **story-bible artifact**, not another chat log.
-
-Next: provider models per character, a live Tavily key in the demo, a scheduler in the
-background, and a deck/video cut for the Geek Room submission.
+| Problem statement | Tavily Research Agent |
+| Description | Pre-Meeting Briefing Agent |
+| Portal | HackCulture → Manage → Submissions → Problem Statements & Prototype Submission |
+| Deadline | 2026-11-15 18:29 UTC = 2026-11-16 03:29 JST |
+| Tavily checkbox | Pre-Meeting Briefing Agent |
+| Requirements | Public repo + README; PPT required; demo video optional; one final project; team 1–4 |

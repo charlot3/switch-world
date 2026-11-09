@@ -495,6 +495,20 @@
                 <div class="button-row"><button class="btn" id="fetch-tavily" type="button">Fetch world event</button></div>
                 <p class="status" id="tavily-status">No real-world event fetched.</p>
               </div>
+              <div class="geekroom-pane">
+                <span class="eyebrow">Briefing · pre-meeting research</span>
+                <label class="field">
+                  <span>Company or person</span>
+                  <input id="briefing-subject" type="text" value="Anthropic" autocomplete="off">
+                </label>
+                <label class="field">
+                  <span>Meeting time</span>
+                  <input id="briefing-meeting" type="datetime-local" value="2026-11-18T10:00">
+                </label>
+                <div class="button-row"><button class="btn primary" id="prepare-briefing" type="button">Prepare briefing</button></div>
+                <p class="status" id="briefing-status">No briefing prepared yet.</p>
+                <p class="tiny"><a id="briefing-link" href="/api/briefing/latest.md" hidden>Open the one-page briefing ↗</a></p>
+              </div>
             </div>
             <p class="tiny">Full setup: <code>docs/GEEKROOM.md</code> · Bifrost logs: <code>data/logs/bifrost.jsonl</code></p>
           </article>

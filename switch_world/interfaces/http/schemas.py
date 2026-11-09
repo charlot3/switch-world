@@ -100,6 +100,12 @@ class TavilyEventRequest(BaseModel):
     query: str | None = None
 
 
+class BriefingRequest(BaseModel):
+    subject: str = ""
+    meeting: str = ""
+    queries: list[str] | None = None
+
+
 class SceneCardExportRequest(BaseModel):
     title: str | None = None
 
@@ -307,6 +313,31 @@ class TavilyEventResponse(OpenModel):
     """A real-world event: offline results carry a different key set."""
 
 
+class BriefingResponse(OpenModel):
+    """A prepared one-page briefing, its artifact path and recorded evidence."""
+
+    subject: str | None = None
+    meeting: str | None = None
+    briefing: str | None = None
+    path: str | None = None
+    sources: list[Any] | None = None
+    events: list[Any] | None = None
+    replies: list[Any] | None = None
+
+
+class BriefingLatestResponse(OpenModel):
+    """The latest ``briefing`` event and its markdown page (read-only)."""
+
+    subject: str | None = None
+    meeting: str | None = None
+    briefing: str | None = None
+    path: str | None = None
+    name: str | None = None
+    sources: list[Any] | None = None
+    offline: bool | None = None
+    event: dict[str, Any] | None = None
+
+
 class BifrostUsageResponse(OpenModel):
     """The provider's usage block, whose keys are provider-specific."""
 
@@ -318,6 +349,9 @@ class ResetResponse(BaseModel):
 
 __all__ = [
     "BifrostUsageResponse",
+    "BriefingLatestResponse",
+    "BriefingRequest",
+    "BriefingResponse",
     "CanonResponse",
     "ClockAdvanceRequest",
     "ClockAdvanceResponse",

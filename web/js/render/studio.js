@@ -582,3 +582,60 @@ export async function copyLiveCommand() {
     setTimeout(() => { button.textContent = old; }, 1800);
   }
 }
+
+export async function loadBriefingStatus() {
+  const status = $("#briefing-status");
+  const link = $("#briefing-link");
+  if (!status) return;
+  try {
+    const latest = await api("/api/briefing/latest");
+    status.textContent = `Latest: ${latest.subject} · ${latest.meeting} · ${(latest.sources || []).length} sources${latest.offline ? " · offline fixture" : ""}.`;
+    if (link) {
+      link.hidden = false;
+      link.href = "/api/briefing/latest.md";
+    }
+  } catch {
+    status.textContent = "No briefing prepared yet.";
+  }
+}
+
+export async function prepareBriefing() {
+  const button = $("#prepare-briefing");
+  const status = $("#briefing-status");
+  const link = $("#briefing-link");
+  const subject = ($("#briefing-subject")?.value || "").trim();
+  const meetingInput = $("#briefing-meeting")?.value || "";
+  if (!subject || !meetingInput) {
+    status.textContent = "Add a company or person and a meeting time first.";
+    return;
+  }
+  const when = new Date(meetingInput);
+  const pad = (n) => String(n).padStart(2, "0");
+  const offset = -when.getTimezoneOffset();
+  const sign = offset >= 0 ? "+" : "-";
+  const abs = Math.abs(offset);
+  const meeting = `${when.getFullYear()}-${pad(when.getMonth() + 1)}-${pad(when.getDate())}`
+    + `T${pad(when.getHours())}:${pad(when.getMinutes())}:00`
+    + `${sign}${pad(Math.floor(abs / 60))}:${pad(abs % 60)}`;
+  button.disabled = true;
+  const old = button.textContent;
+  button.textContent = "Researching…";
+  status.textContent = `Researching ${subject} through Tavily and Bifrost...`;
+  try {
+    const result = await api("/api/dev/briefing", {
+      method: "POST",
+      body: JSON.stringify({ subject, meeting }),
+    });
+    status.textContent = `Briefing ready: ${result.subject} · ${result.meeting} · ${(result.sources || []).length} sources${result.offline ? " · offline fixture" : ""}.`;
+    if (link) {
+      link.hidden = false;
+      link.href = `/api/briefing/latest.md?ts=${Date.now()}`;
+    }
+    await refresh();
+  } catch (error) {
+    status.textContent = `Briefing failed: ${error.message}`;
+  } finally {
+    button.disabled = false;
+    button.textContent = old;
+  }
+}

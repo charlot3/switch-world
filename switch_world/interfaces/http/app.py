@@ -25,7 +25,17 @@ from switch_world.application.facade import WorldService
 
 from .deps import build_runtime
 from .errors import register_error_handlers
-from .routes import dev, director, health, scenarios, scene, studio, takes, world
+from .routes import (
+    briefing,
+    dev,
+    director,
+    health,
+    scenarios,
+    scene,
+    studio,
+    takes,
+    world,
+)
 
 
 def create_app(
@@ -74,6 +84,7 @@ def create_app(
     app.include_router(world.router, tags=["world"])
     app.include_router(scene.router, tags=["scene"])
     app.include_router(director.router, tags=["director"])
+    app.include_router(briefing.router, tags=["briefing"])
     app.include_router(scenarios.router, tags=["scenarios"])
     app.include_router(takes.router, tags=["takes"])
     app.include_router(studio.router, tags=["studio"])

@@ -15,6 +15,15 @@ from switch_world.application.facade import WorldService
 from switch_world.config import load_settings
 
 
+_WRITE_SCHEMA = """For memory, use:
+{"proposition": "what you now believe", "source": "user|character:alice|observation",
+ "confidence": 0.0, "visibility": "private|shared|public",
+ "proposition_key": "optional canonical key"}
+For relationships, use a list of:
+{"other": "alice|emily|sophia|mia|user", "trust_delta": 0.0,
+ "closeness_delta": 0.0, "tension_delta": 0.0, "reason": "short reason"}
+No markdown, no code fences, no text outside the JSON."""
+
 SCHEMA = """Return ONLY a JSON object with this shape:
 {
   "reply": "your 1-3 sentence reply",
@@ -23,14 +32,22 @@ SCHEMA = """Return ONLY a JSON object with this shape:
 }
 The reply is spoken dialogue only: 1-3 sentences, no stage directions, no *asterisks*,
 no narration.
-For memory, use:
-{"proposition": "what you now believe", "source": "user|character:alice|observation",
- "confidence": 0.0, "visibility": "private|shared|public",
- "proposition_key": "optional canonical key"}
-For relationships, use a list of:
-{"other": "alice|emily|sophia|mia|user", "trust_delta": 0.0,
- "closeness_delta": 0.0, "tension_delta": 0.0, "reason": "short reason"}
-No markdown, no code fences, no text outside the JSON."""
+""" + _WRITE_SCHEMA
+
+# The group pipeline allows the stage direction to ask for a spoken line, a short
+# reaction, or a brief *action* in asterisks, so its envelope cannot reuse the
+# DM/whisper wording verbatim. It shares the same write fields.
+GROUP_SCHEMA = """Return ONLY a JSON object with this shape:
+{
+  "reply": "your line for this beat",
+  "memory": null,
+  "relationships": []
+}
+The "reply" field carries exactly what you would say: follow the stage direction above
+exactly -- a spoken line for the primary speaker, a short spoken reaction or a brief
+*action* in asterisks for a reactor, and one short line for a chorus. Never narrate
+another character in third person and never mention the envelope.
+""" + _WRITE_SCHEMA
 
 LANGUAGE_AND_VOICE = (
     "Language: mirror the language of the user's latest message. If it is Chinese, reply "

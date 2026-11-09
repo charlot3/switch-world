@@ -14,6 +14,8 @@ from fastapi.testclient import TestClient
 
 from switch_world.adapters.models import BifrostModelClient
 from switch_world.adapters.transports import CloudRoomTransport
+from switch_world.application import social
+from switch_world.application.group_planning import _prompt_for, _relay_prompt
 from switch_world.config import load_settings
 from switch_world.container import build_container
 from switch_world.interfaces.http.app import create_app
@@ -48,6 +50,42 @@ class FakeBifrostHTTP:
         return {
             "model": "openai/deepseek-v4.1-flash",
             "choices": [{"message": {"content": json.dumps(envelope)}}],
+            "usage": {
+                "prompt_tokens": 11,
+                "completion_tokens": 7,
+                "total_tokens": 18,
+            },
+        }
+
+
+class ProseUnlessAskedHTTP(FakeBifrostHTTP):
+    """A provider that ignores ``response_format`` and speaks prose.
+
+    The OpenCode adapter behind Bifrost has no OpenAI ``response_format`` field,
+    so it only answers in JSON when the prompt itself asks for the envelope.
+    This double reproduces that provider, which is why the group prompt must
+    carry the envelope contract.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.prompts: list[str] = []
+
+    def __call__(self, url: str, payload: dict, headers: dict) -> dict:
+        prompt = "\n".join(
+            str(message.get("content") or "") for message in payload["messages"]
+        )
+        self.prompts.append(prompt)
+        content = (
+            json.dumps(
+                {"reply": "Same as ever.", "memory": None, "relationships": []}
+            )
+            if "Return ONLY a JSON object" in prompt
+            else "Same as ever."
+        )
+        return {
+            "model": "openai/deepseek-v4.1-flash",
+            "choices": [{"message": {"content": content}}],
             "usage": {
                 "prompt_tokens": 11,
                 "completion_tokens": 7,
@@ -124,3 +162,65 @@ def test_bifrost_mode_routes_a_group_turn_and_records_its_usage(tmp_path):
         (tmp_path / "bifrost_budget.json").read_text(encoding="utf-8")
     )
     assert budget["characters"]["alice"] == 18
+
+
+def test_group_prompt_carries_the_envelope_for_a_json_model(tmp_path):
+    settings = _bifrost_settings(tmp_path)
+    container = build_container(settings)
+    fake = ProseUnlessAskedHTTP()
+    container.model.transport = fake
+
+    app = create_app(container.service, settings, container=container)
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/group/say",
+            json={
+                "message": "Alice, how was your day?",
+                "characters": ["alice"],
+                "timeout": 2,
+            },
+        )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["replies"][0]["text"] == "Same as ever."
+    assert len(fake.prompts) == 1
+    assert "Return ONLY a JSON object" in fake.prompts[0]
+    assert '"reply"' in fake.prompts[0]
+
+
+def test_plain_text_group_prompt_stays_prose(tmp_path):
+    settings = _bifrost_settings(tmp_path)
+    container = build_container(settings)
+    message = "Alice, how was your day?"
+    verdict = social.appraise(container.service, "alice", message, public=True)
+
+    plain = _prompt_for(
+        container.service, "alice", message, verdict, "primary", present=["alice"]
+    )
+    enveloped = _prompt_for(
+        container.service,
+        "alice",
+        message,
+        verdict,
+        "primary",
+        present=["alice"],
+        envelope=True,
+    )
+
+    assert "Return ONLY a JSON object" not in plain
+    assert "Return ONLY a JSON object" in enveloped
+
+
+def test_relay_prompt_carries_the_envelope_for_a_json_model(tmp_path):
+    settings = _bifrost_settings(tmp_path)
+    container = build_container(settings)
+
+    enveloped = _relay_prompt(
+        container.service, "alice", "emily", "Did you know?", envelope=True
+    )
+    plain = _relay_prompt(container.service, "alice", "emily", "Did you know?")
+
+    assert "Return ONLY a JSON object" in enveloped
+    assert "world__remember" not in enveloped
+    assert "Return ONLY a JSON object" not in plain
+    assert "world__remember" in plain

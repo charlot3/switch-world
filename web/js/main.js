@@ -33,8 +33,10 @@ import {
   advanceClock,
   copyLiveCommand,
   fetchTavily,
+  loadBriefingStatus,
   loadSceneCard,
   loadStudio,
+  prepareBriefing,
   resetWorld,
   runArc,
   runBifrost,
@@ -203,6 +205,7 @@ $("#run-bifrost").addEventListener("click", runBifrost);
 $("#phone-form").addEventListener("submit", sendPhone);
 $("#phone-close").addEventListener("click", closePhone);
 $("#fetch-tavily").addEventListener("click", fetchTavily);
+$("#prepare-briefing").addEventListener("click", prepareBriefing);
 $("#reset").addEventListener("click", resetWorld);
 $("#load-card").addEventListener("click", loadSceneCard);
 $("#copy-command").addEventListener("click", copyLiveCommand);
@@ -212,6 +215,7 @@ window.addEventListener("resize", hideTip);
 
 if (state.data == null) {
   refresh();
+  loadBriefingStatus();
   setInterval(() => {
     if (!document.hidden) refresh();
   }, 2500);

@@ -36,6 +36,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--tavily-event", action="store_true", help="fetch a real-world event through Tavily"
     )
     parser.add_argument("--query", default=None, help="Tavily query for --tavily-event")
+    parser.add_argument(
+        "--briefing",
+        action="store_true",
+        help="research a subject and write a pre-meeting briefing",
+    )
+    parser.add_argument("--subject", default=None, help="company or person for --briefing")
+    parser.add_argument("--meeting", default=None, help="meeting time for --briefing")
     parser.add_argument("--bifrost", action="store_true", help="run the café beat through Bifrost")
     parser.add_argument("--beat", default=None, help="run one authored beat, e.g. morning-shop")
     parser.add_argument(
@@ -154,6 +161,29 @@ def main(argv: list[str] | None = None) -> int:
             print("offline fixture" if result["offline"] else "live Tavily result")
             if not args.bifrost:
                 return 0
+        if args.briefing:
+            from switch_world.application.briefing import prepare_briefing
+
+            if not args.subject or not args.meeting:
+                return _error(ValueError("--briefing needs --subject and --meeting"))
+            try:
+                result = prepare_briefing(
+                    service,
+                    args.subject,
+                    args.meeting,
+                    transport=container.transport,
+                    model=container.model,
+                    artifacts=container.artifacts,
+                )
+            except Exception as exc:
+                return _error(exc)
+            print(f"briefing: {result['path']}")
+            print(
+                f"subject: {result['subject']} · meeting: {result['meeting']} · "
+                f"sources: {len(result['sources'])} · "
+                f"replies: {len(result['replies'])}"
+            )
+            return 0
         if args.bifrost:
             from switch_world.application.beat_runners import run_cafe_bifrost
 
@@ -201,6 +231,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.status,
                 args.switch,
                 args.tavily_event,
+                args.briefing,
                 args.bifrost,
                 args.beat,
                 args.arc,

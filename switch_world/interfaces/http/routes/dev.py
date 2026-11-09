@@ -97,6 +97,36 @@ def run_arc_endpoint(
         raise BadGateway(f"arc failed: {exc}") from exc
 
 
+@router.post("/api/dev/briefing", response_model=schemas.BriefingResponse)
+def prepare_briefing_endpoint(
+    payload: schemas.BriefingRequest | None = None,
+    runtime: HttpRuntime = Depends(get_runtime),
+):
+    """Research a subject and write a one-page pre-meeting briefing."""
+    if not runtime.dev_enabled():
+        raise NotFound()
+    from switch_world.application.briefing import prepare_briefing
+
+    subject = payload_value(payload, "subject")
+    meeting = payload_value(payload, "meeting")
+    if not subject or not meeting:
+        raise BadRequest("subject and meeting are required")
+    try:
+        return prepare_briefing(
+            runtime.service,
+            subject,
+            meeting,
+            queries=payload_value(payload, "queries"),
+            transport=runtime.transport,
+            model=runtime.model,
+            artifacts=runtime.artifacts,
+        )
+    except ValueError as exc:
+        raise BadRequest(str(exc)) from exc
+    except Exception as exc:
+        raise BadGateway(f"briefing failed: {exc}") from exc
+
+
 @router.post("/api/dev/tavily-event", response_model=schemas.TavilyEventResponse)
 def tavily_event(
     payload: schemas.TavilyEventRequest | None = None,

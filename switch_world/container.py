@@ -8,6 +8,8 @@ injected into the HTTP app, so no route constructs a provider client:
 
 * ``switch`` -- :class:`SwitchTransport` carrying prompts to live agents;
 * ``cloud``  -- :class:`CloudRoomTransport` over :class:`DeepSeekModelClient`;
+* ``bifrost`` -- :class:`CloudRoomTransport` over :class:`BifrostModelClient`,
+  so group, DM, whisper and beat calls all go through the Bifrost gateway;
 * ``local``  -- :class:`LocalRoomTransport` for the scripted demo.
 """
 from __future__ import annotations
@@ -109,6 +111,24 @@ def build_container(settings: Settings) -> Container:
             log_path=settings.data_dir / "logs" / "deepseek.jsonl",
         )
         transport = CloudRoomTransport(model, clock=clock)
+    elif mode == "bifrost":
+        # One gateway for every character call. The per-character model,
+        # fallbacks, temperature, budget and reasoning come from
+        # ``world/models.json``; no DeepSeek key is needed here because Bifrost
+        # owns the provider credentials.
+        model = BifrostModelClient(
+            base_url=settings.bifrost_url,
+            api_key=settings.bifrost_api_key or None,
+            models_path=(
+                settings.bifrost_models_path
+                or settings.content_root / "models.json"
+            ),
+            log_path=settings.data_dir / "logs" / "bifrost.jsonl",
+            budget_path=settings.data_dir / "bifrost_budget.json",
+        )
+        transport = CloudRoomTransport(
+            model, clock=clock, name="bifrost", room_prefix="bifrost"
+        )
     elif mode == "local":
         transport = LocalRoomTransport(clock=clock)
         model = BifrostModelClient(
@@ -118,7 +138,7 @@ def build_container(settings: Settings) -> Container:
         )
     else:
         raise ValueError(
-            "WORLD_AGENT_MODE must be one of switch, cloud, local "
+            "WORLD_AGENT_MODE must be one of switch, cloud, bifrost, local "
             f"(got {settings.agent_mode!r})"
         )
 

@@ -48,6 +48,9 @@ WORKDIR /app
 COPY --from=builder /dist/*.whl /tmp/
 RUN pip install --no-cache-dir /tmp/*.whl && rm -f /tmp/*.whl
 
+# Demo operator script: turn one Tavily search into a shared world event.
+COPY scripts/world-tick.py ./scripts/world-tick.py
+
 # Non-root runtime user. The bind-mounted /data directory must be writable by
 # uid 10001 on the host (see README: chown -R 10001:10001 deploy/demo/data).
 RUN useradd --uid 10001 --create-home --shell /usr/sbin/nologin app \

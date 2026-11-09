@@ -24,7 +24,7 @@ deployed). `main` and `geekroom` are unchanged and the public demo still runs th
 
 ## Coverage
 
-`pytest --cov=switch_world --cov-report=term` reports **85%** (6065 / 7119 statements).
+`pytest --cov=switch_world --cov-report=term` reports **85%** (6076 / 7126 statements).
 
 The largest remaining gaps are long-tail branches, not missing surfaces:
 

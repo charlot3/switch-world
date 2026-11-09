@@ -11,8 +11,13 @@ the **w5-good** scenario, behind Caddy basic auth on a DuckDNS hostname.
 >    `WORLD_AGENT_MODE=cloud`: group chat, whisper and DM answer through the
 >    DeepSeek API with the operator's key. No Switch Console is needed, so the
 >    whole demo runs on the VM. This is the mode the public submission uses.
-> 3. **Reverse tunnel** — the operator's local stack behind the same Caddy
->    site. Kept as a fallback only; prefer cloud replies.
+> 3. **Bifrost replies** — `WORLD_AGENT_MODE=bifrost`: the same room and write
+>    path, but every character call goes through `BIFROST_URL` with the
+>    per-character models in `world/models.json`. Bifrost owns the provider key,
+>    so `DEEPSEEK_API_KEY` is not required. The Geek Room/Four Hearts profile
+>    (`deploy/geekroom/`) runs this mode with its own Bifrost container.
+> 4. **Reverse tunnel** — the operator's local stack behind the same Caddy
+>    site. Kept as a fallback only; prefer cloud or Bifrost replies.
 >
 > All modes run `WORLD_DEV=0`, so authored-beat/dev endpoints (scenario/take
 > load, clock advance, reset, model-backed beats) answer `404`. The social
@@ -53,6 +58,16 @@ curl -s -X POST http://127.0.0.1:8893/api/group/say \
 The reply should contain two or three `replies[]` lines and no `@user` or
 `@director` text. The same test through the public hostname is the acceptance
 check for every deploy.
+
+## Bifrost replies
+
+Set these in the same `.env` when the model should be the Bifrost gateway:
+`WORLD_AGENT_MODE=bifrost`, `BIFROST_URL=<gateway>/v1`, and
+`BIFROST_API_KEY=<gateway key>`. `DEEPSEEK_API_KEY` may stay unset: Bifrost owns
+the provider credential. The group room, DM and whisper all use
+`world/models.json` through `switch_world.adapters.models.BifrostModelClient`.
+For the packaged Geek Room/Four Hearts profile with its own Bifrost container,
+use `deploy/geekroom/docker-compose.yml` instead.
 
 ## Live mode (reverse tunnel, fallback)
 

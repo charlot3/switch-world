@@ -1,15 +1,16 @@
-# Geek Room edition — one project, two hackathons
+# Four Hearts — Geek Room edition
 
-This repository has two editions of the same social world:
+**Four Hearts** is a social world with a memory you can audit. It is the same
+`switch-world` codebase, cast and canon, submitted as one project to two hackathons:
 
 | Edition | Branch | Core additions | Primary event |
 | --- | --- | --- | --- |
 | **Flip the Switch** | `main` (tag `flip-2026-11-05`) | Switch rooms/agents, secret ledger, canon, scene card | Flip the Switch, deadline **2026-11-08 03:29 JST** |
-| **Geek Room** | `geekroom` | **Bifrost** model gateway + **Tavily** real-world layer | Geek Room Global AI Hackathon, deadline **2026-11-15 23:59** (internal **2026-11-14**) |
+| **Four Hearts** | `geekroom` | **Bifrost** model gateway + **Tavily** real-world layer | Geek Room Global AI Hackathon, deadline **2026-11-15 23:59** (internal **2026-11-14**) |
 
 The Flip edition is unchanged by this branch: Switch remains the transport and the four
-Switch agents remain the live cast. The Geek Room edition runs the same world engine and
-the same canon, but adds two integrations the Geek Room brief asks for.
+Switch agents remain the live cast. Four Hearts runs the same world engine and the same
+canon, but adds the two integrations the Geek Room brief asks for.
 
 > **Confirmed 2026-11-05:** the HackCulture submission form offers
 > **“Innovative Solution for AI Agents & Intelligent Systems”** as the only primary
@@ -45,10 +46,11 @@ Alice's and Emily's turns through that client — not through a direct provider 
 - **Two-tier reasoning** — routine calls use the `low` variant. The adapter reads the
   OpenAI `reasoning_effort` field and maps it to an OpenCode variant (`low`, `high`,
   `max`; `mid` maps to `high`). `world/models.json` sets low for the cast and high for the
-  `arbiter`; `switch_world/application/scene.py` and `switch_world/application/scene.py` raise only body/contact turns to
-  high, and `switch_world/application/scene.py` can add one bounded high arbiter call
-  (`WORLD_ARBITER=1`). The arbiter can tighten the deterministic stance but never soften
-  it, and falls back silently on timeout or malformed JSON.
+  `arbiter`; `switch_world/application/scene.py` raises only body/contact DM and whisper
+  turns to high, and `switch_world/application/turns.py` can add one bounded high arbiter
+  call through `social_arbiter.arbitrate(...)` (`WORLD_ARBITER=1`). The arbiter can
+  tighten the deterministic stance but never soften it, and falls back silently on
+  timeout or malformed JSON.
 - **Agent isolation** — the adapter runs a dedicated `roleplay` agent with every tool
   denied, passes stdin as `/dev/null`, and sets `PWD` to its isolated work directory. This
   prevents OpenCode from reading a parent heredoc or the repository config and turning a
@@ -103,6 +105,26 @@ input.
 
 ## Run the Geek Room demo
 
+The run profile is:
+
+```sh
+export WORLD_AGENT_MODE=bifrost
+export BIFROST_URL=http://127.0.0.1:8080/v1
+export TAVILY_OFFLINE=1          # packaged demo: labelled offline fixture
+# Live Tavily: set the key and unset the offline switch
+# export TAVILY_API_KEY=tvly-...
+# unset TAVILY_OFFLINE
+# The engine script uses /tmp/geekroom; the director commands below must use the
+# same DB and data directory or the dashboard will not show their events.
+export WORLD_DB=/tmp/geekroom/world.sqlite
+export WORLD_DATA_DIR=/tmp/geekroom
+```
+
+`BIFROST_API_KEY` is optional for a local gateway. `BIFROST_MODEL_<NAME>` and
+`world/models.json` set the per-character models. The packaged demo never claims live
+Tavily: until `TAVILY_API_KEY` is set and `TAVILY_OFFLINE` is unset, it records the
+clearly labelled fixture.
+
 ```sh
 # 1. Gateway
 scripts/run-bifrost.sh
@@ -139,7 +161,7 @@ below the scene, and **Message this character** scrolls to it.
 Screenshots: [`geekroom-dashboard.png`](geekroom-dashboard.png),
 [`geekroom-ledger.png`](geekroom-ledger.png),
 [`geekroom-settings.png`](geekroom-settings.png). The real run also produced
-[`bifrost-log-example.jsonl`](bifrost-log-example.jsonl) (two requests: 3,043 + 2,403
+[`bifrost-log-example.jsonl`](bifrost-log-example.jsonl) (two requests: 1,693 + 1,671
 tokens) and [`scene-card-bifrost-example.md`](scene-card-bifrost-example.md).
 
 ## Geek Room deliverables

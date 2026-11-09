@@ -13,11 +13,18 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="${1:-$ROOT/.env}"
+# The documented Geek Room profile exports WORLD_AGENT_MODE=bifrost, while .env
+# carries the local `switch` default. Keep the caller's explicit value: sourcing
+# .env must not silently turn the demo back into Switch mode.
+CALLER_WORLD_AGENT_MODE="${WORLD_AGENT_MODE:-}"
 if [ -f "$ENV_FILE" ]; then
   set -a
   # shellcheck disable=SC1090
   . "$ENV_FILE"
   set +a
+fi
+if [ -n "$CALLER_WORLD_AGENT_MODE" ]; then
+  export WORLD_AGENT_MODE="$CALLER_WORLD_AGENT_MODE"
 fi
 
 export WORLD_ENGINE_PORT="${GEEKROOM_PORT:-8891}"

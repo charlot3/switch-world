@@ -5,7 +5,7 @@ The Flip the Switch submission does not need this deck; it is the Geek Room extr
 
 ## 1. Title
 
-**switch-world — a social world with a memory you can audit**
+**Four Hearts — a social world with a memory you can audit**
 
 One human showrunner, four AI characters, a provenance-tracked secret ledger, and a
 single scene card that survives the chat.
@@ -58,8 +58,8 @@ world engine and the canon are the same in both.
 - local guard `data/bifrost_budget.json` + gateway UI + `GET /api/bifrost/usage`;
 - evidence: `data/logs/bifrost.jsonl`, Bifrost dashboard at `:8080`.
 
-The local demo uses OpenCode Go DeepSeek 4.1 Flash through a small OpenAI-compatible
-adapter; swapping one character to Anthropic or OpenAI is a config change, not a rewrite.
+The packaged Four Hearts profile uses DeepSeek V4.1 Flash through Bifrost; swapping one
+character to another provider is a config change, not a rewrite.
 
 ## 7. Tavily: the real-world input
 
@@ -82,11 +82,13 @@ The branch/tag split keeps the Flip demo frozen while the Geek Room layer evolve
 
 ## 9. Proof
 
-- 40+ passing tests for the world engine, canon, Bifrost client, Tavily client and scene;
-- a real Bifrost → OpenCode Go DeepSeek café scene;
-- a real-ish/offline Tavily event in the matrix and feed;
+- 426 passing tests and 85% coverage for the world engine, canon, Bifrost client,
+  Tavily client and scene;
+- a real Bifrost → DeepSeek V4.1 Flash café scene with token logs;
+- a labelled offline Tavily fixture event in the matrix and feed; a live key is a drop-in;
 - screenshots and a reproducible `docs/GEEKROOM.md` runbook;
-- honest scope: no 3D/voice/in-loop image generation, one OpenCode model by default.
+- honest scope: no 3D/voice/in-loop image generation; four character profiles share one
+  packaged model by default.
 
 ## 10. Why it matters / next
 

@@ -45,6 +45,21 @@ def test_load_settings_parses_dev_off_and_cloud():
     assert settings.agent_mode == "cloud"
 
 
+def test_load_settings_parses_bifrost_mode():
+    settings = load_settings(
+        {
+            "WORLD_AGENT_MODE": "bifrost",
+            "BIFROST_URL": "http://bifrost.internal:8080/v1/",
+            "BIFROST_API_KEY": " local-key ",
+        }
+    )
+
+    assert settings.agent_mode == "bifrost"
+    assert settings.bifrost_url == "http://bifrost.internal:8080/v1"
+    assert settings.bifrost_api_key == "local-key"
+    assert settings.bifrost_models_path == REPO_ROOT / "world" / "models.json"
+
+
 def test_load_settings_parses_false_spellings():
     for value in ("0", "false", "FALSE", "no", "No"):
         assert load_settings({"WORLD_DEV": value}).dev_mode is False

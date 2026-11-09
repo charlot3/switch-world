@@ -241,6 +241,62 @@ def test_bifrost_routes_each_character_to_its_configured_model(tmp_path):
     assert json.loads(log_lines[0])["ok"] is True
 
 
+def test_bifrost_text_and_json_envelopes_carry_reasoning(tmp_path):
+    """Bifrost's generate() must cover both formats and its reasoning config."""
+    sent: list[dict] = []
+
+    def transport(url, payload, headers):
+        sent.append(payload)
+        content = (
+            '{"reply": "Hi", "memory": null}'
+            if payload.get("response_format")
+            else "Hi"
+        )
+        return {
+            "choices": [{"message": {"content": content}}],
+            "usage": {
+                "prompt_tokens": 2,
+                "completion_tokens": 1,
+                "total_tokens": 3,
+            },
+            "model": payload["model"],
+        }
+
+    client = BifrostModelClient(
+        api_key="test",
+        models={
+            "alice": CharacterModel(
+                character="alice", model="openai/test", reasoning="low"
+            )
+        },
+        transport=transport,
+        log_path=tmp_path / "bifrost.jsonl",
+        budget_path=tmp_path / "bifrost_budget.json",
+    )
+
+    text_reply = client.generate("alice", MESSAGES, format=ModelFormat.TEXT)
+    json_reply = client.generate(
+        "alice", MESSAGES, format=ModelFormat.JSON, reasoning="high"
+    )
+
+    assert text_reply.text == "Hi"
+    assert text_reply.data is None
+    assert json_reply.data == {"reply": "Hi", "memory": None}
+    assert "response_format" not in sent[0]
+    assert sent[0]["reasoning_effort"] == "low"
+    assert sent[1]["response_format"] == {"type": "json_object"}
+    assert sent[1]["reasoning_effort"] == "high"
+
+    entries = [
+        json.loads(line)
+        for line in (tmp_path / "bifrost.jsonl").read_text(
+            encoding="utf-8"
+        ).splitlines()
+    ]
+    assert [entry["reasoning"] for entry in entries] == ["low", "high"]
+    assert all(entry["ok"] is True for entry in entries)
+
+
 def test_deepseek_empty_reply_is_an_error_not_a_silence(tmp_path):
     harness = make_harness("deepseek", tmp_path, reply="   ")
 

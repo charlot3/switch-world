@@ -32,7 +32,8 @@ the preferred connector; Console 0.40.1's check is blocked, so the live cast use
       the **arc strip**, **Profile** sheet, **World Tree** and **Settings → Canon &
       worldline** rehearsed.
 - [ ] The `director` agent is in `#world`; `uv run director --switch` has been rehearsed
-      end to end. For an ambient beat before recording, use `--loop 60` if time allows.
+      end to end. For an ambient beat before recording, use
+      `--beat morning-shop --transport switch` if time allows.
 - [ ] Seed state loaded: private beliefs, relationship edges, empty feed.
 - [ ] Scene-card export path works (`data/exports/`).
 - [ ] Rehearsal run completed; transcript saved as `docs/demo-transcript.md`.
@@ -185,8 +186,8 @@ Show the README's **Why Switch is core** and **MCP model** sections, and the rep
 - If a live model call fails on camera, cut to the recorded rehearsal for that beat and
   keep going.
 - Do not show `.env`, API keys, `.switch/`, `opencode.json`, or Mattermost admin pages.
-- The director's `--loop` is the proof the world moves without the user; let one beat fire
-  on camera before you interact.
+- The director's `--beat morning-shop` is the proof the world moves without the user; let
+  one authored beat fire on camera before you interact.
 
 ## What the judges should remember
 

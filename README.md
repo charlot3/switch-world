@@ -94,6 +94,12 @@ character's own MCP token); `CloudRoomTransport` generates planned replies concu
 returns an in-band JSON envelope with the same authority a character has through MCP. Both
 satisfy the contract in `tests/contract/test_transport_contract.py`.
 
+`WORLD_AGENT_MODE=bifrost` is the first-class Geek Room path: it keeps
+`CloudRoomTransport` and swaps the model to `BifrostModelClient`, configured from
+`BIFROST_URL`, `BIFROST_API_KEY` and `world/models.json`. Group, DM, whisper and beat
+calls then all go through the Bifrost gateway; Bifrost owns the provider keys, so
+`DEEPSEEK_API_KEY` is not needed in that mode.
+
 ### make check
 
 `make check` is the single local gate. It runs:
@@ -106,7 +112,7 @@ make web       # node --check on web/cast.js and web/js/*.js; node --test; contr
 make cov       # pytest --cov=switch_world --cov-report=term-missing
 ```
 
-Coverage is measured separately with pytest-cov; v2 is at **85%** (6065 / 7119
+Coverage is measured separately with pytest-cov; v2 is at **85%** (6076 / 7126
 statements). CI runs the same lint, the 3.11/3.12/3.13 test matrix, the dashboard syntax
 job and the wheel-install smoke.
 
@@ -186,12 +192,13 @@ This repo carries the same social world to two hackathons:
 | Edition | Branch | Additions |
 | --- | --- | --- |
 | **Flip the Switch** | `main` / tag `flip-2026-11-06-warmth` | Switch rooms and agents; the secret ledger; canon; whisper; scene card |
-| **Geek Room** | `geekroom` (this branch) | **Bifrost** model gateway + **Tavily** real-world layer, on the same world engine and canon |
+| **Geek Room — Four Hearts** | `geekroom` (this branch) | **Bifrost** model gateway + **Tavily** real-world layer, on the same world engine and canon |
 
 The Flip tag is the submission snapshot; `main` keeps evolving. The Geek Room edition is
-additive: Switch remains supported, but its Bifrost/Tavily demo can run without it. Setup,
-demo and submission notes are in [`docs/GEEKROOM.md`](docs/GEEKROOM.md); the deck outline is
-[`docs/PITCH.md`](docs/PITCH.md).
+submitted as **Four Hearts** and is additive: Switch remains supported, but its
+Bifrost/Tavily demo can run without it. Setup, demo and submission notes are in
+[`docs/GEEKROOM.md`](docs/GEEKROOM.md) and [`deploy/geekroom/README.md`](deploy/geekroom/README.md);
+the deck outline is [`docs/PITCH.md`](docs/PITCH.md).
 
 ![The Geek Room edition: a Bifrost-generated café scene with a Tavily world event in the ledger.](docs/geekroom-dashboard.png)
 
@@ -752,14 +759,33 @@ directly, so the canon is one file, not a second source of truth.
 | **Director** | registers with `POST /agents` using a registration key owned by the user; posts via `POST /agents/{id}/message`; reads room history to chain turns |
 | **Remove test** | `docker compose down` → no rooms, sessions, delivery, or beats |
 
-## Geek Room layer
+## Four Hearts — Geek Room layer
 
-The `geekroom` branch adds two integrations around the same world engine.
+**Four Hearts** is a social world with a memory you can audit. The Geek Room edition is
+submitted under that name and adds two integrations around the same world engine. The
+container can run the whole demo with `WORLD_AGENT_MODE=bifrost` (see `deploy/geekroom/`).
+
+### Geek Room run profile
+
+```sh
+export WORLD_AGENT_MODE=bifrost
+export BIFROST_URL=http://127.0.0.1:8080/v1
+export TAVILY_OFFLINE=1          # packaged demo: labelled offline fixture
+# Live Tavily: set the key and unset the offline switch
+# export TAVILY_API_KEY=tvly-...
+# unset TAVILY_OFFLINE
+```
+
+`BIFROST_API_KEY` is optional for a local gateway. `BIFROST_MODEL_<NAME>` and
+`world/models.json` set the per-character models. The packaged demo records the labelled
+fixture, never a fabricated live result; a real `TAVILY_API_KEY` with `TAVILY_OFFLINE`
+unset is the only live switch.
 
 ### Bifrost — the model gateway
 
-Every character call in the Bifrost café beat goes through
-`POST /v1/chat/completions` on a local Bifrost gateway:
+In `WORLD_AGENT_MODE=bifrost` every character call — group turns, DM, whisper and
+beats — goes through `POST /v1/chat/completions` on a Bifrost gateway. The same
+`world/models.json` drives the per-character routing:
 
 - `world/models.json` sets a model, fallbacks, temperature, max tokens and daily token
   budget per character;
@@ -937,6 +963,7 @@ read on first access, never at import time.
 |---|---|---|---|
 | `switch` (default) | `SwitchTransport` | `BifrostModelClient` | the cast writes through scoped MCP tools |
 | `cloud` | `CloudRoomTransport` | `DeepSeekModelClient` | the JSON envelope's `memory` / `relationships` writes are applied with the character as actor |
+| `bifrost` | `CloudRoomTransport` | `BifrostModelClient` | every group/DM/whisper call goes through `BIFROST_URL`; the envelope writes are applied with the character as actor |
 | `local` | `LocalRoomTransport` | `BifrostModelClient` | scripted replies for tests and the demo |
 
 No HTTP route constructs a provider client. The composition root puts the
@@ -1314,8 +1341,8 @@ as the characters, or they will refuse its messages.
 ### 7. Run a beat
 
 ```sh
-uv run director --tick     # one beat
-uv run director --loop 60  # a beat every 60s (demo mode)
+uv run director --beat morning-shop --transport switch  # one authored beat
+uv run director --arc                                   # all five authored beats (demo mode)
 ```
 
 The director posts addressed scene turns into `#world`, reads the room history to chain

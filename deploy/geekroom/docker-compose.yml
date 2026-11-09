@@ -1,0 +1,85 @@
+# Four Hearts — Geek Room demo profile.
+#
+# Runs the v2 world engine with every character call through a self-hosted
+# Bifrost gateway, plus the labelled Tavily offline fixture (a live key is a
+# drop-in: set TAVILY_API_KEY and unset TAVILY_OFFLINE).
+#
+#   cd /home/ubuntu/four-hearts
+#   docker compose --env-file .env -f deploy/geekroom/docker-compose.yml up -d --build
+#
+# Bifrost is loopback-only; the world is loopback-only; Caddy terminates TLS
+# once the four-hearts site block is installed.
+
+name: four-hearts
+
+services:
+  bifrost:
+    image: maximhq/bifrost:v2.5.0
+    container_name: four-hearts-bifrost
+    restart: unless-stopped
+    environment:
+      BIFROST_ENCRYPTION_KEY: "${BIFROST_ENCRYPTION_KEY:?set a 32-char key}"
+      DEEPSEEK_API_KEY: "${DEEPSEEK_API_KEY:?set the DeepSeek key}"
+    volumes:
+      - ./bifrost-config.json:/app/data/config.json:ro
+      - bifrost-data:/app/data
+    ports:
+      - "127.0.0.1:8080:8080"
+
+  world:
+    build:
+      context: ../..
+      dockerfile: deploy/demo/Dockerfile
+    image: four-hearts:latest
+    container_name: four-hearts-world
+    restart: unless-stopped
+    depends_on:
+      bifrost:
+        condition: service_started
+    environment:
+      WORLD_DB: /data/world.sqlite
+      WORLD_DATA_DIR: /data
+      WORLD_ENGINE_HOST: 0.0.0.0
+      WORLD_ENGINE_PORT: "8894"
+      WORLD_DEV: "0"
+      WORLD_AGENT_MODE: "bifrost"
+      BIFROST_URL: "http://bifrost:8080/v1"
+      BIFROST_API_KEY: "${BIFROST_API_KEY:-four-hearts-local}"
+      # One real DeepSeek model, addressed through Bifrost's openai provider.
+      BIFROST_MODEL_ALICE: "openai/deepseek-flash"
+      BIFROST_MODEL_EMILY: "openai/deepseek-flash"
+      BIFROST_MODEL_SOPHIA: "openai/deepseek-flash"
+      BIFROST_MODEL_MIA: "openai/deepseek-flash"
+      BIFROST_MODEL_ARBITER: "openai/deepseek-flash"
+      TAVILY_OFFLINE: "${TAVILY_OFFLINE:-1}"
+      TAVILY_API_KEY: "${TAVILY_API_KEY:-}"
+      PYTHONDONTWRITEBYTECODE: "1"
+    volumes:
+      - ./data:/data
+    ports:
+      - "127.0.0.1:8894:8894"
+    user: "10001:10001"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - |
+          import sys, urllib.request
+          try:
+              with urllib.request.urlopen("http://127.0.0.1:8894/health", timeout=3) as r:
+                  sys.exit(0 if r.status == 200 else 1)
+          except Exception:
+              sys.exit(1)
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  bifrost-data:

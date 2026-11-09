@@ -56,12 +56,14 @@ class CloudRoomTransport:
         max_workers: int | None = None,
         clock: Any | None = None,
         room_prefix: str = "cloud",
+        name: str = "cloud",
     ) -> None:
         self._model = model
         self._format = format
         self._max_workers = max_workers
         self._clock = clock
         self._room_prefix = room_prefix
+        self.name = name
         self._rooms: dict[str, list[InboundTurn]] = {}
         self._handles: dict[str, RoomHandle] = {}
         self._counter = 0
@@ -120,7 +122,7 @@ class CloudRoomTransport:
                 sender=CharacterId(str(prompt.speaker)),
                 text=reply.text,
                 event_id=(
-                    f"cloud-{turn_id}-{index}-{str(prompt.speaker)}"
+                    f"{self.name}-{turn_id}-{index}-{str(prompt.speaker)}"
                 ),
                 received_at=self._now(),
                 writes=reply.writes,

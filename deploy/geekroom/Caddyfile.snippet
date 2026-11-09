@@ -1,0 +1,17 @@
+# Four Hearts — Geek Room site.
+#
+# This is a Caddyfile snippet. Render __FOUR_HEARTS_DOMAIN__ to the real
+# hostname before installing it, because the systemd Caddy service does not
+# inherit an interactive SSH environment:
+#
+#   sed "s/__FOUR_HEARTS_DOMAIN__/${FOUR_HEARTS_DOMAIN}/" \
+#     deploy/geekroom/Caddyfile.snippet \
+#     | sudo tee /etc/caddy/conf.d/four-hearts.caddy
+#
+# Import conf.d once from the main Caddyfile:
+#     import /etc/caddy/conf.d/*.caddy
+__FOUR_HEARTS_DOMAIN__ {
+	encode zstd gzip
+
+	reverse_proxy 127.0.0.1:8894
+}

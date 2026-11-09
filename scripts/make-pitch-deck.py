@@ -62,7 +62,7 @@ def title_slide(prs, title, eyebrow, subtitle=None):
     textbox(slide, 0.8, 1.15, 11.5, 1.0, title, 38, INK, True)
     if subtitle:
         textbox(slide, 0.8, 2.35, 11.0, 0.8, subtitle, 18, MUTED)
-    textbox(slide, 0.8, 6.9, 11.5, 0.3, "switch-world · Geek Room edition · 2026", 9, MUTED)
+    textbox(slide, 0.8, 6.9, 11.5, 0.3, "Four Hearts · Geek Room edition · 2026", 9, MUTED)
     return slide
 
 
@@ -91,10 +91,9 @@ def main() -> int:
 
     title_slide(
         prs,
-        "switch-world",
-        "Geek Room Global AI Hackathon",
-        "A social world with a memory you can audit — Bifrost for every model call, "
-        "Tavily for the real world.",
+        "Four Hearts",
+        "Geek Room Global AI Hackathon · switch-world",
+        "A social world with a memory you can audit.",
     )
 
     content_slide(
@@ -153,7 +152,7 @@ def main() -> int:
         [
             "world/models.json: model, fallbacks, temperature, token budget per character.",
             "data/logs/bifrost.jsonl: character, model, tokens, latency, status.",
-            "Local Ollama default; swap a character to Anthropic/OpenAI by config.",
+            "DeepSeek V4.1 Flash through Bifrost; per-character model config and token logs.",
             "Bifrost UI at :8080 is the gateway-side observability evidence.",
         ],
         image="docs/geekroom-settings.png",
@@ -165,10 +164,10 @@ def main() -> int:
         "Tavily",
         "The present becomes shared memory",
         [
-            "Scheduler turns one search into a public world_event.",
-            "Every character records it with source event:<id> — shared-event memory.",
-            "world__search_web gives live retrieval in DMs; the agent rules require it.",
-            "Without a key the fixture is labelled, never passed off as live.",
+            "Packaged demo: TAVILY_OFFLINE=1 and a labelled fixture, never passed off as live.",
+            "TAVILY_API_KEY is the live switch: set it and unset TAVILY_OFFLINE.",
+            "Scheduler turns one search into a public world_event; each character records source event:<id>.",
+            "world__search_web gives a character live retrieval in DMs when a key is set.",
         ],
         image="docs/geekroom-ledger.png",
         image_height=4.3,
@@ -180,7 +179,7 @@ def main() -> int:
         "One codebase, two deadlines",
         [
             "Flip the Switch: main / tag flip-2026-11-05; Switch is the transport.",
-            "Geek Room: geekroom branch; Bifrost + Tavily are additive.",
+            "Four Hearts: geekroom branch; Bifrost + Tavily are additive.",
             "Same canon, same world engine, same scene card.",
             "Flip deadline 2026-11-08; Geek Room deadline 2026-11-15.",
         ],
@@ -191,9 +190,9 @@ def main() -> int:
         "Proof",
         "What is actually running",
         [
-            "41 passing tests for world engine, canon, Bifrost and Tavily.",
-            "A real Bifrost → Ollama café scene with token logs.",
-            "A Tavily event row shared by all four characters.",
+            "426 passing tests and 85% coverage for world engine, canon, Bifrost and Tavily.",
+            "A real Bifrost → DeepSeek V4.1 Flash café scene with token logs.",
+            "A labelled Tavily fixture event shared by all four characters; a live key is a drop-in.",
             "Reproducible runbook: docs/GEEKROOM.md; screenshots in docs/.",
         ],
     )

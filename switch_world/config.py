@@ -60,6 +60,10 @@ class Settings:
     cloud_api_key: str = ""
     cloud_base_url: str = "https://api.deepseek.com/v1"
     cloud_model: str = "deepseek-flash"
+    # First-class Bifrost mode: every character call goes through this gateway.
+    bifrost_url: str = "http://127.0.0.1:8080/v1"
+    bifrost_api_key: str = ""
+    bifrost_models_path: Path | None = None
 
     def token_map(self) -> dict[str, str]:
         """token -> actor id. Env tokens override the dev defaults."""
@@ -184,6 +188,11 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
             "WORLD_CLOUD_BASE_URL", "https://api.deepseek.com/v1"
         ),
         cloud_model=env.get("WORLD_CLOUD_MODEL", "deepseek-flash"),
+        bifrost_url=(
+            env.get("BIFROST_URL") or "http://127.0.0.1:8080/v1"
+        ).strip().rstrip("/"),
+        bifrost_api_key=(env.get("BIFROST_API_KEY") or "").strip(),
+        bifrost_models_path=content_root / "models.json",
     )
 
 

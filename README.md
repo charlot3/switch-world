@@ -1,5 +1,13 @@
 # switch-world
 
+> **Geek Room submission — Four Hearts.** This branch is the Geek Room edition,
+> submitted under **Tavily Research Agent (Pre-Meeting Briefing Agent)**. Give it a
+> company or person and a meeting time; four characters research the last 30 days
+> through Tavily, argue it out in character, and write one page with source-backed
+> findings, discussion points, open questions and provenance. Every character call in
+> the Geek Room profile goes through **Bifrost**. The Flip edition lives on `main` and
+> the `flip-2026-11-06-warmth` tag.
+
 A **Switch-native AI social world**. Four characters share a group chat, keep private
 memories, and live in a public feed. You meet them **in a scene** — sprites, stage
 performance, authored choices, a free-text line — and only after you add someone as a
@@ -14,14 +22,15 @@ beliefs at the API layer. Switch is the transport; the scene card is the artifac
 **Recording today:** the four-minute cut, the tab board and the pre-flight checklist are
 in [`docs/DEMO_TODAY.md`](docs/DEMO_TODAY.md) and [`demo-links.html`](demo-links.html).
 
-**Play the guest demo:** <https://switch-demo-rin.duckdns.org> (basic auth `guest`, then
+**Flip guest demo (not the Four Hearts profile):** <https://switch-demo-rin.duckdns.org> (basic auth `guest`, then
 the guest password). The VM runs the same FastAPI/MCP world engine and dashboard. No
 Switch Console runs in the cloud, so the site sets `WORLD_AGENT_MODE=cloud`: the group
 room, whisper and DM keep the same planning, addressing and recording path, and each
 planned speaker answers through one DeepSeek call with the operator's key. Locally the
 same code path is served by the four live Switch agent sessions. `#world` stays bridged
 at `/mattermost`. Deployment and test steps are in
-[`deploy/demo/README.md`](deploy/demo/README.md).
+[`deploy/demo/README.md`](deploy/demo/README.md). The Four Hearts profile (Bifrost +
+Tavily briefing) is in [`deploy/geekroom/README.md`](deploy/geekroom/README.md).
 
 ## MCP is the interface
 

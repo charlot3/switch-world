@@ -56,3 +56,6 @@ build/
 .coverage
 .coverage.*
 htmlcov/
+
+# local agent worktrees
+.claude/
